@@ -7,8 +7,12 @@ Can be run with:
 
 import numpy as np
 import scipy as sp
+import scipy.stats  # noqa
 from numpy.testing import run_module_suite
 from nose.tools import assert_true
+
+import kdes
+from kdes import utils
 
 
 class Test_KDE(object):
@@ -18,22 +22,22 @@ class Test_KDE(object):
         np.random.seed(9865)
 
     def test_compare_scipy_1d(self):
-        print("\Test_KDE:test_compare_scipy_1d()")
+        print("\n|Test_KDE:test_compare_scipy_1d()|")
         NUM = 100
         a1 = np.random.normal(6.0, 1.0, NUM//2)
         a2 = np.random.lognormal(0, 0.5, size=NUM//2)
         aa = np.concatenate([a1, a2])
 
-        bins = zmath.spacing([-1, 14.0], 'lin', 40)
-        grid = zmath.spacing(bins, 'lin', 3000)
+        bins = utils.spacing([-1, 14.0], 'lin', 40)
+        grid = utils.spacing(bins, 'lin', 3000)
 
         methods = ['scott', 0.04, 0.2, 0.8]
-        classes = [sp.stats.gaussian_kde, zmath.kde.KDE]
+        classes = [sp.stats.gaussian_kde, kdes.KDE]
         setters = ['bw_method', 'bandwidth']
         for mm in methods:
-            kdes = [cc(aa, **{ss: mm}).pdf(grid)
-                    for cc, ss in zip(classes, setters)]
-            assert_true(np.allclose(kdes[0], kdes[1]))
+            kde_list = [cc(aa, **{ss: mm}).pdf(grid)
+                        for cc, ss in zip(classes, setters)]
+            assert_true(np.allclose(kde_list[0], kde_list[1]))
 
         return
 
@@ -48,20 +52,20 @@ class Test_KDE(object):
         bb = np.random.normal(3.0, 0.02, NUM) + aa/100
 
         data = [aa, bb]
-        edges = [zmath.spacing(dd, 'lin', 30, stretch=0.5) for dd in data]
-        cents = [zmath.midpoints(ee, 'lin') for ee in edges]
+        edges = [utils.spacing(dd, 'lin', 30, stretch=0.5) for dd in data]
+        cents = [utils.midpoints(ee, 'lin') for ee in edges]
 
         xe, ye = np.meshgrid(*edges)
         xc, yc = np.meshgrid(*cents)
         grid = np.vstack([xc.ravel(), yc.ravel()])
 
         methods = ['scott', 0.04, 0.2, 0.8]
-        classes = [sp.stats.gaussian_kde, zmath.kde.KDE]
+        classes = [sp.stats.gaussian_kde, kdes.KDE]
         setters = ['bw_method', 'bandwidth']
         for mm in methods:
-            kdes = [cc(data, **{ss: mm}).pdf(grid).reshape(xc.shape).T
-                    for cc, ss in zip(classes, setters)]
-            assert_true(np.allclose(kdes[0], kdes[1]))
+            kdes_list = [cc(data, **{ss: mm}).pdf(grid).reshape(xc.shape).T
+                         for cc, ss in zip(classes, setters)]
+            assert_true(np.allclose(kdes_list[0], kdes_list[1]))
 
         return
 
@@ -76,15 +80,15 @@ class Test_KDE(object):
         bb = np.random.normal(3.0, 0.02, NUM) + aa/100
 
         data = [aa, bb]
-        edges = [zmath.spacing(dd, 'lin', 100, stretch=1.0) for dd in data]
-        cents = [zmath.midpoints(ee, 'lin') for ee in edges]
+        edges = [utils.spacing(dd, 'lin', 100, stretch=1.0) for dd in data]
+        cents = [utils.midpoints(ee, 'lin') for ee in edges]
 
         xe, ye = np.meshgrid(*edges)
         xc, yc = np.meshgrid(*cents)
 
         bws = [0.5, 2.0]
-        kde2d = zmath.kde.KDE(data, bandwidth=bws)
-        kde1d = [zmath.kde.KDE(dd, bandwidth=ss) for dd, ss in zip(data, bws)]
+        kde2d = kdes.KDE(data, bandwidth=bws)
+        kde1d = [kdes.KDE(dd, bandwidth=ss) for dd, ss in zip(data, bws)]
 
         for ii in range(2):
             samp_1d = kde1d[ii].resample(NUM).squeeze()
@@ -120,7 +124,7 @@ class Test_KDE(object):
             test = np.insert(test, ii, norm*np.ones_like(test[0]), axis=0)
 
             # Construct KDE
-            kde3d = zmath.kde.KDE(test)
+            kde3d = kdes.KDE(test)
 
             # Resample from KDE preserving the uniform data
             samples = kde3d.resample(NUM, keep=ii)
@@ -170,7 +174,7 @@ class Test_KDE(object):
             test = np.insert(test, hi, norms[1]*np.ones_like(test[0]), axis=0)
 
             # Construct KDE and draw new samples preserving the inserted variables
-            kde4d = zmath.kde.KDE(test)
+            kde4d = kdes.KDE(test)
             samples = kde4d.resample(NUM, keep=(lo, hi))
             # Make sure the target variables are preserved
             for kk, ll in enumerate([lo, hi]):
@@ -195,13 +199,13 @@ class Test_KDE(object):
         EXTR = [0.0, 2.0]
         aa = np.random.uniform(*EXTR, NUM)
 
-        egrid = zmath.spacing(aa, 'lin', 1000, stretch=0.5)
-        cgrid = zmath.midpoints(egrid, 'lin')
+        egrid = utils.spacing(aa, 'lin', 1000, stretch=0.5)
+        cgrid = utils.midpoints(egrid, 'lin')
         delta = np.diff(egrid)
 
         boundaries = [None, EXTR]
         for bnd in boundaries:
-            kde = zmath.kde.KDE(aa)
+            kde = kdes.KDE(aa)
             pdf = kde.pdf(cgrid, reflect=bnd)
 
             # Make sure unitarity is preserved
