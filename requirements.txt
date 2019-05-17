@@ -1,8 +1,11 @@
 numpy
 scipy
+
+codecov
 six
 future
 nose
-matplotlib
-codecov
+
 jupyter
+corner
+matplotlib
