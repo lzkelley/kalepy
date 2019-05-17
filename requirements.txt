@@ -4,3 +4,4 @@ six
 future
 nose
 matplotlib
+codecov
