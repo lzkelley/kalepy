@@ -1,5 +1,13 @@
 """
 """
+with open('kdes/VERSION.txt') as inn:
+    _version = inn.read().strip()
+
+__version__ = _version
+__author__ = "Luke Zoltan Kelley <lzkelley@northwestern.edu>"
+__copyright__ = "Copyright 2019- Luke Zoltan Kelley and contributors"
+__contributors__ = []
+__bibtex__ = """"""
 
 import six
 import logging
