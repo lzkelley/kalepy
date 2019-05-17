@@ -1,0 +1,6 @@
+numpy
+scipy
+six
+future
+nose
+matplotlib
