@@ -3,6 +3,7 @@
 
 import six
 import logging
+import warnings
 
 import scipy as sp
 import scipy.special  # noqa
@@ -22,7 +23,15 @@ class KDE(object):
     _BANDWIDTH_DEFAULT = 'scott'
     _SET_OFF_DIAGONAL = True
 
-    def __init__(self, dataset, bandwidth=None, weights=None, neff=None, quiet=False):
+    def __init__(self, dataset, bandwidth=None, weights=None, neff=None, quiet=False, **kwargs):
+        bw_method = kwargs.get('bw_method', None)
+        if bw_method is not None:
+            msg = "Use `bandwidth` instead of `bw_method`"
+            warnings.warn(msg, DeprecationWarning, stacklevel=3)
+            if bandwidth is not None:
+                raise ValueError("Both `bandwidth` and `bw_method` provided!")
+            bandwidth = bw_method
+
         self.dataset = np.atleast_2d(dataset)
         self._ndim, self._data_size = self.dataset.shape
         if weights is None:
@@ -176,6 +185,11 @@ class KDE(object):
             else:
                 raise ValueError("`bandwidth` have shape (1,), (N,) or (N,) for `N` dimensions!")
 
+        if np.any(np.isclose(bw_white.diagonal(), 0.0)):
+            ii = np.where(np.isclose(bw_white.diagonal(), 0.0))[0]
+            msg = "WARNING: diagonal '{}' of bandwidth is near zero!".format(ii)
+            logging.warning(msg)
+
         bw_cov = self._data_cov * (bw_white ** 2)
         try:
             bw_cov_inv = np.linalg.inv(bw_cov)
@@ -208,10 +222,6 @@ class KDE(object):
             bw_type = bandwidth
 
         elif np.isscalar(bandwidth):
-            if np.isclose(bandwidth, 0.0):
-                msg = "`bandwidth` '{}' for param '{}' cannot be zero!".format(bandwidth, param)
-                raise ValueError(msg)
-
             bw = bandwidth
             bw_type = 'constant scalar'
 
