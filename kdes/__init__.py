@@ -11,6 +11,8 @@ import numpy as np
 
 __all__ = ['KDE']
 
+from kdes import utils  # noqa
+
 
 class KDE(object):
     """
