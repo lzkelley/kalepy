@@ -1,6 +1,10 @@
 """
 """
-with open('kdes/VERSION.txt') as inn:
+import os
+
+_path = os.path.dirname(__file__)
+_vers_path = os.path.join(_path, "VERSION.txt")
+with open(_vers_path) as inn:
     _version = inn.read().strip()
 
 __version__ = _version
