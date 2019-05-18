@@ -7,5 +7,6 @@ future
 nose
 
 jupyter
+nbconvert
 corner
 matplotlib

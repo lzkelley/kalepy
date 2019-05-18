@@ -1,5 +1,6 @@
 language: python
 python:
+  - "3.4"
   - "3.5"
   - "3.5-dev"
   - "3.6"
@@ -16,6 +17,6 @@ script:
   - nosetests --with-coverage --cover-inclusive --cover-package=kdes
   - jupyter nbconvert --ExecutePreprocessor.kernel_name=python --ExecutePreprocessor.timeout=600 --to notebook --execute notebooks/kde.ipynb
   - python -c "import kdes"
-  
+
 after_success:
   - codecov
