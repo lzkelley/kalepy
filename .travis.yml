@@ -16,6 +16,9 @@ install:
 script:
   - nosetests --with-coverage --cover-inclusive --cover-package=kdes
   - jupyter nbconvert --ExecutePreprocessor.kernel_name=python --ExecutePreprocessor.timeout=600 --to notebook --execute notebooks/kde.ipynb
+  - which python
+  - which jupyter
+  - pwd
   - python -c "import kdes"
 
 after_success:
