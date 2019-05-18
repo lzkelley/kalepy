@@ -19,7 +19,7 @@ script:
   - which python
   - which jupyter
   - pwd
-  - python -c "import kdes"
+  - python -c "import kdes; print(kdes.__file__); print("SUCCESS?")
 
 after_success:
   - codecov
