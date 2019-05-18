@@ -199,7 +199,7 @@ class Test_KDE(object):
         EXTR = [0.0, 2.0]
         aa = np.random.uniform(*EXTR, NUM)
 
-        egrid = utils.spacing(aa, 'lin', 1000, stretch=0.5)
+        egrid = utils.spacing(aa, 'lin', 2000, stretch=0.5)
         cgrid = utils.midpoints(egrid, 'lin')
         delta = np.diff(egrid)
 
@@ -210,6 +210,7 @@ class Test_KDE(object):
 
             # Make sure unitarity is preserved
             tot = np.sum(pdf*delta)
+            print("Boundary '{}', total = {:.4e}".format(bnd, tot))
             assert_true(np.isclose(tot, 1.0, rtol=1e-3))
 
             ratio_extr = np.max(pdf)/np.min(pdf[pdf > 0])

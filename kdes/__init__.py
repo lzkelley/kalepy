@@ -91,33 +91,6 @@ class KDE(object):
 
         result = np.zeros((nv,), dtype=float)
 
-        '''
-        # Compute Cholesky matrix from the covariance matrix, this matrix will transform the
-        # dataset to one with a diagonal covariance matrix (i.e. independent variables)
-        # note: `sp.linalg.cholesky` uses an *upper* matrix by default, and numpy uses *lower*
-        whitening = sp.linalg.cholesky(self.bw_cov_inv)
-        # Construct the 'whitened' (independent) dataset
-        white_dataset = np.dot(whitening, self.dataset)
-        # Construct the whitened sampling points
-        white_points = np.dot(whitening, points)
-
-        # Evaluate kernel at the target sample points
-
-        # Determine the smaller dataset to loop over
-        if nv >= self.data_size:
-            # there are more points than data, so loop over data
-            for i in range(self.data_size):
-                diff = white_dataset[:, i, np.newaxis] - white_points
-                energy = np.sum(diff * diff, axis=0) / 2.0
-                result += self.weights[i]*np.exp(-energy)
-        else:
-            # loop over points
-            for i in range(nv):
-                diff = white_dataset - white_points[:, i, np.newaxis]
-                energy = np.sum(diff * diff, axis=0) / 2.0
-                result[i] = np.sum(np.exp(-energy)*self.weights, axis=0)
-        '''
-
         whitening = sp.linalg.cholesky(self.bw_cov_inv)
         # Construct the 'whitened' (independent) dataset
         white_dataset = np.dot(whitening, self.dataset)
@@ -148,10 +121,17 @@ class KDE(object):
                     pnts[ii, :] = pnts[ii, :] - loc
                     white_points = np.dot(whitening, pnts)
 
-                    for jj in range(self.data_size):
-                        diff = white_points + white_dataset[:, jj, np.newaxis]
-                        energy = np.sum(diff * diff, axis=0) / 2.0
-                        result += self.weights[jj]*np.exp(-energy)
+                    if nv >= self.data_size:
+                        for jj in range(self.data_size):
+                            diff = white_points + white_dataset[:, jj, np.newaxis]
+                            energy = np.sum(diff * diff, axis=0) / 2.0
+                            result += self.weights[jj]*np.exp(-energy)
+
+                    else:
+                        for jj in range(nv):
+                            diff = white_dataset - white_points[:, jj, np.newaxis]
+                            energy = np.sum(diff * diff, axis=0) / 2.0
+                            result[jj] = np.sum(np.exp(-energy)*self.weights, axis=0)
 
                 reflect_dim[0] = -np.inf if reflect_dim[0] is None else reflect_dim[0]
                 reflect_dim[1] = +np.inf if reflect_dim[1] is None else reflect_dim[1]
