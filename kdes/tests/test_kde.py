@@ -233,6 +233,85 @@ class Test_KDE(object):
 
         return
 
+    def test_reflect_2d(self):
+        print("\n|Test_KDE:test_reflect_2d()|")
+        np.random.seed(124)
+        NUM = 1000
+        xx = np.random.uniform(0.0, 2.0, NUM)
+        yy = np.random.normal(1.0, 1.0, NUM)
+        yy = yy[yy < 2.0]
+        yy = np.concatenate([yy, np.random.choice(yy, NUM-yy.size)])
+
+        data = [xx, yy]
+        edges = [kdes.utils.spacing(aa, 'lin', 30) for aa in [xx, yy]]
+        egrid = [kdes.utils.spacing(ee, 'lin', 100, stretch=0.5) for ee in edges]
+        cgrid = [kdes.utils.midpoints(ee, 'lin') for ee in egrid]
+        width = [np.diff(ee) for ee in egrid]
+
+        xc, yc = np.meshgrid(*cgrid)
+
+        grid = np.vstack([xc.ravel(), yc.ravel()])
+
+        hist, *_ = np.histogram2d(*data, bins=egrid, density=True)
+
+        kde = kdes.KDE(data)
+        reflect = [[0.0, 2.0], [None, 2.0]]
+        pdf_1d = kde.pdf(grid, reflect=reflect)
+        pdf = pdf_1d.reshape(hist.shape)
+
+        inside = True
+        outside = True
+        for ii, ref in enumerate(reflect):
+            if ref[0] is None:
+                ref[0] = -np.inf
+            if ref[1] is None:
+                ref[1] = np.inf
+            inside = inside & (ref[0] < grid[ii]) & (grid[ii] < ref[1])
+            outside = outside & ((grid[ii] < ref[0]) | (ref[1] < grid[ii]))
+
+        assert_true(np.all(pdf_1d[inside] > 0.0))
+        assert_true(np.allclose(pdf_1d[outside], 0.0))
+
+        area = width[0][:, np.newaxis] * width[1][np.newaxis, :]
+        prob_tot = np.sum(pdf * area)
+        print("total probability = {:.4e}".format(prob_tot))
+        assert_true(np.isclose(prob_tot, 1.0, rtol=1e-2))
+
+        reflections = [
+            [[0.0, 2.0], [None, 2.0]],
+            [[0.0, 2.0], None],
+            [None, [None, 2.0]],
+            None
+        ]
+        for jj, reflect in enumerate(reflections):
+            pdf_1d = kde.pdf(grid, reflect=reflect)
+            pdf = pdf_1d.reshape(hist.shape)
+
+            inside = np.ones_like(pdf_1d, dtype=bool)
+            if reflect is None:
+                outside = np.zeros_like(pdf_1d, dtype=bool)
+            else:
+                outside = np.ones_like(pdf_1d, dtype=bool)
+                for ii, ref in enumerate(reflect):
+                    if ref is None:
+                        ref = [-np.inf, np.inf]
+                    if ref[0] is None:
+                        ref[0] = -np.inf
+                    if ref[1] is None:
+                        ref[1] = np.inf
+                    inside = inside & (ref[0] < grid[ii]) & (grid[ii] < ref[1])
+                    outside = outside & ((grid[ii] < ref[0]) | (ref[1] < grid[ii]))
+
+            assert_true(np.all(pdf_1d[inside] > 0.0))
+            assert_true(np.allclose(pdf_1d[outside], 0.0))
+
+            area = width[0][:, np.newaxis] * width[1][np.newaxis, :]
+            prob_tot = np.sum(pdf * area)
+            print(jj, reflect, "prob_tot = {:.4e}".format(prob_tot))
+            assert_true(np.isclose(prob_tot, 1.0, rtol=3e-2))
+
+        return
+
 
 # Run all methods as if with `nosetests ...`
 if __name__ == "__main__":

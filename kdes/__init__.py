@@ -78,6 +78,17 @@ class KDE(object):
                     ndim, self.ndim)
                 raise ValueError(msg)
 
+        if reflect is not None:
+            if self.ndim == 1 and np.ndim(reflect) == 1:
+                reflect = np.atleast_2d(reflect)
+
+            if len(reflect) != self.ndim:
+                msg = "`reflect` ({}) must have length (D,) = ({},)!".format(
+                    len(reflect), self.ndim)
+                raise ValueError(msg)
+            if not np.all([(ref is None) or len(ref) == 2 for ref in reflect]):
+                raise ValueError("each row of `reflect` must be `None` or shape (2,)!")
+
         result = np.zeros((nv,), dtype=float)
 
         '''
@@ -119,25 +130,33 @@ class KDE(object):
             result += self.weights[i]*np.exp(-energy)
 
         if reflect is not None:
-            if np.shape(reflect) != (2,):
-                raise ValueError("Reflect must have shape (2,) with lower and upper values!")
-
-            for loc in reflect:
-                if loc is None:
+            for ii, reflect_dim in enumerate(reflect):
+                if reflect_dim is None:
                     continue
-                white_dataset = np.dot(whitening, self.dataset - loc)
-                # Construct the whitened sampling points
-                white_points = np.dot(whitening, points - loc)
 
-                for i in range(self.data_size):
-                    diff = white_points + white_dataset[:, i, np.newaxis]
-                    energy = np.sum(diff * diff, axis=0) / 2.0
-                    result += self.weights[i]*np.exp(-energy)
+                for loc in reflect_dim:
+                    if loc is None:
+                        continue
 
-            reflect[0] = -np.inf if reflect[0] is None else reflect[0]
-            reflect[1] = +np.inf if reflect[1] is None else reflect[1]
-            idx = (points.squeeze() < reflect[0]) | (reflect[1] < points.squeeze())
-            result[idx] = 0.0
+                    # shape (D,N) i.e. (dimensions, data-points)
+                    data = np.array(self.dataset)
+                    data[ii, :] = data[ii, :] - loc
+                    white_dataset = np.dot(whitening, data)
+                    # Construct the whitened sampling points
+                    #    shape (D,M) i.e. (dimensions, sample-points)
+                    pnts = np.array(points)
+                    pnts[ii, :] = pnts[ii, :] - loc
+                    white_points = np.dot(whitening, pnts)
+
+                    for jj in range(self.data_size):
+                        diff = white_points + white_dataset[:, jj, np.newaxis]
+                        energy = np.sum(diff * diff, axis=0) / 2.0
+                        result += self.weights[jj]*np.exp(-energy)
+
+                reflect_dim[0] = -np.inf if reflect_dim[0] is None else reflect_dim[0]
+                reflect_dim[1] = +np.inf if reflect_dim[1] is None else reflect_dim[1]
+                idx = (points[ii, :] < reflect_dim[0]) | (reflect_dim[1] < points[ii, :])
+                result[idx] = 0.0
 
         result = result / self.bw_norm
 
