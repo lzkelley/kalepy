@@ -5,6 +5,7 @@ python:
   - "3.5-dev"
   - "3.6"
   - "3.6-dev"
+  - "3.7"
   - "3.7-dev"
 
 # command to install dependencies
@@ -14,6 +15,7 @@ install:
 
 # command to run tests
 script:
+  - python -c "import numpy; print(numpy.__version__); import scipy; print(scipy.__version__)"
   - nosetests --with-coverage --cover-inclusive --cover-package=kdes
   - jupyter nbconvert --ExecutePreprocessor.kernel_name=python --ExecutePreprocessor.timeout=600 --to notebook --execute notebooks/kde.ipynb
   - python -c "import kdes; print(kdes.__file__)"
