@@ -154,7 +154,7 @@ class Test_KDE_PDFs(object):
         area = width[0][:, np.newaxis] * width[1][np.newaxis, :]
         prob_tot = np.sum(pdf * area)
         print("total probability = {:.4e}".format(prob_tot))
-        assert_true(np.isclose(prob_tot, 1.0, rtol=1e-2))
+        assert_true(np.isclose(prob_tot, 1.0, rtol=3e-2))
 
         reflections = [
             [[0.0, 2.0], [None, 2.0]],
