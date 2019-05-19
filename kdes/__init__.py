@@ -9,7 +9,7 @@ with open(_vers_path) as inn:
 
 __version__ = _version
 __author__ = "Luke Zoltan Kelley <lzkelley@northwestern.edu>"
-__copyright__ = "Copyright 2019- Luke Zoltan Kelley and contributors"
+__copyright__ = "Copyright 2019 - Luke Zoltan Kelley and contributors"
 __contributors__ = []
 __bibtex__ = """"""
 
@@ -24,7 +24,10 @@ import numpy as np
 
 __all__ = ['KDE']
 
-from kdes import utils  # noqa
+from kdes import utils, kernels  # noqa
+
+
+# NotImplementedError
 
 
 class KDE(object):
@@ -34,8 +37,10 @@ class KDE(object):
     """
     _BANDWIDTH_DEFAULT = 'scott'
     _SET_OFF_DIAGONAL = True
+    _KERNEL_DEFAULT = kernels.Gaussian
 
-    def __init__(self, dataset, bandwidth=None, weights=None, neff=None, quiet=False, **kwargs):
+    def __init__(self, dataset, bandwidth=None, weights=None, kernel=None, neff=None,
+                 quiet=False, **kwargs):
         bw_method = kwargs.get('bw_method', None)
         if bw_method is not None:
             msg = "Use `bandwidth` instead of `bw_method`"
@@ -43,6 +48,11 @@ class KDE(object):
             if bandwidth is not None:
                 raise ValueError("Both `bandwidth` and `bw_method` provided!")
             bandwidth = bw_method
+
+        if kernel is None:
+            kernel = self._KERNEL_DEFAULT(self)
+
+        self._kernel = kernel
 
         self.dataset = np.atleast_2d(dataset)
         self._ndim, self._data_size = self.dataset.shape
@@ -135,125 +145,27 @@ class KDE(object):
         return result
 
     def resample(self, size=None, keep=None, reflect=None):
+        """
+        """
+        if size is None:
+            size = int(self.neff)
+
+        bw_cov = np.array(self.bw_cov)
+        if keep is not None:
+            keep = np.atleast_1d(keep)
+            for pp in keep:
+                bw_cov[pp, :] = 0.0
+                bw_cov[:, pp] = 0.0
+
         if reflect is None:
-            samples = self.resample_default(size=size, keep=keep)
+            samples = self.kernel.resample(self.dataset, self.weights, bw_cov, size)
         else:
-            samples = self.resample_reflect(size=size, keep=keep, reflect=reflect)
+            samples = self.kernel.resample_reflect(size=size, keep=keep, reflect=reflect)
 
         if self.ndim == 1:
             samples = samples.squeeze()
 
         return samples
-
-    def resample_default(self, size=None, keep=None):
-        if size is None:
-            size = int(self.neff)
-
-        bw_cov = np.array(self.bw_cov)
-        if keep is not None:
-            keep = np.atleast_1d(keep)
-            for pp in keep:
-                bw_cov[pp, :] = 0.0
-                bw_cov[:, pp] = 0.0
-
-        '''
-        # Draw from the smoothing kernel, here the `cov` includes the bandwidth
-        norm = np.random.multivariate_normal(np.zeros(self.ndim), bw_cov, size=size).T
-        # Draw randomly from the given data points, proportionally to their weights
-        indices = np.random.choice(self.data_size, size=size, p=self.weights)
-        means = self.dataset[:, indices]
-        # Shift each re-drawn sample based on the kernel-samples
-        samps = means + norm
-        '''
-        samps = self._resample(self.dataset, self.weights, bw_cov, size)
-
-        return samps
-
-    def resample_reflect(self, size=None, keep=None, reflect=None):
-        if size is None:
-            size = int(self.neff)
-
-        reflect = self._check_reflect(reflect)
-        if reflect is None:
-            raise ValueError("`reflect` is None!")
-
-        bw_cov = np.array(self.bw_cov)
-        if keep is not None:
-            keep = np.atleast_1d(keep)
-            for pp in keep:
-                bw_cov[pp, :] = 0.0
-                bw_cov[:, pp] = 0.0
-
-        # shape (D,N) i.e. (dimensions, data-points)
-        data = np.array(self.dataset)
-        weights = np.array(self.weights)
-        bounds = np.zeros((self.ndim, 2))
-        for ii, reflect_dim in enumerate(reflect):
-            if reflect_dim is None:
-                bounds[ii, 0] = -np.inf
-                bounds[ii, 1] = +np.inf
-                continue
-
-            for jj, loc in enumerate(reflect_dim):
-                if loc is None:
-                    # j=0 : -inf,  j=1: +inf
-                    bounds[ii, jj] = np.inf * (2*jj - 1)
-                    continue
-
-                bounds[ii, jj] = loc
-                new_data = np.array(self.dataset)
-                new_data[ii, :] = new_data[ii, :] - loc
-                data = np.append(data, new_data, axis=-1)
-                weights = np.append(weights, self.weights, axis=-1)
-
-        weights = weights / np.sum(weights)
-
-        # Draw randomly from the given data points, proportionally to their weights
-        samps = np.zeros((size, self.ndim))
-        num_good = 0
-        cnt = 0
-        MAX = 10
-        draw = size
-        while num_good < size and cnt < MAX:
-            trial = self._resample(data, weights, bw_cov, draw)
-            idx = self._bound_indices(trial, bounds)
-
-            ngd = np.count_nonzero(idx)
-            if num_good + ngd <= size:
-                samps[num_good:num_good+ngd, :] = trial.T[idx, :]
-            else:
-                ngd = (size - num_good)
-                samps[num_good:num_good+ngd, :] = trial.T[idx, :][:ngd]
-
-            num_good += ngd
-            cnt += 1
-            # Next time draw twice as many as we need
-            draw = 2*(size - num_good)
-
-        if num_good < size:
-            raise RuntimeError("Failed to draw '{}' samples in {} iterations!".format(size, cnt))
-
-        samps = samps.T
-
-        return samps
-
-    def _resample(self, data, weights, cov, size):
-        ndim, nvals = np.shape(data)
-        # Draw from the smoothing kernel, here the `cov` includes the bandwidth
-        norm = np.random.multivariate_normal(np.zeros(ndim), cov, size=size).T
-
-        indices = np.random.choice(nvals, size=size, p=weights)
-        means = data[:, indices]
-        # Shift each re-drawn sample based on the kernel-samples
-        samps = means + norm
-        return samps
-
-    def _bound_indices(self, data, bounds):
-        ndim, nvals = np.shape(data)
-        idx = np.ones(nvals, dtype=bool)
-        for ii, bnd in enumerate(bounds):
-            idx = idx & (bnd[0] < data[ii, :]) & (data[ii, :] < bnd[1])
-        return idx
 
     def scott_factor(self, *args, **kwargs):
         return np.power(self.neff, -1./(self.ndim+4))

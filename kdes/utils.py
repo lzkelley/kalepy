@@ -121,3 +121,11 @@ def spacing(data, scale='log', num=None, dex=10, **kwargs):
         spaced = np.linspace(*span, num=num)
 
     return spaced
+
+
+def bound_indices(self, data, bounds):
+    ndim, nvals = np.shape(data)
+    idx = np.ones(nvals, dtype=bool)
+    for ii, bnd in enumerate(bounds):
+        idx = idx & (bnd[0] < data[ii, :]) & (data[ii, :] < bnd[1])
+    return idx
