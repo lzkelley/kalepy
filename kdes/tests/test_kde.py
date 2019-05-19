@@ -9,20 +9,20 @@ import numpy as np
 import scipy as sp
 import scipy.stats  # noqa
 from numpy.testing import run_module_suite
-from nose.tools import assert_true
+from nose.tools import assert_true, assert_false
 
 import kdes
 from kdes import utils
 
 
-class Test_KDE(object):
+class Test_KDE_PDFs(object):
 
     @classmethod
     def setup_class(cls):
         np.random.seed(9865)
 
     def test_compare_scipy_1d(self):
-        print("\n|Test_KDE:test_compare_scipy_1d()|")
+        print("\n|Test_KDE_PDF:test_compare_scipy_1d()|")
         NUM = 100
         a1 = np.random.normal(6.0, 1.0, NUM//2)
         a2 = np.random.lognormal(0, 0.5, size=NUM//2)
@@ -42,7 +42,7 @@ class Test_KDE(object):
         return
 
     def test_compare_scipy_2d(self):
-        print("\n|Test_KDE:test_compare_scipy_2d()|")
+        print("\n|Test_KDE_PDF:test_compare_scipy_2d()|")
 
         NUM = 1000
         a1 = np.random.normal(6.0, 1.0, NUM//2)
@@ -69,130 +69,8 @@ class Test_KDE(object):
 
         return
 
-    def test_different_bws(self):
-        print("\n|Test_KDE:test_different_bws()|")
-        np.random.seed(9235)
-        NUM = 1000
-        a1 = np.random.normal(6.0, 1.0, NUM//2)
-        a2 = np.random.lognormal(0, 0.5, size=NUM//2)
-        aa = np.concatenate([a1, a2])
-
-        bb = np.random.normal(3.0, 0.02, NUM) + aa/100
-
-        data = [aa, bb]
-        edges = [utils.spacing(dd, 'lin', 100, stretch=1.0) for dd in data]
-        cents = [utils.midpoints(ee, 'lin') for ee in edges]
-
-        xe, ye = np.meshgrid(*edges)
-        xc, yc = np.meshgrid(*cents)
-
-        bws = [0.5, 2.0]
-        kde2d = kdes.KDE(data, bandwidth=bws)
-        kde1d = [kdes.KDE(dd, bandwidth=ss) for dd, ss in zip(data, bws)]
-
-        for ii in range(2):
-            samp_1d = kde1d[ii].resample(NUM).squeeze()
-            samp_2d = kde2d.resample(NUM)[ii]
-
-            # Make sure the two distributions resemble eachother
-            ks, pv = sp.stats.ks_2samp(samp_1d, samp_2d)
-            # Calibrated to the above seed-value of `9235`
-            assert_true(pv > 0.5)
-
-        return
-
-    def test_resample_keep_params_1(self):
-        print("\n|Test_KDE:test_resample_keep_params_1()|")
-        np.random.seed(9235)
-        NUM = 1000
-
-        # Construct some random data
-        # ------------------------------------
-        a1 = np.random.normal(6.0, 1.0, NUM//2)
-        a2 = np.random.lognormal(1.0, 0.5, size=NUM//2)
-        aa = np.concatenate([a1, a2])
-
-        bb = np.random.normal(3.0, 0.02, NUM) + aa/100
-
-        data = [aa, bb]
-
-        norm = 2.3
-
-        # Add an array of uniform values at location `ii`, make sure they are preserved in resample
-        for ii in range(3):
-            test = np.array(data)
-            test = np.insert(test, ii, norm*np.ones_like(test[0]), axis=0)
-
-            # Construct KDE
-            kde3d = kdes.KDE(test)
-
-            # Resample from KDE preserving the uniform data
-            samples = kde3d.resample(NUM, keep=ii)
-            # Make sure the uniform values are still the same
-            param_samp = samples[ii]
-            assert_true(np.allclose(param_samp, norm))
-
-            # Make sure the other two parameters are consistent (KS-test) with input data
-            samples = np.delete(samples, ii, axis=0)
-            for jj in range(2):
-                stuff = [samples[jj], data[jj]]
-                ks, pv = sp.stats.ks_2samp(*stuff)
-                # msg = "{} {} :: {:.2e} {:.2e}".format(ii, jj, ks, pv)
-                # print(msg)
-                assert_true(pv > 0.2)
-
-        return
-
-    def test_resample_keep_params_2(self):
-        print("\n|Test_KDE:test_resample_keep_params_2()|")
-
-        # Construct random data
-        # -------------------------------
-        np.random.seed(2235)
-        NUM = 300
-        a1 = np.random.normal(6.0, 1.0, NUM//2)
-        a2 = np.random.lognormal(1.0, 0.5, size=NUM//2)
-        aa = np.concatenate([a1, a2])
-
-        bb = np.random.normal(3.0, 0.02, NUM) + aa/100
-
-        data = [aa, bb]
-
-        norms = [2.3, -3.4]
-        # Choose two locations to insert new, uniform variables
-        for ii in range(3):
-            jj = ii
-            # Make sure the locations are different
-            while jj == ii:
-                jj = np.random.choice(3)
-
-            # Insert uniform arrays
-            lo = np.min([ii, jj])
-            hi = np.max([ii, jj])
-            test = np.array(data)
-            test = np.insert(test, lo, norms[0]*np.ones_like(test[0]), axis=0)
-            test = np.insert(test, hi, norms[1]*np.ones_like(test[0]), axis=0)
-
-            # Construct KDE and draw new samples preserving the inserted variables
-            kde4d = kdes.KDE(test)
-            samples = kde4d.resample(NUM, keep=(lo, hi))
-            # Make sure the target variables are preserved
-            for kk, ll in enumerate([lo, hi]):
-                param_samps = samples[ll]
-                # print(norms[kk], zmath.stats_str(param_samps))
-                assert_true(np.allclose(param_samps, norms[kk]))
-
-            # Make sure the resamples data is all consistent with input
-            for jj in range(4):
-                stuff = [samples[jj], test[jj]]
-                ks, pv = sp.stats.ks_2samp(*stuff)
-                # msg = "{} {} :: {:.2e} {:.2e}".format(ii, jj, ks, pv)
-                assert_true(pv > 0.1)
-
-        return
-
     def test_reflect_1d(self):
-        print("\n|Test_KDE:test_reflect_1d()|")
+        print("\n|Test_KDE_PDF:test_reflect_1d()|")
 
         np.random.seed(124)
         NUM = 1000
@@ -235,7 +113,7 @@ class Test_KDE(object):
         return
 
     def test_reflect_2d(self):
-        print("\n|Test_KDE:test_reflect_2d()|")
+        print("\n|Test_KDE_PDF:test_reflect_2d()|")
         np.random.seed(124)
         NUM = 1000
         xx = np.random.uniform(0.0, 2.0, NUM)
@@ -310,6 +188,170 @@ class Test_KDE(object):
             prob_tot = np.sum(pdf * area)
             print(jj, reflect, "prob_tot = {:.4e}".format(prob_tot))
             assert_true(np.isclose(prob_tot, 1.0, rtol=3e-2))
+
+        return
+
+
+class Test_KDE_Resample(object):
+
+    @classmethod
+    def setup_class(cls):
+        np.random.seed(9865)
+
+    def test_different_bws(self):
+        print("\n|Test_KDE_Resample:test_different_bws()|")
+        np.random.seed(9235)
+        NUM = 1000
+        a1 = np.random.normal(6.0, 1.0, NUM//2)
+        a2 = np.random.lognormal(0, 0.5, size=NUM//2)
+        aa = np.concatenate([a1, a2])
+
+        bb = np.random.normal(3.0, 0.02, NUM) + aa/100
+
+        data = [aa, bb]
+        edges = [utils.spacing(dd, 'lin', 100, stretch=1.0) for dd in data]
+        cents = [utils.midpoints(ee, 'lin') for ee in edges]
+
+        xe, ye = np.meshgrid(*edges)
+        xc, yc = np.meshgrid(*cents)
+
+        bws = [0.5, 2.0]
+        kde2d = kdes.KDE(data, bandwidth=bws)
+        kde1d = [kdes.KDE(dd, bandwidth=ss) for dd, ss in zip(data, bws)]
+
+        for ii in range(2):
+            samp_1d = kde1d[ii].resample(NUM).squeeze()
+            samp_2d = kde2d.resample(NUM)[ii]
+
+            # Make sure the two distributions resemble eachother
+            ks, pv = sp.stats.ks_2samp(samp_1d, samp_2d)
+            # Calibrated to the above seed-value of `9235`
+            assert_true(pv > 0.5)
+
+        return
+
+    def test_resample_keep_params_1(self):
+        print("\n|Test_KDE_Resample:test_resample_keep_params_1()|")
+        np.random.seed(9235)
+        NUM = 1000
+
+        # Construct some random data
+        # ------------------------------------
+        a1 = np.random.normal(6.0, 1.0, NUM//2)
+        a2 = np.random.lognormal(1.0, 0.5, size=NUM//2)
+        aa = np.concatenate([a1, a2])
+
+        bb = np.random.normal(3.0, 0.02, NUM) + aa/100
+
+        data = [aa, bb]
+
+        norm = 2.3
+
+        # Add an array of uniform values at location `ii`, make sure they are preserved in resample
+        for ii in range(3):
+            test = np.array(data)
+            test = np.insert(test, ii, norm*np.ones_like(test[0]), axis=0)
+
+            # Construct KDE
+            kde3d = kdes.KDE(test)
+
+            # Resample from KDE preserving the uniform data
+            samples = kde3d.resample(NUM, keep=ii)
+            # Make sure the uniform values are still the same
+            param_samp = samples[ii]
+            assert_true(np.allclose(param_samp, norm))
+
+            # Make sure the other two parameters are consistent (KS-test) with input data
+            samples = np.delete(samples, ii, axis=0)
+            for jj in range(2):
+                stuff = [samples[jj], data[jj]]
+                ks, pv = sp.stats.ks_2samp(*stuff)
+                # msg = "{} {} :: {:.2e} {:.2e}".format(ii, jj, ks, pv)
+                # print(msg)
+                assert_true(pv > 0.2)
+
+        return
+
+    def test_resample_keep_params_2(self):
+        print("\n|Test_KDE_Resample:test_resample_keep_params_2()|")
+
+        # Construct random data
+        # -------------------------------
+        np.random.seed(2235)
+        NUM = 300
+        a1 = np.random.normal(6.0, 1.0, NUM//2)
+        a2 = np.random.lognormal(1.0, 0.5, size=NUM//2)
+        aa = np.concatenate([a1, a2])
+
+        bb = np.random.normal(3.0, 0.02, NUM) + aa/100
+
+        data = [aa, bb]
+
+        norms = [2.3, -3.4]
+        # Choose two locations to insert new, uniform variables
+        for ii in range(3):
+            jj = ii
+            # Make sure the locations are different
+            while jj == ii:
+                jj = np.random.choice(3)
+
+            # Insert uniform arrays
+            lo = np.min([ii, jj])
+            hi = np.max([ii, jj])
+            test = np.array(data)
+            test = np.insert(test, lo, norms[0]*np.ones_like(test[0]), axis=0)
+            test = np.insert(test, hi, norms[1]*np.ones_like(test[0]), axis=0)
+
+            # Construct KDE and draw new samples preserving the inserted variables
+            kde4d = kdes.KDE(test)
+            samples = kde4d.resample(NUM, keep=(lo, hi))
+            # Make sure the target variables are preserved
+            for kk, ll in enumerate([lo, hi]):
+                param_samps = samples[ll]
+                # print(norms[kk], zmath.stats_str(param_samps))
+                assert_true(np.allclose(param_samps, norms[kk]))
+
+            # Make sure the resamples data is all consistent with input
+            for jj in range(4):
+                stuff = [samples[jj], test[jj]]
+                ks, pv = sp.stats.ks_2samp(*stuff)
+                # msg = "{} {} :: {:.2e} {:.2e}".format(ii, jj, ks, pv)
+                assert_true(pv > 0.1)
+
+        return
+
+    def test_reflect_1d(self):
+        print("\n|Test_KDE_Resample:test_reflect_1d()|")
+
+        np.random.seed(1245)
+        NUM = 1000
+
+        extr = [0.0, 2.0]
+        data = np.random.uniform(*extr, NUM)
+
+        edges = kdes.utils.spacing(extr, 'lin', 30)
+        edges = np.concatenate([
+            edges[0] - np.arange(1, 5)[::-1]*np.diff(edges)[0],
+            edges,
+            edges[-1] + np.arange(1, 5)*np.diff(edges)[-1],
+        ])
+
+        kde = kdes.KDE(data)
+
+        reflections = [None, extr]
+        for ii, reflect in enumerate(reflections):
+            samp = kde.resample(NUM, reflect=reflect)
+
+            some_outside = np.any((samp < extr[0]) + (extr[1] < samp))
+            if reflect is None:
+                # There should be some samples outside
+                assert_true(some_outside)
+            else:
+                # There should not be any samples outside
+                assert_false(some_outside)
+                ks, pv = sp.stats.ks_2samp(data, samp)
+                # Check new sample is consistent
+                assert_true(pv > 0.4)
 
         return
 
