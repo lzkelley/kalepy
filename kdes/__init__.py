@@ -17,7 +17,7 @@ import six
 import logging
 import warnings
 
-import scipy as sp
+import scipy as sp  # noqa
 import scipy.special  # noqa
 
 import numpy as np
@@ -86,56 +86,12 @@ class KDE(object):
         # Make sure shape/values of reflect look okay
         reflect = self._check_reflect(reflect)
 
-        result = np.zeros((nv,), dtype=float)
-
-        whitening = sp.linalg.cholesky(self.bw_cov_inv)
-        # Construct the 'whitened' (independent) dataset
-        white_dataset = np.dot(whitening, self.dataset)
-        # Construct the whitened sampling points
-        white_points = np.dot(whitening, points)
-
-        for i in range(self.data_size):
-            diff = white_points - white_dataset[:, i, np.newaxis]
-            energy = np.sum(diff * diff, axis=0) / 2.0
-            result += self.weights[i]*np.exp(-energy)
-
-        if reflect is not None:
-            for ii, reflect_dim in enumerate(reflect):
-                if reflect_dim is None:
-                    continue
-
-                for loc in reflect_dim:
-                    if loc is None:
-                        continue
-
-                    # shape (D,N) i.e. (dimensions, data-points)
-                    data = np.array(self.dataset)
-                    data[ii, :] = data[ii, :] - loc
-                    white_dataset = np.dot(whitening, data)
-                    # Construct the whitened sampling points
-                    #    shape (D,M) i.e. (dimensions, sample-points)
-                    pnts = np.array(points)
-                    pnts[ii, :] = pnts[ii, :] - loc
-                    white_points = np.dot(whitening, pnts)
-
-                    if nv >= self.data_size:
-                        for jj in range(self.data_size):
-                            diff = white_points + white_dataset[:, jj, np.newaxis]
-                            energy = np.sum(diff * diff, axis=0) / 2.0
-                            result += self.weights[jj]*np.exp(-energy)
-
-                    else:
-                        for jj in range(nv):
-                            diff = white_dataset - white_points[:, jj, np.newaxis]
-                            energy = np.sum(diff * diff, axis=0) / 2.0
-                            result[jj] = np.sum(np.exp(-energy)*self.weights, axis=0)
-
-                lo = -np.inf if reflect_dim[0] is None else reflect_dim[0]
-                hi = +np.inf if reflect_dim[1] is None else reflect_dim[1]
-                idx = (points[ii, :] < lo) | (hi < points[ii, :])
-                result[idx] = 0.0
-
-        result = result / self.bw_norm
+        if reflect is None:
+            result = self.kernel.pdf(
+                self.dataset, self.weights, points, self.bw_cov_inv, self.bw_norm)
+        else:
+            result = self.kernel.pdf_reflect(
+                self.dataset, self.weights, points, self.bw_cov_inv, self.bw_norm, reflect=reflect)
 
         return result
 

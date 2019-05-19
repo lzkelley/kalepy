@@ -15,6 +15,102 @@ class Kernel(object):
         self.kde = kde
         return
 
+    def pdf(self, data, weights, points, cov_inv, norm):
+        err = "`pdf` method must be overridden by subclassing kernel!"
+        raise NotImplementedError(err)
+
+    def pdf_reflect(self, data, weights, points, cov_inv, norm, reflect=None):
+        err = "reflection is not implemented for this Kernel ({})!".format(self)
+        raise NotImplementedError(err)
+
+    def resample(self, data, weights, cov, size, **kwargs):
+        err = "`resample` method must be overridden by subclassing kernel!"
+        raise NotImplementedError(err)
+
+    def resample_reflect(self, data, weights, cov, size, **kwargs):
+        err = "reflection is not implemented for this Kernel ({})!".format(self)
+        raise NotImplementedError(err)
+
+
+class Gaussian(Kernel):
+
+    def pdf(self, data, weights, points, cov_inv, norm):
+        """
+        """
+        ndim, num_data = np.shape(data)
+        ndim, num_points = np.shape(points)
+        result = np.zeros((num_points,), dtype=float)
+
+        whitening = sp.linalg.cholesky(cov_inv)
+        # Construct the 'whitened' (independent) dataset
+        white_dataset = np.dot(whitening, data)
+        # Construct the whitened sampling points
+        white_points = np.dot(whitening, points)
+
+        for ii in range(num_data):
+            diff = white_points - white_dataset[:, ii, np.newaxis]
+            energy = np.sum(diff * diff, axis=0) / 2.0
+            result += weights[ii] * np.exp(-energy)
+
+        result = result / norm
+        return result
+
+    def pdf_reflect(self, data, weights, points, cov_inv, norm, reflect=None):
+        """
+        """
+        ndim, num_data = np.shape(data)
+        ndim, num_points = np.shape(points)
+        result = np.zeros((num_points,), dtype=float)
+
+        whitening = sp.linalg.cholesky(cov_inv)
+        # Construct the 'whitened' (independent) dataset
+        white_dataset = np.dot(whitening, data)
+        # Construct the whitened sampling points
+        white_points = np.dot(whitening, points)
+
+        for ii in range(num_data):
+            diff = white_points - white_dataset[:, ii, np.newaxis]
+            energy = np.sum(diff * diff, axis=0) / 2.0
+            result += weights[ii] * np.exp(-energy)
+
+        for ii, reflect_dim in enumerate(reflect):
+            if reflect_dim is None:
+                continue
+
+            for loc in reflect_dim:
+                if loc is None:
+                    continue
+
+                # shape (D,N) i.e. (dimensions, data-points)
+                data = np.array(data)
+                data[ii, :] = data[ii, :] - loc
+                white_dataset = np.dot(whitening, data)
+                # Construct the whitened sampling points
+                #    shape (D,M) i.e. (dimensions, sample-points)
+                pnts = np.array(points)
+                pnts[ii, :] = pnts[ii, :] - loc
+                white_points = np.dot(whitening, pnts)
+
+                if num_points >= num_data:
+                    for jj in range(num_data):
+                        diff = white_points + white_dataset[:, jj, np.newaxis]
+                        energy = np.sum(diff * diff, axis=0) / 2.0
+                        result += weights[jj] * np.exp(-energy)
+
+                else:
+                    for jj in range(num_points):
+                        diff = white_dataset - white_points[:, jj, np.newaxis]
+                        energy = np.sum(diff * diff, axis=0) / 2.0
+                        result[jj] = np.sum(np.exp(-energy) * weights, axis=0)
+
+            lo = -np.inf if reflect_dim[0] is None else reflect_dim[0]
+            hi = +np.inf if reflect_dim[1] is None else reflect_dim[1]
+            idx = (points[ii, :] < lo) | (hi < points[ii, :])
+            result[idx] = 0.0
+
+        result = result / norm
+        return result
+
     def resample(self, data, weights, cov, size, **kwargs):
         if len(kwargs):
             logging.warning("Unrecognized kwargs: '{}'".format(str(list(kwargs.keys()))))
@@ -28,13 +124,6 @@ class Kernel(object):
         # Shift each re-drawn sample based on the kernel-samples
         samps = means + norm
         return samps
-
-    def resample_reflect(self, data, weights, cov, size, **kwargs):
-        err = "reflection is not implemented for this Kernel ({})!".format(self)
-        raise NotImplementedError(err)
-
-
-class Gaussian(Kernel):
 
     def resample_reflect(self, data, weights, cov, size, reflect=None):
         # shape (D,N) i.e. (dimensions, data-points)
