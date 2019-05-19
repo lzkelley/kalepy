@@ -37,17 +37,14 @@ class Kernel(object):
 class Gaussian(Kernel):
 
     def resample_reflect(self, data, weights, cov, size, reflect=None):
-        if size is None:
-            size = int(self.neff)
-
-        reflect = self._check_reflect(reflect)
-        if reflect is None:
-            raise ValueError("`reflect` is None!")
-
         # shape (D,N) i.e. (dimensions, data-points)
-        data = np.array(self.dataset)
-        weights = np.array(self.weights)
-        bounds = np.zeros((self.ndim, 2))
+        ndim, nvals = np.shape(data)
+        data = np.array(data)
+        weights = np.array(weights)
+        bounds = np.zeros((ndim, 2))
+
+        # Actually 'reflect' (append new, mirrored points) around the given reflection points
+        # Also construct bounding box for valid data
         for ii, reflect_dim in enumerate(reflect):
             if reflect_dim is None:
                 bounds[ii, 0] = -np.inf
@@ -61,23 +58,26 @@ class Gaussian(Kernel):
                     continue
 
                 bounds[ii, jj] = loc
-                new_data = np.array(self.dataset)
+                new_data = np.array(data)
                 new_data[ii, :] = new_data[ii, :] - loc
                 data = np.append(data, new_data, axis=-1)
-                weights = np.append(weights, self.weights, axis=-1)
+                weights = np.append(weights, weights, axis=-1)
 
         weights = weights / np.sum(weights)
 
         # Draw randomly from the given data points, proportionally to their weights
-        samps = np.zeros((size, self.ndim))
+        samps = np.zeros((size, ndim))
         num_good = 0
         cnt = 0
         MAX = 10
         draw = size
         while num_good < size and cnt < MAX:
+            # Draw candidate resample points
             trial = self.resample(data, weights, cov, draw)
+            # Find the (boolean) indices of values within target boundaries
             idx = utils.bound_indices(trial, bounds)
 
+            # Store good values to output array
             ngd = np.count_nonzero(idx)
             if num_good + ngd <= size:
                 samps[num_good:num_good+ngd, :] = trial.T[idx, :]
@@ -85,14 +85,14 @@ class Gaussian(Kernel):
                 ngd = (size - num_good)
                 samps[num_good:num_good+ngd, :] = trial.T[idx, :][:ngd]
 
+            # Increment counters
             num_good += ngd
             cnt += 1
-            # Next time draw twice as many as we need
+            # Next time, draw twice as many as we need
             draw = 2*(size - num_good)
 
         if num_good < size:
             raise RuntimeError("Failed to draw '{}' samples in {} iterations!".format(size, cnt))
 
         samps = samps.T
-
         return samps

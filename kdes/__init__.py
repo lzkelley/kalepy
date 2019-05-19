@@ -22,12 +22,7 @@ import scipy.special  # noqa
 
 import numpy as np
 
-__all__ = ['KDE']
-
 from kdes import utils, kernels  # noqa
-
-
-# NotImplementedError
 
 
 class KDE(object):
@@ -135,9 +130,9 @@ class KDE(object):
                             energy = np.sum(diff * diff, axis=0) / 2.0
                             result[jj] = np.sum(np.exp(-energy)*self.weights, axis=0)
 
-                reflect_dim[0] = -np.inf if reflect_dim[0] is None else reflect_dim[0]
-                reflect_dim[1] = +np.inf if reflect_dim[1] is None else reflect_dim[1]
-                idx = (points[ii, :] < reflect_dim[0]) | (reflect_dim[1] < points[ii, :])
+                lo = -np.inf if reflect_dim[0] is None else reflect_dim[0]
+                hi = +np.inf if reflect_dim[1] is None else reflect_dim[1]
+                idx = (points[ii, :] < lo) | (hi < points[ii, :])
                 result[idx] = 0.0
 
         result = result / self.bw_norm
@@ -147,8 +142,16 @@ class KDE(object):
     def resample(self, size=None, keep=None, reflect=None):
         """
         """
+
+        # Check / Prepare parameters
+        # -------------------------------------------
         if size is None:
             size = int(self.neff)
+
+        # Make sure `reflect` matches
+        if reflect is not None:
+            # This is now either (D,) [and contains `None` values] or (D,2)
+            reflect = self._check_reflect(reflect)
 
         bw_cov = np.array(self.bw_cov)
         if keep is not None:
@@ -156,11 +159,19 @@ class KDE(object):
             for pp in keep:
                 bw_cov[pp, :] = 0.0
                 bw_cov[:, pp] = 0.0
+                # Make sure this isn't also a reflection axis
+                if (reflect is not None) and (reflect[pp] is not None):
+                    err = "Cannot both 'keep' and 'reflect' about dimension '{}'".format(pp)
+                    raise ValueError(err)
 
+        # Have `Kernel` class perform resampling
+        # ---------------------------------------------------
         if reflect is None:
-            samples = self.kernel.resample(self.dataset, self.weights, bw_cov, size)
+            samples = self._kernel.resample(
+                self.dataset, self.weights, bw_cov, size)
         else:
-            samples = self.kernel.resample_reflect(size=size, keep=keep, reflect=reflect)
+            samples = self._kernel.resample_reflect(
+                self.dataset, self.weights, bw_cov, size, reflect=reflect)
 
         if self.ndim == 1:
             samples = samples.squeeze()
@@ -317,3 +328,7 @@ class KDE(object):
         except AttributeError:
             self._ndim, self._data_size = np.shape(self.dataset)
             return self._data_size
+
+    @property
+    def kernel(self):
+        return self._kernel

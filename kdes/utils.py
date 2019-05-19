@@ -123,7 +123,7 @@ def spacing(data, scale='log', num=None, dex=10, **kwargs):
     return spaced
 
 
-def bound_indices(self, data, bounds):
+def bound_indices(data, bounds):
     ndim, nvals = np.shape(data)
     idx = np.ones(nvals, dtype=bool)
     for ii, bnd in enumerate(bounds):
