@@ -156,6 +156,7 @@ class KDE(object):
                 bw_cov[pp, :] = 0.0
                 bw_cov[:, pp] = 0.0
 
+        '''
         # Draw from the smoothing kernel, here the `cov` includes the bandwidth
         norm = np.random.multivariate_normal(np.zeros(self.ndim), bw_cov, size=size).T
         # Draw randomly from the given data points, proportionally to their weights
@@ -163,6 +164,8 @@ class KDE(object):
         means = self.dataset[:, indices]
         # Shift each re-drawn sample based on the kernel-samples
         samps = means + norm
+        '''
+        samps = self._resample(self.dataset, self.weights, bw_cov, size)
 
         return samps
 
@@ -229,6 +232,8 @@ class KDE(object):
 
         if num_good < size:
             raise RuntimeError("Failed to draw '{}' samples in {} iterations!".format(size, cnt))
+
+        samps = samps.T
 
         return samps
 

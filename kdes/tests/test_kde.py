@@ -355,6 +355,71 @@ class Test_KDE_Resample(object):
 
         return
 
+    def test_reflect_2d(self):
+        print("\n|Test_KDE_Resample:test_reflect_2d()|")
+
+        seed = np.random.randint(int(1e4))
+        seed = 8067
+        print(seed)
+        np.random.seed(seed)
+        NUM = 2000
+        xx = np.random.uniform(0.0, 2.0, NUM)
+        yy = np.random.normal(1.0, 1.5, NUM)
+        yy = yy[yy < 2.0]
+        yy = np.concatenate([yy, np.random.choice(yy, NUM-yy.size)])
+
+        data = [xx, yy]
+        edges = [kdes.utils.spacing(aa, 'lin', 30) for aa in [xx, yy]]
+        egrid = [kdes.utils.spacing(ee, 'lin', 100, stretch=0.5) for ee in edges]
+        cgrid = [kdes.utils.midpoints(ee, 'lin') for ee in egrid]
+        # width = [np.diff(ee) for ee in egrid]
+
+        xc, yc = np.meshgrid(*cgrid)
+
+        # grid = np.vstack([xc.ravel(), yc.ravel()])
+
+        hist, *_ = np.histogram2d(*data, bins=egrid, density=True)
+
+        kde = kdes.KDE(data)
+
+        reflections = [
+            [[0.0, 2.0], [None, 2.0]],
+            [[0.0, 2.0], None],
+            [None, [None, 2.0]],
+            None
+        ]
+        for jj, reflect in enumerate(reflections):
+            samps_ref = kde.resample(reflect=reflect)
+            samps_nrm = kde.resample()
+
+            if reflect is None:
+                continue
+
+            for ii, ref in enumerate(reflect):
+                if ref is None:
+                    continue
+                if ref[0] is None:
+                    ref[0] = -np.inf
+                if ref[1] is None:
+                    ref[1] = np.inf
+
+                print(jj, ii, ref)
+                for kk, zz in enumerate([samps_nrm[ii], samps_ref[ii]]):
+                    inside = (ref[0] < zz) & (zz < ref[1])
+                    outside = ((zz < ref[0]) | (ref[1] < zz))
+
+                    print("\tin : ", kk, np.all(inside), np.any(inside))
+                    print("\tout: ", kk, np.all(outside), np.any(outside))
+
+                    if kk == 0:
+                        assert_false(np.all(inside))
+                        assert_true(np.any(outside))
+                    else:
+                        assert_true(np.all(inside))
+                        assert_false(np.any(outside))
+
+        return
+
 
 # Run all methods as if with `nosetests ...`
 if __name__ == "__main__":
