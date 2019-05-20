@@ -15,13 +15,13 @@ import kdes
 from kdes import utils
 
 
-class Test_KDE_PDFs(object):
+class Test_KDE_PDF(object):
 
     @classmethod
     def setup_class(cls):
         np.random.seed(9865)
 
-    def test_compare_scipy_1d(self):
+    def compare_scipy_1d(self, kernel):
         print("\n|Test_KDE_PDF:test_compare_scipy_1d()|")
         NUM = 100
         a1 = np.random.normal(6.0, 1.0, NUM//2)
@@ -32,16 +32,18 @@ class Test_KDE_PDFs(object):
         grid = utils.spacing(bins, 'lin', 3000)
 
         methods = ['scott', 0.04, 0.2, 0.8]
-        classes = [sp.stats.gaussian_kde, kdes.KDE]
-        setters = ['bw_method', 'bandwidth']
+        classes = [lambda xx, bw: sp.stats.gaussian_kde(xx, bw_method=bw),
+                   lambda xx, bw: kdes.KDE(xx, bandwidth=bw, kernel=kernel)]
         for mm in methods:
-            kde_list = [cc(aa, **{ss: mm}).pdf(grid)
-                        for cc, ss in zip(classes, setters)]
+            kde_list = [cc(aa, mm).pdf(grid) for cc in classes]
+            print("method: {}".format(mm))
+            print("\t" + utils.stats_str(kde_list[0]))
+            print("\t" + utils.stats_str(kde_list[1]))
             assert_true(np.allclose(kde_list[0], kde_list[1]))
 
         return
 
-    def test_compare_scipy_2d(self):
+    def compare_scipy_2d(self, kernel):
         print("\n|Test_KDE_PDF:test_compare_scipy_2d()|")
 
         NUM = 1000
@@ -60,16 +62,17 @@ class Test_KDE_PDFs(object):
         grid = np.vstack([xc.ravel(), yc.ravel()])
 
         methods = ['scott', 0.04, 0.2, 0.8]
-        classes = [sp.stats.gaussian_kde, kdes.KDE]
-        setters = ['bw_method', 'bandwidth']
+        # classes = [sp.stats.gaussian_kde, kdes.KDE]
+        classes = [lambda xx, bw: sp.stats.gaussian_kde(xx, bw_method=bw),
+                   lambda xx, bw: kdes.KDE(xx, bandwidth=bw, kernel=kernel)]
         for mm in methods:
-            kdes_list = [cc(data, **{ss: mm}).pdf(grid).reshape(xc.shape).T
-                         for cc, ss in zip(classes, setters)]
+            kdes_list = [cc(data, mm).pdf(grid).reshape(xc.shape).T
+                         for cc in classes]
             assert_true(np.allclose(kdes_list[0], kdes_list[1]))
 
         return
 
-    def test_reflect_1d(self):
+    def reflect_1d(self, kernel):
         print("\n|Test_KDE_PDF:test_reflect_1d()|")
 
         np.random.seed(124)
@@ -83,7 +86,7 @@ class Test_KDE_PDFs(object):
 
         boundaries = [None, EXTR]
         for bnd in boundaries:
-            kde = kdes.KDE(aa)
+            kde = kdes.KDE(aa, kernel=kernel)
             pdf = kde.pdf(cgrid, reflect=bnd)
 
             # Make sure unitarity is preserved
@@ -112,7 +115,7 @@ class Test_KDE_PDFs(object):
 
         return
 
-    def test_reflect_2d(self):
+    def reflect_2d(self, kernel):
         print("\n|Test_KDE_PDF:test_reflect_2d()|")
         np.random.seed(124)
         NUM = 1000
@@ -133,7 +136,7 @@ class Test_KDE_PDFs(object):
 
         hist, *_ = np.histogram2d(*data, bins=egrid, density=True)
 
-        kde = kdes.KDE(data)
+        kde = kdes.KDE(data, kernel=kernel)
         reflect = [[0.0, 2.0], [None, 2.0]]
         pdf_1d = kde.pdf(grid, reflect=reflect)
         pdf = pdf_1d.reshape(hist.shape)
@@ -189,6 +192,42 @@ class Test_KDE_PDFs(object):
             print(jj, reflect, "prob_tot = {:.4e}".format(prob_tot))
             assert_true(np.isclose(prob_tot, 1.0, rtol=3e-2))
 
+        return
+
+
+class Test_KDE_PDF_Gaussian(Test_KDE_PDF):
+
+    def test_compare_scipy_1d(self):
+        print("\n|Test_KDE_PDF:test_compare_scipy_1d()|")
+        self.compare_scipy_1d(kdes.kernels.Gaussian)
+        return
+
+    def test_compare_scipy_2d(self):
+        print("\n|Test_KDE_PDF:test_compare_scipy_2d()|")
+        self.compare_scipy_2d(kdes.kernels.Gaussian)
+        return
+
+    def test_reflect_1d(self):
+        print("\n|Test_KDE_PDF:test_reflect_1d()|")
+        self.reflect_1d(kdes.kernels.Gaussian)
+        return
+
+    def test_reflect_2d(self):
+        print("\n|Test_KDE_PDF:test_reflect_2d()|")
+        self.reflect_2d(kdes.kernels.Gaussian)
+        return
+
+
+class Test_KDE_PDF_Box(Test_KDE_PDF):
+
+    def test_reflect_1d(self):
+        print("\n|Test_KDE_PDF:test_reflect_1d()|")
+        self.reflect_1d(kdes.kernels.Box)
+        return
+
+    def test_reflect_2d(self):
+        print("\n|Test_KDE_PDF:test_reflect_2d()|")
+        self.reflect_2d(kdes.kernels.Box)
         return
 
 
