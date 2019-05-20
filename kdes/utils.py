@@ -129,3 +129,10 @@ def bound_indices(data, bounds):
     for ii, bnd in enumerate(bounds):
         idx = idx & (bnd[0] < data[ii, :]) & (data[ii, :] < bnd[1])
     return idx
+
+
+def stats_str(data, percs=[0.0, 5.0, 25.0, 50.0, 75.0, 95.0, 100.0]):
+    vals = np.percentile(data, percs)
+    rv = ", ".join(["{:.2e}".format(xx) for xx in vals])
+    rv = "[" + rv + "]"
+    return rv
