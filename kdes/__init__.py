@@ -36,7 +36,10 @@ class KDE(object):
 
     def __init__(self, dataset, bandwidth=None, weights=None, kernel=None, neff=None,
                  quiet=False, **kwargs):
-        bw_method = kwargs.get('bw_method', None)
+        bw_method = kwargs.pop('bw_method', None)
+        if len(kwargs) > 0:
+            raise ValueError("Unrecognized kwargs: '{}'!".format(str(list(kwargs.keys()))))
+
         if bw_method is not None:
             msg = "Use `bandwidth` instead of `bw_method`"
             warnings.warn(msg, DeprecationWarning, stacklevel=3)
@@ -45,9 +48,9 @@ class KDE(object):
             bandwidth = bw_method
 
         if kernel is None:
-            kernel = self._KERNEL_DEFAULT(self)
+            kernel = self._KERNEL_DEFAULT
 
-        self._kernel = kernel
+        self._kernel = kernel(self)
 
         self.dataset = np.atleast_2d(dataset)
         self._ndim, self._data_size = self.dataset.shape
@@ -177,7 +180,7 @@ class KDE(object):
             bw_cov_inv = np.linalg.inv(bw_cov)
         except np.linalg.LinAlgError:
             if not self._quiet:
-                logging.warning("WARNING: singular `bw_cov` matrix, trying SVD...")
+                logging.warning("singular `bw_cov` matrix, trying SVD...")
             bw_cov_inv = np.linalg.pinv(bw_cov)
 
         self.bw_white = bw_white
