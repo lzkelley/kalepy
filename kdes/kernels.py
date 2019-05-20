@@ -15,24 +15,13 @@ class Kernel(object):
         self.kde = kde
         return
 
-    def pdf(self, data, weights, points, cov_inv, norm):
-        err = "`pdf` method must be overridden by subclassing kernel!"
+    def evaluate(self, xx, ref=0.0, hh=1.0, weights=1.0):
+        err = "`evaluate` must be overridden by the Kernel subclass!"
         raise NotImplementedError(err)
 
-    def pdf_reflect(self, data, weights, points, cov_inv, norm, reflect=None):
-        err = "reflection is not implemented for this Kernel ({})!".format(self)
+    def sample(self, ndim, cov, size):
+        err = "`sample` must be overridden by the Kernel subclass!"
         raise NotImplementedError(err)
-
-    def resample(self, data, weights, cov, size, **kwargs):
-        err = "`resample` method must be overridden by subclassing kernel!"
-        raise NotImplementedError(err)
-
-    def resample_reflect(self, data, weights, cov, size, **kwargs):
-        err = "reflection is not implemented for this Kernel ({})!".format(self)
-        raise NotImplementedError(err)
-
-
-class Gaussian(Kernel):
 
     def pdf(self, data, weights, points, cov_inv, norm):
         """
@@ -48,30 +37,29 @@ class Gaussian(Kernel):
         white_points = np.dot(whitening, points)
 
         for ii in range(num_data):
-            diff = white_points - white_dataset[:, ii, np.newaxis]
-            energy = np.sum(diff * diff, axis=0) / 2.0
-            result += weights[ii] * np.exp(-energy)
+            temp = self.evaluate(
+                white_points, white_dataset[:, ii, np.newaxis], weights=weights[ii])
+            result += temp
 
         result = result / norm
         return result
 
-    def pdf_reflect(self, data, weights, points, cov_inv, norm, reflect=None):
+    def pdf_reflect(self, dataset, weights, points, cov_inv, norm, reflect=None):
         """
         """
-        ndim, num_data = np.shape(data)
+        ndim, num_data = np.shape(dataset)
         ndim, num_points = np.shape(points)
         result = np.zeros((num_points,), dtype=float)
 
         whitening = sp.linalg.cholesky(cov_inv)
         # Construct the 'whitened' (independent) dataset
-        white_dataset = np.dot(whitening, data)
+        white_dataset = np.dot(whitening, dataset)
         # Construct the whitened sampling points
         white_points = np.dot(whitening, points)
 
         for ii in range(num_data):
-            diff = white_points - white_dataset[:, ii, np.newaxis]
-            energy = np.sum(diff * diff, axis=0) / 2.0
-            result += weights[ii] * np.exp(-energy)
+            result += self.evaluate(
+                white_points, white_dataset[:, ii, np.newaxis], weights=weights[ii])
 
         for ii, reflect_dim in enumerate(reflect):
             if reflect_dim is None:
@@ -82,26 +70,23 @@ class Gaussian(Kernel):
                     continue
 
                 # shape (D,N) i.e. (dimensions, data-points)
-                data = np.array(data)
-                data[ii, :] = data[ii, :] - loc
+                data = np.array(dataset)
+                data[ii, :] = 2*loc - data[ii, :]
                 white_dataset = np.dot(whitening, data)
                 # Construct the whitened sampling points
                 #    shape (D,M) i.e. (dimensions, sample-points)
                 pnts = np.array(points)
-                pnts[ii, :] = pnts[ii, :] - loc
                 white_points = np.dot(whitening, pnts)
 
                 if num_points >= num_data:
                     for jj in range(num_data):
-                        diff = white_points + white_dataset[:, jj, np.newaxis]
-                        energy = np.sum(diff * diff, axis=0) / 2.0
-                        result += weights[jj] * np.exp(-energy)
-
+                        result += self.evaluate(
+                            white_points, white_dataset[:, jj, np.newaxis], weights=weights[jj])
                 else:
                     for jj in range(num_points):
-                        diff = white_dataset - white_points[:, jj, np.newaxis]
-                        energy = np.sum(diff * diff, axis=0) / 2.0
-                        result[jj] = np.sum(np.exp(-energy) * weights, axis=0)
+                        res = self.evaluate(
+                            white_dataset, white_points[:, jj, np.newaxis], weights=weights)
+                        result[jj] += np.sum(res, axis=0)
 
             lo = -np.inf if reflect_dim[0] is None else reflect_dim[0]
             hi = +np.inf if reflect_dim[1] is None else reflect_dim[1]
@@ -117,7 +102,7 @@ class Gaussian(Kernel):
 
         ndim, nvals = np.shape(data)
         # Draw from the smoothing kernel, here the `cov` includes the bandwidth
-        norm = np.random.multivariate_normal(np.zeros(ndim), cov, size=size).T
+        norm = self.sample(ndim, cov, size)
 
         indices = np.random.choice(nvals, size=size, p=weights)
         means = data[:, indices]
@@ -185,3 +170,30 @@ class Gaussian(Kernel):
 
         samps = samps.T
         return samps
+
+
+class Gaussian(Kernel):
+
+    def evaluate(self, xx, ref=0.0, hh=1.0, weights=1.0):
+        diff = (xx - ref) / hh
+        energy = np.sum(diff * diff, axis=0) / 2.0
+        result = weights * np.exp(-energy)
+        return result
+
+    def sample(self, ndim, cov, size):
+        samp = np.random.multivariate_normal(np.zeros(ndim), cov, size=size).T
+        return samp
+
+
+class Box(Kernel):
+
+    def evaluate(self, xx, ref=0.0, hh=1.0, weights=1.0):
+        diff = (xx - ref) / hh
+        result = weights * (np.max(np.fabs(diff), axis=0) < 1.0)
+        return result
+
+    def sample(self, ndim, cov, size):
+        samp = np.random.uniform(-1.0, 1.0, size=ndim*size).reshape(ndim, size)
+        # Correlate the samples appropriately
+        samp = np.dot(cov, samp)
+        return samp
