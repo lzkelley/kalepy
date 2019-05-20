@@ -1,4 +1,5 @@
 ## To-Do
+- Optimization drastically needed.  Things are done in (generally) the simplest ways, currently, need to be optimized for performance (both speed and memory [e.g. with reflections]).
 - `kdes/`
     - Allow for calculating PDF and resampling in only particular dimensions/parameters.
     - `tests/`

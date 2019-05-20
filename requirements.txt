@@ -5,6 +5,7 @@ codecov
 six
 future
 nose
+sphinx
 
 jupyter
 nbconvert
