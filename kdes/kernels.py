@@ -11,7 +11,7 @@ from kdes import utils
 
 class Kernel(object):
 
-    SUPPORT = None
+    _SUPPORT = None
 
     def __init__(self, kde=None):
         self._kde = kde
@@ -28,7 +28,7 @@ class Kernel(object):
         err = "`sample` must be overridden by the Kernel subclass!"
         raise NotImplementedError(err)
 
-    def pdf(self, points, data=None, weights=None):
+    def pdf(self, points, data=None, weights=None, params=None):
         """
         """
         if data is None:
@@ -204,7 +204,8 @@ class Kernel(object):
         samps = samps.T
         return samps
 
-    def _cov_keep_vars(self, bw_matrix, keep, reflect=None):
+    @classmethod
+    def _cov_keep_vars(cls, bw_matrix, keep, reflect=None):
         bw_matrix = np.array(bw_matrix)
         if keep is None:
             return bw_matrix
@@ -220,10 +221,30 @@ class Kernel(object):
 
         return bw_matrix
 
+    @classmethod
+    def _params_subset(cls, data, matrix, params):
+        if params is None:
+            norm = np.sqrt(np.linalg.det(matrix))
+            return data, matrix, norm
+
+        params = np.atleast_1d(params)
+        params = sorted(params)
+        # Get rows corresponding to these parameters
+        sub_data = data[params, :]
+        # Get rows & cols corresponding to these parameters
+        sub_mat = matrix[np.ix_(params, params)]
+        # Recalculate norm
+        norm = np.sqrt(np.linalg.det(sub_mat))
+        return sub_data, sub_mat, norm
+
+    @property
+    def SUPPORT(self):
+        return self._SUPPORT
+
 
 class Gaussian(Kernel):
 
-    SUPPORT = 'infinite'
+    _SUPPORT = 'infinite'
 
     def evaluate(self, xx, ref=0.0, hh=1.0, weights=1.0):
         ndim, nval = np.shape(xx)
@@ -239,7 +260,7 @@ class Gaussian(Kernel):
 
 class Box(Kernel):
 
-    SUPPORT = 'finite'
+    _SUPPORT = 'finite'
 
     def evaluate(self, xx, ref=0.0, hh=1.0, weights=1.0):
         ndim, nvals = np.shape(xx)
