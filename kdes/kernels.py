@@ -1,6 +1,6 @@
 """Kernal basis functions for KDE calculations.
 """
-import logging
+# import logging
 
 import numpy as np
 import scipy as sp   # noqa
@@ -12,25 +12,33 @@ from kdes import utils
 class Kernel(object):
 
     def __init__(self, kde=None):
-        self.kde = kde
+        self._kde = kde
         return
 
     def evaluate(self, xx, ref=0.0, hh=1.0, weights=1.0):
         err = "`evaluate` must be overridden by the Kernel subclass!"
         raise NotImplementedError(err)
 
-    def sample(self, ndim, cov, size):
+    def sample(self, ndim, bw_matrix, size):
         err = "`sample` must be overridden by the Kernel subclass!"
         raise NotImplementedError(err)
 
-    def pdf(self, data, weights, points, cov_inv, norm):
+    def pdf(self, points, data=None, weights=None):
         """
         """
+        if data is None:
+            data = self._kde.dataset
+        if weights is None:
+            weights = self._kde.weights
+
+        bw_matrix_inv = self._kde.bandwidth.matrix_inv
+        norm = self._kde.bandwidth.norm
+
         ndim, num_data = np.shape(data)
         ndim, num_points = np.shape(points)
         result = np.zeros((num_points,), dtype=float)
 
-        whitening = sp.linalg.cholesky(cov_inv)
+        whitening = sp.linalg.cholesky(bw_matrix_inv)
         # Construct the 'whitened' (independent) dataset
         white_dataset = np.dot(whitening, data)
         # Construct the whitened sampling points
@@ -44,16 +52,24 @@ class Kernel(object):
         result = result / norm
         return result
 
-    def pdf_reflect(self, dataset, weights, points, cov_inv, norm, reflect=None):
+    def pdf_reflect(self, points, reflect, data=None, weights=None):
         """
         """
-        ndim, num_data = np.shape(dataset)
+        if data is None:
+            data = self._kde.dataset
+        if weights is None:
+            weights = self._kde.weights
+
+        bw_matrix_inv = self._kde.bandwidth.matrix_inv
+        norm = self._kde.bandwidth.norm
+
+        ndim, num_data = np.shape(data)
         ndim, num_points = np.shape(points)
         result = np.zeros((num_points,), dtype=float)
 
-        whitening = sp.linalg.cholesky(cov_inv)
+        whitening = sp.linalg.cholesky(bw_matrix_inv)
         # Construct the 'whitened' (independent) dataset
-        white_dataset = np.dot(whitening, dataset)
+        white_dataset = np.dot(whitening, data)
         # Construct the whitened sampling points
         white_points = np.dot(whitening, points)
 
@@ -70,9 +86,9 @@ class Kernel(object):
                     continue
 
                 # shape (D,N) i.e. (dimensions, data-points)
-                data = np.array(dataset)
-                data[ii, :] = 2*loc - data[ii, :]
-                white_dataset = np.dot(whitening, data)
+                refl_data = np.array(data)
+                refl_data[ii, :] = 2*loc - refl_data[ii, :]
+                white_dataset = np.dot(whitening, refl_data)
                 # Construct the whitened sampling points
                 #    shape (D,M) i.e. (dimensions, sample-points)
                 pnts = np.array(points)
@@ -96,13 +112,18 @@ class Kernel(object):
         result = result / norm
         return result
 
-    def resample(self, data, weights, cov, size, **kwargs):
-        if len(kwargs):
-            logging.warning("Unrecognized kwargs: '{}'".format(str(list(kwargs.keys()))))
+    def resample(self, size, data=None, weights=None, bw_matrix=None, keep=None):
+        if data is None:
+            data = self._kde.dataset
+        if weights is None:
+            weights = self._kde.weights
+        if bw_matrix is None:
+            bw_matrix = self._kde.bandwidth.matrix
+        bw_matrix = self._cov_keep_vars(bw_matrix, keep)
 
         ndim, nvals = np.shape(data)
-        # Draw from the smoothing kernel, here the `cov` includes the bandwidth
-        norm = self.sample(ndim, cov, size)
+        # Draw from the smoothing kernel, here the `bw_matrix` includes the bandwidth
+        norm = self.sample(ndim, bw_matrix, size)
 
         indices = np.random.choice(nvals, size=size, p=weights)
         means = data[:, indices]
@@ -110,11 +131,17 @@ class Kernel(object):
         samps = means + norm
         return samps
 
-    def resample_reflect(self, data, weights, cov, size, reflect=None):
+    def resample_reflect(self, size, reflect, data=None, weights=None, bw_matrix=None, keep=None):
         # shape (D,N) i.e. (dimensions, data-points)
+        if data is None:
+            data = np.array(self._kde.dataset)
+        if weights is None:
+            weights = np.array(self._kde.weights)
+        if bw_matrix is None:
+            bw_matrix = self._kde.bandwidth.matrix
+        bw_matrix = self._cov_keep_vars(bw_matrix, keep, reflect=reflect)
+
         ndim, nvals = np.shape(data)
-        data = np.array(data)
-        weights = np.array(weights)
         bounds = np.zeros((ndim, 2))
 
         # Actually 'reflect' (append new, mirrored points) around the given reflection points
@@ -147,7 +174,8 @@ class Kernel(object):
         draw = size
         while num_good < size and cnt < MAX:
             # Draw candidate resample points
-            trial = self.resample(data, weights, cov, draw)
+            #    set `keep` to None, `bw_matrix` is already modified to account for it
+            trial = self.resample(draw, data=data, weights=weights, bw_matrix=bw_matrix, keep=None)
             # Find the (boolean) indices of values within target boundaries
             idx = utils.bound_indices(trial, bounds)
 
@@ -170,6 +198,22 @@ class Kernel(object):
 
         samps = samps.T
         return samps
+
+    def _cov_keep_vars(self, bw_matrix, keep, reflect=None):
+        bw_matrix = np.array(bw_matrix)
+        if keep is None:
+            return bw_matrix
+
+        keep = np.atleast_1d(keep)
+        for pp in keep:
+            bw_matrix[pp, :] = 0.0
+            bw_matrix[:, pp] = 0.0
+            # Make sure this isn't also a reflection axis
+            if (reflect is not None) and (reflect[pp] is not None):
+                err = "Cannot both 'keep' and 'reflect' about dimension '{}'".format(pp)
+                raise ValueError(err)
+
+        return bw_matrix
 
 
 class Gaussian(Kernel):

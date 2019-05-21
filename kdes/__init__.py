@@ -27,8 +27,6 @@ from kdes import utils, kernels, bandwidths   # noqa
 
 class KDE(object):
     """
-
-    Uses Fukunaga’s method.
     """
     _BANDWIDTH_DEFAULT = 'scott'
     _KERNEL_DEFAULT = kernels.Gaussian
@@ -78,11 +76,9 @@ class KDE(object):
         reflect = self._check_reflect(reflect)
 
         if reflect is None:
-            result = self.kernel.pdf(
-                self.dataset, self.weights, points, self.bandwidth.matrix_inv, self.bandwidth.norm)
+            result = self.kernel.pdf(points)
         else:
-            result = self.kernel.pdf_reflect(
-                self.dataset, self.weights, points, self.bandwidth.matrix_inv, self.bandwidth.norm, reflect=reflect)
+            result = self.kernel.pdf_reflect(points, reflect)
 
         return result
 
@@ -100,25 +96,12 @@ class KDE(object):
             # This is now either (D,) [and contains `None` values] or (D,2)
             reflect = self._check_reflect(reflect)
 
-        bw_cov = np.array(self.bandwidth.matrix)
-        if keep is not None:
-            keep = np.atleast_1d(keep)
-            for pp in keep:
-                bw_cov[pp, :] = 0.0
-                bw_cov[:, pp] = 0.0
-                # Make sure this isn't also a reflection axis
-                if (reflect is not None) and (reflect[pp] is not None):
-                    err = "Cannot both 'keep' and 'reflect' about dimension '{}'".format(pp)
-                    raise ValueError(err)
-
         # Have `Kernel` class perform resampling
         # ---------------------------------------------------
         if reflect is None:
-            samples = self._kernel.resample(
-                self.dataset, self.weights, bw_cov, size)
+            samples = self._kernel.resample(size, keep=keep)
         else:
-            samples = self._kernel.resample_reflect(
-                self.dataset, self.weights, bw_cov, size, reflect=reflect)
+            samples = self._kernel.resample_reflect(size, reflect, keep=keep)
 
         if self.ndim == 1:
             samples = samples.squeeze()

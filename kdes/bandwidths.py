@@ -58,9 +58,6 @@ class Bandwidth(object):
         self._input = _input
         # prev: bw_cov
         self._matrix = matrix
-
-        # self.matrix_inv = matrix_inv
-        # self.bw_norm = np.sqrt(np.linalg.det(2*np.pi*self.matrix))
         return
 
     def _compute_bandwidth(self, bandwidth, param=None):
