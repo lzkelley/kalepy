@@ -98,7 +98,7 @@ class Bandwidth(object):
             if self._norm is None:
                 raise AttributeError
         except AttributeError:
-            self._norm = np.sqrt(np.linalg.det(2*np.pi*self.matrix))
+            self._norm = np.sqrt(np.linalg.det(self.matrix))
 
         return self._norm
 

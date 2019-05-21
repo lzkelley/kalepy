@@ -11,9 +11,14 @@ from kdes import utils
 
 class Kernel(object):
 
+    SUPPORT = None
+
     def __init__(self, kde=None):
         self._kde = kde
         return
+
+    def __call__(self, *args, **kwargs):
+        return self.evaluate(*args, **kwargs)
 
     def evaluate(self, xx, ref=0.0, hh=1.0, weights=1.0):
         err = "`evaluate` must be overridden by the Kernel subclass!"
@@ -218,10 +223,13 @@ class Kernel(object):
 
 class Gaussian(Kernel):
 
+    SUPPORT = 'infinite'
+
     def evaluate(self, xx, ref=0.0, hh=1.0, weights=1.0):
+        ndim, nval = np.shape(xx)
         diff = (xx - ref) / hh
         energy = np.sum(diff * diff, axis=0) / 2.0
-        result = weights * np.exp(-energy)
+        result = np.power(2*np.pi, -ndim/2) * weights * np.exp(-energy)
         return result
 
     def sample(self, ndim, cov, size):
@@ -231,9 +239,13 @@ class Gaussian(Kernel):
 
 class Box(Kernel):
 
+    SUPPORT = 'finite'
+
     def evaluate(self, xx, ref=0.0, hh=1.0, weights=1.0):
+        ndim, nvals = np.shape(xx)
         diff = (xx - ref) / hh
-        result = weights * (np.max(np.fabs(diff), axis=0) < 1.0)
+        norm = np.power(2*hh, ndim)
+        result = (weights / norm) * (np.max(np.fabs(diff), axis=0) < 1.0)
         return result
 
     def sample(self, ndim, cov, size):
