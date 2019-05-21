@@ -217,7 +217,7 @@ class Test_KDE_PDF_Gaussian(Test_KDE_PDF):
         self.reflect_2d(kdes.kernels.Gaussian)
         return
 
-
+'''
 class Test_KDE_PDF_Box(Test_KDE_PDF):
 
     def test_reflect_1d(self):
@@ -229,7 +229,7 @@ class Test_KDE_PDF_Box(Test_KDE_PDF):
         print("\n|Test_KDE_PDF:test_reflect_2d()|")
         self.reflect_2d(kdes.kernels.Box)
         return
-
+'''
 
 class Test_KDE_Resample(object):
 
