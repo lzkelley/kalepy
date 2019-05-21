@@ -7,6 +7,18 @@
 
 
 ## Current
+- Kernels are now implemented as their own classes, allowing for easy subclassing.  Currently `Guassian` and `Box` seem to be working.
+- `kdes/`
+    - `bandwidths.py`
+    - `kernels.py`
+        - Classes for each different kernel.
+        - `class Gaussian` 
+            - Standard Gaussian kernel.
+        - `class Box`
+            - Boxcar/rectangle kernel with finite support.
+    - `utils.py`
+        - `stats_str()`
+            - Method for calculating percentiles of given data and returing them as a str.
 
 
 ## v0.1 – 2019/05/19
