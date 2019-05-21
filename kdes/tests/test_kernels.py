@@ -6,13 +6,13 @@ Can be run with:
 """
 
 import numpy as np
-import scipy as sp
+# import scipy as sp
 import scipy.stats  # noqa
 from numpy.testing import run_module_suite
 from nose.tools import assert_true, assert_false, assert_raises
 
 import kdes
-from kdes import utils
+# from kdes import utils
 
 
 class Test_Kernels_Base(object):
@@ -36,9 +36,51 @@ class Test_Kernels_Base(object):
 
         return
 
+    def test_cov_keep_vars(self):
+        print("\n|Test_Kernels_Base:test_cov_keep_vars()|")
+        np.random.seed(3422)
+
+        npars = [1, 2, 3, 4, 5]
+        for num in npars:
+            matrix = np.random.uniform(size=num*num).reshape(num, num)
+            reflect = [None]*num
+
+            for ii in range(num):
+                if ii == 0:
+                    keep = None
+                else:
+                    keep = np.random.choice(num, ii, replace=False)
+
+                mat = kdes.kernels.Kernel._cov_keep_vars(matrix, keep)
+                if keep is None:
+                    assert_true(np.allclose(matrix, mat))
+                else:
+                    for jj in keep:
+                        # Make sure the keep (co)variance is all zero
+                        assert_true(np.allclose(mat[jj, :], 0.0))
+                        assert_true(np.allclose(mat[:, jj], 0.0))
+
+                        # Make sure `reflect` consistency checks work
+                        # These should also work
+                        kdes.kernels.Kernel._cov_keep_vars(matrix, keep, reflect=None)
+                        kdes.kernels.Kernel._cov_keep_vars(matrix, keep, reflect=reflect)
+                        # Make sure reflection in `keep` parameter fails
+                        fail = [rr for rr in reflect]
+                        fail[jj] = [1.0, 2.0]
+                        with assert_raises(ValueError):
+                            kdes.kernels.Kernel._cov_keep_vars(matrix, keep, reflect=fail)
+                        # Make sure reflection in any other parameters succeeds
+                        not_keep = list(set(range(num)) - set(keep))
+                        succeed = [rr for rr in reflect]
+                        for ss in not_keep:
+                            succeed[ss] = [1.0, 2.0]
+                        kdes.kernels.Kernel._cov_keep_vars(matrix, keep, reflect=succeed)
+
+        return
+
     def test_params_subset(self):
         print("\n|Test_Kernels_Base:test_params_subset()|")
-
+        np.random.seed(2342)
         npars = [1, 2, 3, 4, 5]
         nvals = 100
         # Try a range of dimensionalities (i.e. number of parameters)
