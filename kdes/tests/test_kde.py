@@ -178,6 +178,65 @@ class Test_KDE_PDF(object):
 
         return
 
+    def pdf_params_fixed_bandwidth(self, kernel):
+        print("\n|Test_KDE_PDF:pdf_params_fixed_bandwidth()|")
+        np.random.seed(124)
+
+        NUM = 1000
+        bandwidth = 0.02
+
+        sigma = [2.5, 1.5]
+        corr = 0.9
+
+        s2 = np.square(sigma)
+        cc = corr*sigma[0]*sigma[1]
+        cov = [[s2[0], cc], [cc, s2[1]]]
+        cov = np.array(cov)
+
+        data = np.random.multivariate_normal([1.0, 2.0], cov, NUM).T
+
+        sigma = [2.5, 0.5]
+        corr = 0.0
+
+        s2 = np.square(sigma)
+        cc = corr*sigma[0]*sigma[1]
+        cov = [[s2[0], cc], [cc, s2[1]]]
+        cov = np.array(cov)
+        more = np.random.multivariate_normal([1.0, 6.0], cov, NUM).T
+        data = np.concatenate([data, more], axis=-1)
+
+        kde = kdes.KDE(data, bandwidth=bandwidth, kernel=kernel)
+
+        edges = [kdes.utils.spacing(dd, 'lin', 200, stretch=0.1) for dd in data]
+        cents = [kdes.utils.midpoints(ee, 'lin') for ee in edges]
+        widths = [np.diff(ee) for ee in edges]
+        # area = widths[0][:, np.newaxis] * widths[1][np.newaxis, :]
+
+        xe, ye = np.meshgrid(*edges)
+        xc, yc = np.meshgrid(*cents)
+        # grid = np.vstack([xc.ravel(), yc.ravel()])
+
+        hist, *_ = np.histogram2d(*data, bins=edges, density=True)
+
+        for par in range(2):
+            xx = cents[par]
+            pdf_2d = kde.pdf(xx, params=par)
+            kde_1d = kdes.KDE(data[par, :], bandwidth=bandwidth, kernel=kernel)
+            pdf_1d = kde_1d.pdf(xx)
+            # print("matrix : ", kde.bandwidth.matrix, kde_1d.bandwidth.matrix)
+            assert_true(np.allclose(pdf_2d, pdf_1d, rtol=1e-3))
+
+            for pdf, ls, lw in zip([pdf_2d, pdf_1d], ['-', '--'], [1.5, 3.0]):
+
+                tot = np.sum(pdf*widths[par])
+                print("tot = {:.4e}".format(tot))
+                assert_true(np.isclose(tot, 1.0, rtol=2e-2))
+                vals = [xx, pdf]
+                if par == 1:
+                    vals = vals[::-1]
+
+        return
+
 
 class Test_KDE_PDF_Gaussian(Test_KDE_PDF):
 
@@ -201,6 +260,11 @@ class Test_KDE_PDF_Gaussian(Test_KDE_PDF):
         self.reflect_2d(kdes.kernels.Gaussian)
         return
 
+    def test_pdf_params_fixed_bandwidth(self):
+        print("\n|Test_KDE_PDF_Gaussian:test_pdf_params_fixed_bandwidth()|")
+        self.pdf_params_fixed_bandwidth(kdes.kernels.Gaussian)
+        return
+
 
 class Test_KDE_PDF_Box(Test_KDE_PDF):
 
@@ -212,6 +276,11 @@ class Test_KDE_PDF_Box(Test_KDE_PDF):
     def test_reflect_2d(self):
         print("\n|Test_KDE_PDF:test_reflect_2d()|")
         self.reflect_2d(kdes.kernels.Box)
+        return
+
+    def test_pdf_params_fixed_bandwidth(self):
+        print("\n|Test_KDE_PDF_Box:test_pdf_params_fixed_bandwidth()|")
+        self.pdf_params_fixed_bandwidth(kdes.kernels.Box)
         return
 
 

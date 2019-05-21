@@ -112,6 +112,13 @@ class Test_Kernels_Base(object):
         return
 
 
+class Test_Kernels_Generic(object):
+
+    @classmethod
+    def setup_class(cls):
+        np.random.seed(9865)
+
+    
 # Run all methods as if with `nosetests ...`
 if __name__ == "__main__":
     run_module_suite()
