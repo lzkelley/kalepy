@@ -16,9 +16,11 @@ install:
 # command to run tests
 script:
   - python -c "import numpy; print(numpy.__version__); import scipy; print(scipy.__version__)"
+  - python -c "import kdes; print(kdes.__file__)"
   - nosetests --with-coverage --cover-inclusive --cover-package=kdes
   - jupyter nbconvert --ExecutePreprocessor.kernel_name=python --ExecutePreprocessor.timeout=600 --to notebook --execute notebooks/kde.ipynb
-  - python -c "import kdes; print(kdes.__file__)"
+  - jupyter nbconvert --ExecutePreprocessor.kernel_name=python --ExecutePreprocessor.timeout=600 --to notebook --execute notebooks/kernels.ipynb
+  - jupyter nbconvert --ExecutePreprocessor.kernel_name=python --ExecutePreprocessor.timeout=600 --to notebook --execute notebooks/theory.ipynb
 
 after_success:
   - codecov
