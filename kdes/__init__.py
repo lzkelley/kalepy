@@ -13,8 +13,8 @@ __copyright__ = "Copyright 2019 - Luke Zoltan Kelley and contributors"
 __contributors__ = []
 __bibtex__ = """"""
 
-# import six
-# import logging
+import six
+import logging
 # import warnings
 
 import scipy as sp  # noqa
@@ -29,7 +29,7 @@ class KDE(object):
     """
     """
     _BANDWIDTH_DEFAULT = 'scott'
-    _KERNEL_DEFAULT = kernels.Gaussian
+    _KERNEL_DEFAULT = 'gaussian'
 
     def __init__(self, dataset, bandwidth=None, weights=None, kernel=None, neff=None,
                  quiet=False, **kwargs):
@@ -47,6 +47,15 @@ class KDE(object):
 
         if kernel is None:
             kernel = self._KERNEL_DEFAULT
+        if isinstance(kernel, six.string_types):
+            kernel = kernel.lower()
+            if kernel.startswith('gauss'):
+                kernel = kernels.Gaussian
+            elif kernel.startswith('box') or kernel.startswith('rect'):
+                kernel = kernels.Box
+            else:
+                raise ValueError("Unrecognized `kernel` str '{}'!".format(kernel))
+
         self._kernel = kernel(self)
 
         if bandwidth is None:
