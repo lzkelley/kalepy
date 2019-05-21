@@ -67,27 +67,16 @@ class KDE(object):
         self._quiet = quiet
         return
 
-    def pdf(self, points, reflect=None):
+    def pdf(self, points, reflect=None, **kwargs):
         points = np.atleast_2d(points)
-
-        ndim, nv = points.shape
-        if ndim != self.ndim:
-            if ndim == 1 and nv == self.ndim:
-                # points was passed in as a row vector
-                points = np.reshape(points, (self.ndim, 1))
-                nv = 1
-            else:
-                msg = "Mismatch between shape of `points` ({}), and `dataset` ({})".format(
-                    ndim, self.ndim)
-                raise ValueError(msg)
 
         # Make sure shape/values of reflect look okay
         reflect = self._check_reflect(reflect)
 
         if reflect is None:
-            result = self.kernel.pdf(points)
+            result = self.kernel.pdf(points, **kwargs)
         else:
-            result = self.kernel.pdf_reflect(points, reflect)
+            result = self.kernel.pdf_reflect(points, reflect, **kwargs)
 
         return result
 
