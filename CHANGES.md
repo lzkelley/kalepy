@@ -2,8 +2,12 @@
 - Optimization drastically needed.  Things are done in (generally) the simplest ways, currently, need to be optimized for performance (both speed and memory [e.g. with reflections]).
 - `kdes/`
     - Allow for calculating PDF and resampling in only particular dimensions/parameters.
+        - FIX: Doesn't work quite right for non-fixed bandwidth, bandwidth needs to be re-calculated for different number of dimensions
     - `tests/`
         - No tests currently check that proper errors are raised.
+        - Make sure tests check both cases of `num_points > num_data` and visa-versa (e.g. in PDF calculation).
+
+
 
 
 ## Current
@@ -19,6 +23,8 @@
     - `utils.py`
         - `stats_str()`
             - Method for calculating percentiles of given data and returing them as a str.
+
+
 
 
 ## v0.1 – 2019/05/19
