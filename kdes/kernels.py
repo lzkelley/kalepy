@@ -36,14 +36,19 @@ class Kernel(object):
         if weights is None:
             weights = self._kde.weights
 
-        bw_matrix_inv = self._kde.bandwidth.matrix_inv
+        matrix_inv = self._kde.bandwidth.matrix_inv
         norm = self._kde.bandwidth.norm
+
+        if params is not None:
+            matrix = self._kde.bandwidth.matrix
+            data, matrix, norm = self._params_subset(data, matrix, params)
+            matrix_inv = np.linalg.pinv(matrix)
 
         ndim, num_data = np.shape(data)
         ndim, num_points = np.shape(points)
         result = np.zeros((num_points,), dtype=float)
 
-        whitening = sp.linalg.cholesky(bw_matrix_inv)
+        whitening = sp.linalg.cholesky(matrix_inv)
         # Construct the 'whitened' (independent) dataset
         white_dataset = np.dot(whitening, data)
         # Construct the whitened sampling points
@@ -65,14 +70,14 @@ class Kernel(object):
         if weights is None:
             weights = self._kde.weights
 
-        bw_matrix_inv = self._kde.bandwidth.matrix_inv
+        matrix_inv = self._kde.bandwidth.matrix_inv
         norm = self._kde.bandwidth.norm
 
         ndim, num_data = np.shape(data)
         ndim, num_points = np.shape(points)
         result = np.zeros((num_points,), dtype=float)
 
-        whitening = sp.linalg.cholesky(bw_matrix_inv)
+        whitening = sp.linalg.cholesky(matrix_inv)
         # Construct the 'whitened' (independent) dataset
         white_dataset = np.dot(whitening, data)
         # Construct the whitened sampling points
