@@ -73,7 +73,7 @@ class Test_KDE_PDF(object):
         return
 
     def reflect_1d(self, kernel):
-        print("\n|Test_KDE_PDF:test_reflect_1d()|")
+        print("\n|Test_KDE_PDF:reflect_1d()|")
 
         np.random.seed(124)
         NUM = 1000
@@ -89,6 +89,10 @@ class Test_KDE_PDF(object):
             kde = kdes.KDE(aa, kernel=kernel)
             pdf = kde.pdf(cgrid, reflect=bnd)
 
+            # If the kernel's support is infinite, then all points outside of boundaries should be
+            # nonzero; if it's finite-supported, then only some of them (near edges) will be
+            outside_test_func = np.all if kernel.SUPPORT == 'infinite' else np.any
+
             # Make sure unitarity is preserved
             tot = np.sum(pdf*delta)
             print("Boundary '{}', total = {:.4e}".format(bnd, tot))
@@ -97,17 +101,17 @@ class Test_KDE_PDF(object):
             ratio_extr = np.max(pdf)/np.min(pdf[pdf > 0])
             # No reflection, then non-zero PDF everywhere, and large ratio of extrema
             if bnd is None:
-                assert_true(np.all(pdf[cgrid < EXTR[0]] > 0.0))
-                assert_true(np.all(pdf[cgrid > EXTR[1]] > 0.0))
+                assert_true(outside_test_func(pdf[cgrid < EXTR[0]] > 0.0))
+                assert_true(outside_test_func(pdf[cgrid > EXTR[1]] > 0.0))
                 assert_true(ratio_extr > 10.0)
             # No lower-reflection, nonzero values below 0.0
             elif bnd[0] is None:
-                assert_true(np.all(pdf[cgrid < EXTR[0]] > 0.0))
+                assert_true(outside_test_func(pdf[cgrid < EXTR[0]] > 0.0))
                 assert_true(np.all(pdf[cgrid > EXTR[1]] == 0.0))
             # No upper-reflection, nonzero values above 2.0
             elif bnd[1] is None:
                 assert_true(np.all(pdf[cgrid < EXTR[0]] == 0.0))
-                assert_true(np.all(pdf[cgrid > EXTR[1]] > 0.0))
+                assert_true(outside_test_func(pdf[cgrid > EXTR[1]] > 0.0))
             else:
                 assert_true(np.all(pdf[cgrid < EXTR[0]] == 0.0))
                 assert_true(np.all(pdf[cgrid > EXTR[1]] == 0.0))
@@ -137,27 +141,7 @@ class Test_KDE_PDF(object):
         hist, *_ = np.histogram2d(*data, bins=egrid, density=True)
 
         kde = kdes.KDE(data, kernel=kernel)
-        reflect = [[0.0, 2.0], [None, 2.0]]
-        pdf_1d = kde.pdf(grid, reflect=reflect)
-        pdf = pdf_1d.reshape(hist.shape)
-
-        inside = True
-        outside = True
-        for ii, ref in enumerate(reflect):
-            if ref[0] is None:
-                ref[0] = -np.inf
-            if ref[1] is None:
-                ref[1] = np.inf
-            inside = inside & (ref[0] < grid[ii]) & (grid[ii] < ref[1])
-            outside = outside & ((grid[ii] < ref[0]) | (ref[1] < grid[ii]))
-
-        assert_true(np.all(pdf_1d[inside] > 0.0))
-        assert_true(np.allclose(pdf_1d[outside], 0.0))
-
-        area = width[0][:, np.newaxis] * width[1][np.newaxis, :]
-        prob_tot = np.sum(pdf * area)
-        print("total probability = {:.4e}".format(prob_tot))
-        assert_true(np.isclose(prob_tot, 1.0, rtol=3e-2))
+        inside_test_func = np.all if kernel.SUPPORT == 'infinite' else np.any
 
         reflections = [
             [[0.0, 2.0], [None, 2.0]],
@@ -184,7 +168,7 @@ class Test_KDE_PDF(object):
                     inside = inside & (ref[0] < grid[ii]) & (grid[ii] < ref[1])
                     outside = outside & ((grid[ii] < ref[0]) | (ref[1] < grid[ii]))
 
-            assert_true(np.all(pdf_1d[inside] > 0.0))
+            assert_true(inside_test_func(pdf_1d[inside] > 0.0))
             assert_true(np.allclose(pdf_1d[outside], 0.0))
 
             area = width[0][:, np.newaxis] * width[1][np.newaxis, :]
@@ -217,7 +201,7 @@ class Test_KDE_PDF_Gaussian(Test_KDE_PDF):
         self.reflect_2d(kdes.kernels.Gaussian)
         return
 
-'''
+
 class Test_KDE_PDF_Box(Test_KDE_PDF):
 
     def test_reflect_1d(self):
@@ -229,7 +213,7 @@ class Test_KDE_PDF_Box(Test_KDE_PDF):
         print("\n|Test_KDE_PDF:test_reflect_2d()|")
         self.reflect_2d(kdes.kernels.Box)
         return
-'''
+
 
 class Test_KDE_Resample(object):
 
