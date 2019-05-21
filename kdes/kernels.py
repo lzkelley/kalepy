@@ -205,21 +205,21 @@ class Kernel(object):
         return samps
 
     @classmethod
-    def _cov_keep_vars(cls, bw_matrix, keep, reflect=None):
-        bw_matrix = np.array(bw_matrix)
+    def _cov_keep_vars(cls, matrix, keep, reflect=None):
+        matrix = np.array(matrix)
         if keep is None:
-            return bw_matrix
+            return matrix
 
         keep = np.atleast_1d(keep)
         for pp in keep:
-            bw_matrix[pp, :] = 0.0
-            bw_matrix[:, pp] = 0.0
+            matrix[pp, :] = 0.0
+            matrix[:, pp] = 0.0
             # Make sure this isn't also a reflection axis
             if (reflect is not None) and (reflect[pp] is not None):
                 err = "Cannot both 'keep' and 'reflect' about dimension '{}'".format(pp)
                 raise ValueError(err)
 
-        return bw_matrix
+        return matrix
 
     @classmethod
     def _params_subset(cls, data, matrix, params):
