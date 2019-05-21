@@ -13,16 +13,16 @@ __copyright__ = "Copyright 2019 - Luke Zoltan Kelley and contributors"
 __contributors__ = []
 __bibtex__ = """"""
 
-import six
-import logging
-import warnings
+# import six
+# import logging
+# import warnings
 
 import scipy as sp  # noqa
 import scipy.special  # noqa
 
 import numpy as np
 
-from kdes import utils, kernels  # noqa
+from kdes import utils, kernels, bandwidths   # noqa
 
 
 class KDE(object):
@@ -31,45 +31,33 @@ class KDE(object):
     Uses Fukunaga’s method.
     """
     _BANDWIDTH_DEFAULT = 'scott'
-    _SET_OFF_DIAGONAL = True
     _KERNEL_DEFAULT = kernels.Gaussian
 
     def __init__(self, dataset, bandwidth=None, weights=None, kernel=None, neff=None,
                  quiet=False, **kwargs):
-        bw_method = kwargs.pop('bw_method', None)
-        if len(kwargs) > 0:
-            raise ValueError("Unrecognized kwargs: '{}'!".format(str(list(kwargs.keys()))))
-
-        if bw_method is not None:
-            msg = "Use `bandwidth` instead of `bw_method`"
-            warnings.warn(msg, DeprecationWarning, stacklevel=3)
-            if bandwidth is not None:
-                raise ValueError("Both `bandwidth` and `bw_method` provided!")
-            bandwidth = bw_method
-
-        if kernel is None:
-            kernel = self._KERNEL_DEFAULT
-
-        self._kernel = kernel(self)
-
         self.dataset = np.atleast_2d(dataset)
         self._ndim, self._data_size = self.dataset.shape
         if weights is None:
             weights = np.ones(self.data_size)/self.data_size
 
-        if weights is not None:
-            if np.count_nonzero(weights) == 0 or np.any(~np.isfinite(weights) | (weights < 0)):
-                raise ValueError("Invalid `weights` entries, all must be finite and > 0!")
-            weights = np.atleast_1d(weights).astype(float)
-            weights /= np.sum(weights)
-            if np.shape(weights) != (self.data_size,):
-                raise ValueError("`weights` input should be shaped as (N,)!")
+        if np.count_nonzero(weights) == 0 or np.any(~np.isfinite(weights) | (weights < 0)):
+            raise ValueError("Invalid `weights` entries, all must be finite and > 0!")
+        weights = np.atleast_1d(weights).astype(float)
+        weights /= np.sum(weights)
+        if np.shape(weights) != (self.data_size,):
+            raise ValueError("`weights` input should be shaped as (N,)!")
+
+        if kernel is None:
+            kernel = self._KERNEL_DEFAULT
+        self._kernel = kernel(self)
+
+        if bandwidth is None:
+            bandwidth = self._BANDWIDTH_DEFAULT
+        self._bandwidth = bandwidths.Bandwidth(self, bandwidth)
 
         self._neff = neff
         self._weights = weights
-        self._compute_covariance()
         self._quiet = quiet
-        self.set_bandwidth(bandwidth=bandwidth)
         return
 
     def pdf(self, points, reflect=None):
@@ -91,10 +79,10 @@ class KDE(object):
 
         if reflect is None:
             result = self.kernel.pdf(
-                self.dataset, self.weights, points, self.bw_cov_inv, self.bw_norm)
+                self.dataset, self.weights, points, self.bandwidth.matrix_inv, self.bandwidth.norm)
         else:
             result = self.kernel.pdf_reflect(
-                self.dataset, self.weights, points, self.bw_cov_inv, self.bw_norm, reflect=reflect)
+                self.dataset, self.weights, points, self.bandwidth.matrix_inv, self.bandwidth.norm, reflect=reflect)
 
         return result
 
@@ -112,7 +100,7 @@ class KDE(object):
             # This is now either (D,) [and contains `None` values] or (D,2)
             reflect = self._check_reflect(reflect)
 
-        bw_cov = np.array(self.bw_cov)
+        bw_cov = np.array(self.bandwidth.matrix)
         if keep is not None:
             keep = np.atleast_1d(keep)
             for pp in keep:
@@ -136,101 +124,6 @@ class KDE(object):
             samples = samples.squeeze()
 
         return samples
-
-    def scott_factor(self, *args, **kwargs):
-        return np.power(self.neff, -1./(self.ndim+4))
-
-    def silverman_factor(self, *args, **kwargs):
-        return np.power(self.neff*(self.ndim+2.0)/4.0, -1./(self.ndim+4))
-
-    def set_bandwidth(self, bandwidth=None):
-        ndim = self.ndim
-        _bandwidth = bandwidth
-        bw_white = np.zeros((ndim, ndim))
-
-        if len(np.atleast_1d(bandwidth)) == 1:
-            _bw, bw_type = self._compute_bandwidth(bandwidth)
-            if self._SET_OFF_DIAGONAL:
-                bw_white[...] = _bw
-            else:
-                idx = np.arange(ndim)
-                bw_white[idx, idx] = _bw
-        else:
-            if np.shape(bandwidth) == (ndim,):
-                # bw_method = 'diagonal'
-                for ii in range(self.ndim):
-                    bw_white[ii, ii] = self._compute_bandwidth(
-                        bandwidth[ii], param=(ii, ii))[0]
-                bw_type = 'diagonal'
-            elif np.shape(bandwidth) == (ndim, ndim):
-                for ii, jj in np.ndindex(ndim, ndim):
-                    bw_white[ii, jj] = self._compute_bandwidth(
-                        bandwidth[ii, jj], param=(ii, jj))[0]
-                bw_type = 'matrix'
-            else:
-                raise ValueError("`bandwidth` have shape (1,), (N,) or (N,) for `N` dimensions!")
-
-        if np.any(np.isclose(bw_white.diagonal(), 0.0)):
-            ii = np.where(np.isclose(bw_white.diagonal(), 0.0))[0]
-            msg = "WARNING: diagonal '{}' of bandwidth is near zero!".format(ii)
-            logging.warning(msg)
-
-        bw_cov = self._data_cov * (bw_white ** 2)
-        try:
-            bw_cov_inv = np.linalg.inv(bw_cov)
-        except np.linalg.LinAlgError:
-            if not self._quiet:
-                logging.warning("singular `bw_cov` matrix, trying SVD...")
-            bw_cov_inv = np.linalg.pinv(bw_cov)
-
-        self.bw_white = bw_white
-        self.bw_type = bw_type
-        self._bandwidth = _bandwidth
-        self.bw_cov = bw_cov
-        self.bw_cov_inv = bw_cov_inv
-        self.bw_norm = np.sqrt(np.linalg.det(2*np.pi*self.bw_cov))
-        return
-
-    def _compute_bandwidth(self, bandwidth, param=None):
-        if bandwidth is None:
-            bandwidth = self._BANDWIDTH_DEFAULT
-
-        if isinstance(bandwidth, six.string_types):
-            if bandwidth == 'scott':
-                bw = self.scott_factor(param=param)
-            elif bandwidth == 'silverman':
-                bw = self.silverman_factor(param=param)
-            else:
-                msg = "Unrecognized bandwidth str specification '{}'!".format(bandwidth)
-                raise ValueError(msg)
-
-            bw_type = bandwidth
-
-        elif np.isscalar(bandwidth):
-            bw = bandwidth
-            bw_type = 'constant scalar'
-
-        elif callable(bandwidth):
-            bw = bandwidth(self, param=param)
-            bw_type = 'function'
-
-        else:
-            raise ValueError("Unrecognized `bandwidth` '{}'!".format(bandwidth))
-
-        return bw, bw_type
-
-    def _compute_covariance(self):
-        """Computes the covariance matrix for each Gaussian kernel using bandwidth_func().
-        """
-
-        # Cache covariance and inverse covariance of the data
-        if not hasattr(self, '_data_cov'):
-            cov = np.cov(self.dataset, rowvar=True, bias=False, aweights=self.weights)
-            self._data_cov = np.atleast_2d(cov)
-        # if not hasattr(self, '_data_inv_cov'):
-        #     self._data_inv_cov = np.linalg.inv(self._data_cov)
-
-        return
 
     def _check_reflect(self, reflect):
         if reflect is None:
@@ -291,3 +184,7 @@ class KDE(object):
     @property
     def kernel(self):
         return self._kernel
+
+    @property
+    def bandwidth(self):
+        return self._bandwidth
