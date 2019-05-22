@@ -347,7 +347,7 @@ class Parabola(Kernel):
     @classmethod
     def sample(self, ndim, cov, size):
         # Use the median trick to draw from the Epanechnikov distribution
-        samp = np.random.uniform(3*ndim*size).reshape(ndim, size, 3)
+        samp = np.random.uniform(-1, 1, 3*ndim*size).reshape(ndim, size, 3)
         samp = np.median(samp, axis=-1)
         # Add coveriance
         samp = np.dot(cov, samp)
