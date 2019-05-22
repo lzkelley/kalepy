@@ -91,7 +91,7 @@ class Test_KDE_PDF(object):
 
             # If the kernel's support is infinite, then all points outside of boundaries should be
             # nonzero; if it's finite-supported, then only some of them (near edges) will be
-            outside_test_func = np.all if kernel.SUPPORT == 'infinite' else np.any
+            outside_test_func = np.all if kernel._FINITE == 'infinite' else np.any
 
             # Make sure unitarity is preserved
             tot = np.sum(pdf*delta)
@@ -141,7 +141,7 @@ class Test_KDE_PDF(object):
         hist, *_ = np.histogram2d(*data, bins=egrid, density=True)
 
         kde = kdes.KDE(data, kernel=kernel)
-        inside_test_func = np.all if kernel.SUPPORT == 'infinite' else np.any
+        inside_test_func = np.all if kernel._FINITE == 'infinite' else np.any
 
         reflections = [
             [[0.0, 2.0], [None, 2.0]],

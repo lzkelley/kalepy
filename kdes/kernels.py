@@ -1,6 +1,7 @@
 """Kernal basis functions for KDE calculations.
 """
 # import logging
+import six
 
 import numpy as np
 import scipy as sp   # noqa
@@ -11,7 +12,7 @@ from kdes import utils
 
 class Kernel(object):
 
-    _SUPPORT = None
+    _FINITE = None
 
     def __init__(self, kde=None):
         self._kde = kde
@@ -20,10 +21,35 @@ class Kernel(object):
     def __call__(self, *args, **kwargs):
         return self.evaluate(*args, **kwargs)
 
-    def evaluate(self, xx, ref=0.0, hh=1.0, weights=1.0):
+    @classmethod
+    def cdf(self, xx, ref=0.0, bw=1.0):
+        if self._FINITE:
+            args = [-bw, bw, 1000]
+        else:
+            args = [-10*bw, 10*bw, 10000]
+        xe, xc, dx = utils.bins(*args)
+
+        yy = self.evaluate(xc, ref, bw)
+        cs = np.cumsum(yy*dx)
+        cs = np.concatenate([[0.0], cs, [1.0]], axis=0)
+        xc = np.concatenate([[args[0]], cs, args[1]], axis=0)
+
+        zz = sp.interpolate.interp1d(xc, cs, kind='cubic')(xx)
+        return zz
+
+    @classmethod
+    def scale(self, xx, ref, bw):
+        squeeze = (np.ndim(xx) < 2)
+        xx = np.atleast_2d(xx)
+        ndim, nvals = np.shape(xx)
+        return (xx - ref)/bw, ndim, nvals, squeeze
+
+    @classmethod
+    def evaluate(self, xx, ref=0.0, bw=1.0, weights=1.0):
         err = "`evaluate` must be overridden by the Kernel subclass!"
         raise NotImplementedError(err)
 
+    @classmethod
     def sample(self, ndim, bw_matrix, size):
         err = "`sample` must be overridden by the Kernel subclass!"
         raise NotImplementedError(err)
@@ -57,7 +83,7 @@ class Kernel(object):
         for ii in range(num_data):
             temp = self.evaluate(
                 white_points, white_dataset[:, ii, np.newaxis], weights=weights[ii])
-            result += temp
+            result += temp.squeeze()
 
         result = result / norm
         return result
@@ -242,40 +268,166 @@ class Kernel(object):
         norm = np.sqrt(np.linalg.det(sub_mat))
         return sub_data, sub_mat, norm
 
-    @property
-    def SUPPORT(self):
-        return self._SUPPORT
-
 
 class Gaussian(Kernel):
 
-    _SUPPORT = 'infinite'
+    _FINITE = False
 
-    def evaluate(self, xx, ref=0.0, hh=1.0, weights=1.0):
-        ndim, nval = np.shape(xx)
-        diff = (xx - ref) / hh
-        energy = np.sum(diff * diff, axis=0) / 2.0
-        result = np.power(2*np.pi, -ndim/2) * weights * np.exp(-energy)
+    @classmethod
+    def evaluate(self, xx, ref=0.0, bw=1.0, weights=1.0):
+        # ndim, nval = np.shape(xx)
+        yy, ndim, nvals, squeeze = self.scale(xx, ref, bw)
+        energy = np.sum(yy * yy, axis=0) / 2.0
+        norm = np.power(2*np.pi*bw**2, -ndim/2)
+        result = norm * weights * np.exp(-energy)
+        if squeeze:
+            result = result.squeeze()
         return result
 
+    @classmethod
     def sample(self, ndim, cov, size):
         samp = np.random.multivariate_normal(np.zeros(ndim), cov, size=size).T
         return samp
 
+    @classmethod
+    def cdf(self, xx, ref=0.0, bw=1.0):
+        yy, ndim, nvals, squeeze = self.scale(xx, ref, bw)
+        zz = sp.stats.norm.cdf(yy)
+        if squeeze:
+            zz = zz.squeeze()
+        return zz
+
 
 class Box(Kernel):
 
-    _SUPPORT = 'finite'
+    _FINITE = True
 
-    def evaluate(self, xx, ref=0.0, hh=1.0, weights=1.0):
-        ndim, nvals = np.shape(xx)
-        diff = (xx - ref) / hh
-        norm = np.power(2*hh, ndim)
-        result = (weights / norm) * (np.max(np.fabs(diff), axis=0) < 1.0)
+    @classmethod
+    def evaluate(self, xx, ref=0.0, bw=1.0, weights=1.0):
+        yy, ndim, nvals, squeeze = self.scale(xx, ref, bw)
+        norm = np.power(2*bw, ndim)
+        result = (weights / norm) * (np.max(np.fabs(yy), axis=0) < 1.0)
+        if squeeze:
+            result = result.squeeze()
         return result
 
+    @classmethod
     def sample(self, ndim, cov, size):
         samp = np.random.uniform(-1.0, 1.0, size=ndim*size).reshape(ndim, size)
         # Correlate the samples appropriately
         samp = np.dot(cov, samp)
         return samp
+
+    @classmethod
+    def cdf(self, xx, ref=0.0, bw=1.0):
+        yy, ndim, nval, squeeze = self.scale(xx, ref, bw)
+        zz = 0.5 + np.minimum(np.maximum(yy, -1), 1)/2
+        if squeeze:
+            zz = zz.squeeze()
+        return zz
+
+
+class Parabola(Kernel):
+
+    _FINITE = True
+
+    @classmethod
+    def evaluate(self, xx, ref=0.0, bw=1.0, weights=1.0):
+        # ndim, nvals = np.shape(xx)
+        yy, ndim, nvals, squeeze = self.scale(xx, ref, bw)
+        norm = bw*4/3
+        result = np.maximum(1 - yy*yy, 0.0) * weights / norm
+        if squeeze:
+            result = result.squeeze()
+        return result
+
+    @classmethod
+    def sample(self, ndim, cov, size):
+        # Use the median trick to draw from the Epanechnikov distribution
+        samp = np.random.uniform(3*ndim*size).reshape(ndim, size, 3)
+        samp = np.median(samp, axis=-1)
+        # Add coveriance
+        samp = np.dot(cov, samp)
+        return samp
+
+    @classmethod
+    def cdf(self, xx, ref=0.0, bw=1.0):
+        yy, ndim, nvals, squeeze = self.scale(xx, ref, bw)
+        try:
+            yy = np.minimum(np.maximum(yy, -1), 1)
+        except:
+            print(yy)
+            raise
+        zz = 0.5 + (3/4)*(yy - yy**3 / 3)
+        if squeeze:
+            zz = zz.squeeze()
+        return zz
+
+
+class Triweight(Kernel):
+
+    _FINITE = True
+
+    @classmethod
+    def evaluate(self, xx, ref=0.0, bw=1.0, weights=1.0):
+        yy, ndim, nvals, squeeze = self.scale(xx, ref, bw)
+        norm = bw*32/35
+        result = np.maximum((1 - yy*yy)**3, 0.0) * weights / norm
+        if squeeze:
+            result = result.squeeze()
+        return result
+
+    @classmethod
+    def sample(self, ndim, cov, size):
+        raise NotImplementedError()
+
+    @classmethod
+    def cdf(self, xx, ref=0.0, bw=1.0):
+        yy, ndim, nvals, squeeze = self.scale(xx, ref, bw)
+        yy = np.minimum(np.maximum(yy, -1), 1)
+        coeffs = [35/32, -35/32, 21/32, -5/32]
+        powers = [1, 3, 5, 7]
+        zz = 0.5 + np.sum([aa*np.power(yy, pp) for aa, pp in zip(coeffs, powers)], axis=0)
+        if squeeze:
+            zz = zz.squeeze()
+        return zz
+
+
+_index = {
+    'gaussian': Gaussian,
+    'box': Box,
+    'parabola': Parabola,
+    'epanechnikov': Parabola,
+    'triweight': Triweight
+}
+
+_DEFAULT_KERNEL = Gaussian
+
+
+def get_kernel_class(arg=None):
+    if arg is None:
+        return _DEFAULT_KERNEL
+
+    if isinstance(arg, six.string_types):
+        arg = arg.lower().strip()
+        names = list(_index.keys())
+        if arg not in names:
+            err = "Kernel '{}' is not in the index.  Choose one of: '{}'!".format(arg, names)
+            raise ValueError(err)
+
+        return _index[arg]
+
+    # This will raise an error if `arg` isn't a class at all
+    try:
+        if issubclass(arg, Kernel):
+            return arg
+    except:
+        pass
+
+    raise ValueError("Unrecognized Kernel type '{}'!".format(arg))
+
+
+def _get_all_kernels():
+    kerns = set(_index.values())
+    kerns = list(kerns)
+    return kerns

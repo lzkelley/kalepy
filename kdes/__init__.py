@@ -14,7 +14,7 @@ __contributors__ = []
 __bibtex__ = """"""
 
 import six
-import logging
+# import logging
 # import warnings
 
 import scipy as sp  # noqa
@@ -29,7 +29,6 @@ class KDE(object):
     """
     """
     _BANDWIDTH_DEFAULT = 'scott'
-    _KERNEL_DEFAULT = 'gaussian'
 
     def __init__(self, dataset, bandwidth=None, weights=None, kernel=None, neff=None,
                  quiet=False, **kwargs):
@@ -45,17 +44,8 @@ class KDE(object):
         if np.shape(weights) != (self.data_size,):
             raise ValueError("`weights` input should be shaped as (N,)!")
 
-        if kernel is None:
-            kernel = self._KERNEL_DEFAULT
-        if isinstance(kernel, six.string_types):
-            kernel = kernel.lower()
-            if kernel.startswith('gauss'):
-                kernel = kernels.Gaussian
-            elif kernel.startswith('box') or kernel.startswith('rect'):
-                kernel = kernels.Box
-            else:
-                raise ValueError("Unrecognized `kernel` str '{}'!".format(kernel))
-
+        # Convert from string, class, etc to a kernel
+        kernel = kernels.get_kernel_class(kernel)
         self._kernel = kernel(self)
 
         if bandwidth is None:
