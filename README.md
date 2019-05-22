@@ -53,6 +53,15 @@ samples = kde.resample(1000, reflect=boundaries)
 ![2D Samples with Reflection](docs/media/kde_2d_reflect.png)
 
 
+
+### Comparison of Different Histogram Parameters and Different Kernel
+
+The choice in bin-widths and bin-origins makes a significant difference in how a histogram appears.  In general, both parameters are chosen arbitrarily.  KDE also have freedom in what kernel is used, and the bandwidth (amount of smoothing), but there are heuristics for optimizing these parameters.  In particular, for general data, the Parabola/"Epanechnikov" kernel is optimal in reducing bias, and the bandwidth can be estimated using Scott's method.
+
+![Different Histograms and Kernels](docs/media/kde_motivation.png)
+
+
+
 ### Calculate projected / marginalized PDF across target parameters
 
 ```python
