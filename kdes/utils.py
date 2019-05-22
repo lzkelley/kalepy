@@ -1,5 +1,6 @@
 """Simple utility methods.
 """
+import logging
 
 import numpy as np
 
@@ -136,3 +137,51 @@ def stats_str(data, percs=[0.0, 5.0, 25.0, 50.0, 75.0, 95.0, 100.0]):
     rv = ", ".join(["{:.2e}".format(xx) for xx in vals])
     rv = "[" + rv + "]"
     return rv
+
+
+def array_str(data, num=3, fmt=':.2e'):
+    spec = "{{:}}".format(fmt)
+
+    def _astr(vals):
+        temp = ", ".join([spec.format(dd) for dd in vals])
+        return temp
+
+    if len(data) <= 2*num:
+        rv = _astr(data)
+    else:
+        rv = _astr(data[:num]) + " ... " + _astr(data[-num:])
+
+    rv = '[' + rv + ']'
+    return rv
+
+
+def allclose(xx, yy, **kwargs):
+    idx = np.isclose(xx, yy, **kwargs)
+    if not np.all(idx):
+        logging.error("bads : " + array_str(np.where(~idx)[0]))
+        logging.error("left : " + array_str(xx[~idx]))
+        try:
+            logging.error("right: " + array_str(yy[~idx]))
+        except TypeError:
+            logging.error("right: " + str(yy))
+
+        raise AssertionError("Arrays do not match!")
+
+    return
+
+
+def alltrue(xx):
+    idx = (xx == True)
+    if not np.all(idx):
+        logging.error("bads : " + array_str(np.where(~idx)[0]))
+        logging.error("vals : " + array_str(xx[~idx]))
+        raise AssertionError("Not all elements are True!")
+
+    return
+
+
+def bins(*args):
+    xe = np.linspace(*args)
+    xc = midpoints(xe)
+    dx = np.diff(xe)
+    return xe, xc, dx
