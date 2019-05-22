@@ -83,3 +83,9 @@ pdf_y = kde.pdf(edges[1], param=1)
 ```
 
 ![2D PDF with projections](docs/media/2d_pdf_projection.png)
+
+
+
+### KDE Refinement with increasing data points
+
+![2D PDF with projections](docs/media/movie.gif)
