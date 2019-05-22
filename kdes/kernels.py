@@ -50,9 +50,12 @@ class Kernel(object):
         raise NotImplementedError(err)
 
     @classmethod
-    def sample(self, ndim, bw_matrix, size):
-        err = "`sample` must be overridden by the Kernel subclass!"
-        raise NotImplementedError(err)
+    def sample(self, ndim, cov, size):
+        yy = np.linspace(0.0, 1.0, 1000)
+        zz = self.cdf(yy)
+        samps = np.random.uniform(0.0, 1.0, size)
+        xx = sp.interpolate.interp1d(zz, yy, kind='quadratic')(samps)
+        return xx
 
     def pdf(self, points, data=None, weights=None, params=None):
         """
@@ -376,10 +379,6 @@ class Triweight(Kernel):
         if squeeze:
             result = result.squeeze()
         return result
-
-    @classmethod
-    def sample(self, ndim, cov, size):
-        raise NotImplementedError()
 
     @classmethod
     def cdf(self, xx, ref=0.0, bw=1.0):
