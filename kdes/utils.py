@@ -140,7 +140,7 @@ def stats_str(data, percs=[0.0, 5.0, 25.0, 50.0, 75.0, 95.0, 100.0]):
 
 
 def array_str(data, num=3, fmt=':.2e'):
-    spec = "{{:}}".format(fmt)
+    spec = "{{{}}}".format(fmt)
 
     def _astr(vals):
         temp = ", ".join([spec.format(dd) for dd in vals])
