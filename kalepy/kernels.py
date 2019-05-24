@@ -371,10 +371,8 @@ class Parabola_Asym(Kernel):
 
     @classmethod
     def evaluate(self, xx, ref=0.0, bw=1.0, weights=1.0):
-        # ndim, nvals = np.shape(xx)
         yy, ndim, nvals, squeeze = self.scale(xx, ref, bw)
-        # norm = bw*4/3
-        norm = np.power(bw, ndim) * (ndim + 2) / _nball_vol(ndim)
+        norm = (2*_nball_vol(ndim, bw)) / (ndim + 2)
         result = np.maximum(1 - yy*yy, 0.0) * weights / norm
         if squeeze:
             result = result.squeeze()
@@ -496,5 +494,5 @@ def get_all_kernels():
 
 def _nball_vol(ndim, rad=1.0):
     vol = np.pi**(ndim/2)
-    vol = vol / sp.special.gamma((ndim/2) + 1)
+    vol = (rad**ndim) * vol / sp.special.gamma((ndim/2) + 1)
     return vol
