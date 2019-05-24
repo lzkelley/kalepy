@@ -12,17 +12,42 @@
 
 ## Current
 - Kernels are now implemented as their own classes, allowing for easy subclassing.  Currently `Guassian` and `Box` seem to be working.
-- `kdes/`
+- Renamed package: `kdes` to `kalepy`
+
+- `kalepy/`
     - `bandwidths.py`
-    - `kernels.py`
-        - Classes for each different kernel.
-        - `class Gaussian` 
-            - Standard Gaussian kernel.
-        - `class Box`
-            - Boxcar/rectangle kernel with finite support.
+    - `kernels.py`  [new-file]
+        - Classes for each different kernel, which each implement specific methods for evaluating the kernel function (and thus PDF) and sampling from their distributions.
+        - NOTE: some of the scaling and normalization does not work properly in multi-dimensions for all kernels.
+        - `class Gaussian`
+            - Gaussian kernel.
+        - `class Box_Asym`
+            - Boxcar/rectangle/uniform kernel with finite support.
+        - `class Parabola_Asym`
+            - Epanechnikov kernel.
+        - `class Triweight`
+            - Cubic kernel similar to Parabola but with additional smooth derivatives.
     - `utils.py`
-        - `stats_str()`
-            - Method for calculating percentiles of given data and returing them as a str.
+        - `allclose()`   [new-function]
+            - Convenience function for unittests.
+        - `alltrue()`    [new-function]
+            - Convenience function for unittests.
+        - `array_str()`  [new-function]
+            - Format an array (or elements of) for printing.
+        - `bins()`       [new-function]
+            - Generate bin- edges, centers and widths all together.
+        - `stats_str()`  [new-function]
+            - Method for calculating percentiles of given data and returning them as a str.
+    - `tests/`
+        - `test_kernels.py` [new-file]
+            - Tests of the kernels directly.
+
+- `notebooks/`
+    - `kernels.ipynb`  [new-file]
+        - Examining / testing the behavior of different kernels specifically.
+    - `demo.ipynb`     [new-file]
+        - Currently includes the material used in the `README.rst`, should be expanded as a quick demonstration / tutorial of the package.
+
 
 
 
