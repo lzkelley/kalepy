@@ -65,16 +65,13 @@ The choice in bin-widths and bin-origins makes a significant difference in how a
 ### Calculate projected / marginalized PDF across target parameters
 
 ```python
-
 # 2-parameter data, shaped (2,N) for N data-points
 kde = kale.KDE(data)
-
 # Create bins in each dimension
 edges = [np.linspace(-7.5, 10.5, 100), np.linspace(-3, 9, 100)]
 xe, ye = np.meshgrid(*edges)
 # Grid of test points
 grid = np.vstack([xe.ravel(), ye.ravel()])
-
 # Calculate 2D PDF
 pdf_2d = kde.pdf(grid)
 # Calculate each 1D PDF
