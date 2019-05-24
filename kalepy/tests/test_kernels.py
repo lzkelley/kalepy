@@ -161,6 +161,53 @@ class Test_Kernels_Generic(object):
         return
 
     @classmethod
+    def _test_evaluate_nd(self, kernel):
+        print("\n|Test_Kernels_Generic:_test_evaluate_nd()|")
+        print(kernel)
+
+        def kernel_at_dim_bw(kern, ndim, bw, num=1e6):
+            if ndim > 3:
+                raise ValueError("`ndim` = {} is too memory intensive!")
+            pad = 2.0 if kern._FINITE else 4.0
+            extr = [-pad*bw, pad*bw]
+            num = np.power(num, 1/ndim)
+            num = int(num)
+            edges = np.zeros((ndim, num+1))
+            cents = np.zeros((ndim, num))
+            diffs = np.zeros_like(cents)
+            for ii in range(ndim):
+                edges[ii, :], cents[ii, :], diffs[ii, :] = kale.utils.bins(*extr, num+1)
+
+            pdf_edges = kern.grid(edges, ref=np.zeros(ndim), bw=bw)
+            tot = np.array(pdf_edges)
+            for ii in range(ndim):
+                tot = np.trapz(tot, x=edges[-1-ii])
+
+            print("{} :: nd={}, bw={:.2f} : tot={:.4e}".format(
+                kern.__name__, ndim, bw, tot))
+
+            dpow = -4 + ndim
+            delta = 2*np.power(10.0, np.minimum(dpow, -1))
+
+            tools.assert_almost_equal(tot, 1.0, delta=delta)
+
+            return
+
+        kernels = kale.kernels.get_all_kernels()
+
+        num_dims = [1, 2, 3]
+        bandwidths = [0.5, 1.0, 2.0, 4.0]
+
+        for kern in kernels:
+            print("\nkern: ", kern)
+            for ndim in num_dims:
+                print("\nndim: ", ndim)
+                for bw in bandwidths:
+                    kernel_at_dim_bw(kern, ndim, bw)
+
+        return
+
+    @classmethod
     def _test_resample(self, kern):
 
         def resample_at_bandwidth(bw):
@@ -238,6 +285,16 @@ def test_kernels_evaluate():
     for kernel in kale.kernels.get_all_kernels():
         print("Testing '{}'".format(kernel))
         Test_Kernels_Generic._test_evaluate(kernel)
+
+    return
+
+
+def test_kernels_evaluate_nd():
+    print("\n|test_kernels.py:test_kernels_evaluate_nd()|")
+
+    for kernel in kale.kernels.get_all_kernels():
+        print("Testing '{}'".format(kernel))
+        Test_Kernels_Generic._test_evaluate_nd(kernel)
 
     return
 

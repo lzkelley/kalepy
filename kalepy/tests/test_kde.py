@@ -270,17 +270,17 @@ class Test_KDE_PDF_Box(Test_KDE_PDF):
 
     def test_reflect_1d(self):
         print("\n|Test_KDE_PDF:test_reflect_1d()|")
-        self.reflect_1d(kale.kernels.Box)
+        self.reflect_1d(kale.kernels.Box_Asym)
         return
 
     def test_reflect_2d(self):
         print("\n|Test_KDE_PDF:test_reflect_2d()|")
-        self.reflect_2d(kale.kernels.Box)
+        self.reflect_2d(kale.kernels.Box_Asym)
         return
 
     def test_pdf_params_fixed_bandwidth(self):
         print("\n|Test_KDE_PDF_Box:test_pdf_params_fixed_bandwidth()|")
-        self.pdf_params_fixed_bandwidth(kale.kernels.Box)
+        self.pdf_params_fixed_bandwidth(kale.kernels.Box_Asym)
         return
 
 

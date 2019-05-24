@@ -68,9 +68,14 @@ class Kernel(object):
     @classmethod
     def scale(self, xx, ref, bw):
         squeeze = (np.ndim(xx) < 2)
+        if np.ndim(ref) < 2:
+            ref = np.atleast_2d(ref).T
+        if np.ndim(bw) < 2:
+            bw = np.atleast_2d(bw).T
         xx = np.atleast_2d(xx)
         ndim, nvals = np.shape(xx)
-        return (xx - ref)/bw, ndim, nvals, squeeze
+        yy = (xx - ref)/bw
+        return yy, ndim, nvals, squeeze
 
     @classmethod
     def evaluate(self, xx, ref=0.0, bw=1.0, weights=1.0):
@@ -86,6 +91,16 @@ class Kernel(object):
         samps = cls._add_cov(samps, cov)
 
         return samps
+
+    @classmethod
+    def grid(cls, edges, **kwargs):
+        coords = np.meshgrid(*edges)
+        shp = np.shape(coords)[1:]
+        coords = np.vstack([xx.ravel() for xx in coords])
+        pdf = cls.evaluate(coords, **kwargs)
+        print("coords = ", np.shape(coords), "pdf = ", np.shape(pdf), "shp = ", shp)
+        pdf = pdf.reshape(shp)
+        return pdf
 
     def pdf(self, points, data=None, weights=None, params=None):
         """
@@ -120,6 +135,19 @@ class Kernel(object):
 
         result = result / norm
         return result
+
+    def pdf_grid(self, edges, **kwargs):
+        ndim = self._kde.ndim
+        if len(edges) != ndim:
+            err = "`edges` must be (D,): an array of edges for each dimension!"
+            raise ValueError(err)
+
+        coords = np.meshgrid(*edges)
+        shp = np.shape(coords)[1:]
+        coords = np.vstack([xx.ravel() for xx in coords])
+        pdf = self.pdf(coords, **kwargs)
+        pdf = pdf.reshape(shp)
+        return pdf
 
     def pdf_reflect(self, points, reflect, data=None, weights=None):
         """
@@ -343,10 +371,10 @@ class Box_Asym(Kernel):
     def evaluate(self, xx, ref=0.0, bw=1.0, weights=1.0):
         yy, ndim, nvals, squeeze = self.scale(xx, ref, bw)
         norm = np.power(2*bw, ndim)
-        result = (weights / norm) * (np.max(np.fabs(yy), axis=0) < 1.0)
+        zz = (weights / norm) * (np.max(np.fabs(yy), axis=0) < 1.0)
         if squeeze:
-            result = result.squeeze()
-        return result
+            zz = zz.squeeze()
+        return zz
 
     @classmethod
     def sample(self, ndim, cov, size):
@@ -373,10 +401,11 @@ class Parabola_Asym(Kernel):
     def evaluate(self, xx, ref=0.0, bw=1.0, weights=1.0):
         yy, ndim, nvals, squeeze = self.scale(xx, ref, bw)
         norm = (2*_nball_vol(ndim, bw)) / (ndim + 2)
-        result = np.maximum(1 - yy*yy, 0.0) * weights / norm
+        zz = np.product(np.maximum(1 - yy**2, 0.0), axis=0)
+        zz = zz * weights / norm
         if squeeze:
-            result = result.squeeze()
-        return result
+            zz = zz.squeeze()
+        return zz
 
     @classmethod
     def sample(self, ndim, cov, size):
@@ -411,10 +440,11 @@ class Triweight(Kernel):
     def evaluate(self, xx, ref=0.0, bw=1.0, weights=1.0):
         yy, ndim, nvals, squeeze = self.scale(xx, ref, bw)
         norm = bw*32/35
-        result = np.maximum((1 - yy*yy)**3, 0.0) * weights / norm
+        zz = np.product(np.maximum((1 - yy*yy)**3, 0.0), axis=0)
+        zz = zz * weights / norm
         if squeeze:
-            result = result.squeeze()
-        return result
+            zz = zz.squeeze()
+        return zz
 
     @classmethod
     def _cdf_grid(cls, ref, bw):
