@@ -79,15 +79,10 @@ class Kernel(object):
 
     @classmethod
     def sample(cls, ndim, cov, size):
-        # yy = np.linspace(-1.0, 1.0, 1000)
-        # zz = self.cdf(yy)
-        print("!!!!!!!!!!!!!!!!!!")
         grid, cdf = cls._cdf_grid(0.0, 1.0)
         samps = np.random.uniform(0.0, 1.0, ndim*size)
-        print("cdf = ", utils.array_str(cdf))
-        print("grid = ", utils.array_str(grid))
         samps = sp.interpolate.interp1d(cdf, grid, kind='quadratic')(samps).reshape(ndim, size)
-        # samps = np.dot(cov, samps)
+        samps = cls._rem_cov(samps)
         samps = cls._add_cov(samps, cov)
 
         return samps
@@ -422,6 +417,26 @@ class Triweight(Kernel):
         if squeeze:
             result = result.squeeze()
         return result
+
+    @classmethod
+    def _cdf_grid(cls, ref, bw):
+        if cls._FINITE:
+            pad = (1 + _NUM_PAD)
+            args = [-pad*bw, pad*bw, 2000]
+        else:
+            args = [-10*bw, 10*bw, 20000]
+        xe, xc, dx = utils.bins(*args)
+
+        yy = cls.cdf(xc, ref, bw)
+        norm = yy[-1]
+        if not np.isclose(norm, 1.0, rtol=1e-4):
+            err = "Failed to reach unitarity in CDF grid norm: {:.4e}!".format(norm)
+            raise ValueError(err)
+        # csum = csum / norm
+        xc = np.concatenate([[args[0]], [args[0]], xc, [args[1]], [args[1]]], axis=0)
+        yy = np.concatenate([[0.0 - _NUM_PAD], [0.0], yy, [1.0], [1.0+_NUM_PAD]], axis=0)
+        cdf_grid = [xc, yy]
+        return cdf_grid
 
     @classmethod
     def cdf(self, xx, ref=0.0, bw=1.0):
