@@ -2,12 +2,15 @@
 """
 # import logging
 import six
+from collections import OrderedDict
 
 import numpy as np
 import scipy as sp   # noqa
 import scipy.stats   # noqa
 
-from kdes import utils
+from kalepy import utils
+
+_NUM_PAD = 1e-8
 
 
 class Kernel(object):
@@ -22,19 +25,44 @@ class Kernel(object):
         return self.evaluate(*args, **kwargs)
 
     @classmethod
-    def cdf(self, xx, ref=0.0, bw=1.0):
-        if self._FINITE:
-            args = [-bw, bw, 1000]
+    def _add_cov(cls, data, cov):
+        color_mat = sp.linalg.cholesky(cov)
+        color_data = np.dot(color_mat.T, data)
+        return color_data
+
+    @classmethod
+    def _rem_cov(cls, data, cov=None):
+        if cov is None:
+            cov = np.cov(*data)
+        color_mat = sp.linalg.cholesky(cov)
+        uncolor_mat = np.linalg.inv(color_mat)
+        white_data = np.dot(uncolor_mat.T, data)
+        return white_data
+
+    @classmethod
+    def _cdf_grid(cls, ref, bw):
+        if cls._FINITE:
+            pad = (1 + _NUM_PAD)
+            args = [-pad*bw, pad*bw, 2000]
         else:
-            args = [-10*bw, 10*bw, 10000]
+            args = [-10*bw, 10*bw, 20000]
         xe, xc, dx = utils.bins(*args)
 
-        yy = self.evaluate(xc, ref, bw)
-        cs = np.cumsum(yy*dx)
-        cs = np.concatenate([[0.0], cs, [1.0]], axis=0)
-        xc = np.concatenate([[args[0]], cs, args[1]], axis=0)
+        yy = cls.evaluate(xc, ref, bw)
+        csum = np.cumsum(yy*dx)
+        norm = csum[-1]
+        if not np.isclose(norm, 1.0, rtol=1e-4):
+            err = "Failed to reach unitarity in CDF grid norm: {:.4e}!".format(norm)
+            raise ValueError(err)
+        # csum = csum / norm
+        xc = np.concatenate([[args[0]], [args[0]], xc, [args[1]], [args[1]]], axis=0)
+        csum = np.concatenate([[0.0 - _NUM_PAD], [0.0], csum, [1.0], [1.0+_NUM_PAD]], axis=0)
+        cdf_grid = [xc, csum]
+        return cdf_grid
 
-        zz = sp.interpolate.interp1d(xc, cs, kind='cubic')(xx)
+    @classmethod
+    def cdf(cls, xx, ref=0.0, bw=1.0):
+        zz = sp.interpolate.interp1d(*cls._cdf_grid(ref, bw), kind='cubic')(xx)
         return zz
 
     @classmethod
@@ -50,12 +78,19 @@ class Kernel(object):
         raise NotImplementedError(err)
 
     @classmethod
-    def sample(self, ndim, cov, size):
-        yy = np.linspace(0.0, 1.0, 1000)
-        zz = self.cdf(yy)
-        samps = np.random.uniform(0.0, 1.0, size)
-        xx = sp.interpolate.interp1d(zz, yy, kind='quadratic')(samps)
-        return xx
+    def sample(cls, ndim, cov, size):
+        # yy = np.linspace(-1.0, 1.0, 1000)
+        # zz = self.cdf(yy)
+        print("!!!!!!!!!!!!!!!!!!")
+        grid, cdf = cls._cdf_grid(0.0, 1.0)
+        samps = np.random.uniform(0.0, 1.0, ndim*size)
+        print("cdf = ", utils.array_str(cdf))
+        print("grid = ", utils.array_str(grid))
+        samps = sp.interpolate.interp1d(cdf, grid, kind='quadratic')(samps).reshape(ndim, size)
+        # samps = np.dot(cov, samps)
+        samps = cls._add_cov(samps, cov)
+
+        return samps
 
     def pdf(self, points, data=None, weights=None, params=None):
         """
@@ -281,7 +316,7 @@ class Gaussian(Kernel):
         # ndim, nval = np.shape(xx)
         yy, ndim, nvals, squeeze = self.scale(xx, ref, bw)
         energy = np.sum(yy * yy, axis=0) / 2.0
-        norm = np.power(2*np.pi*bw**2, -ndim/2)
+        norm = np.power(2*np.pi*(bw**2), -ndim/2)
         result = norm * weights * np.exp(-energy)
         if squeeze:
             result = result.squeeze()
@@ -289,6 +324,10 @@ class Gaussian(Kernel):
 
     @classmethod
     def sample(self, ndim, cov, size):
+        cov = np.atleast_2d(cov)
+        if np.shape(cov) != (ndim, ndim):
+            err = "Shape of `cov` ({}) does not match `ndim` = {}".format(np.shape(cov), ndim)
+            raise ValueError(err)
         samp = np.random.multivariate_normal(np.zeros(ndim), cov, size=size).T
         return samp
 
@@ -301,7 +340,7 @@ class Gaussian(Kernel):
         return zz
 
 
-class Box(Kernel):
+class Box_Asym(Kernel):
 
     _FINITE = True
 
@@ -317,8 +356,9 @@ class Box(Kernel):
     @classmethod
     def sample(self, ndim, cov, size):
         samp = np.random.uniform(-1.0, 1.0, size=ndim*size).reshape(ndim, size)
-        # Correlate the samples appropriately
-        samp = np.dot(cov, samp)
+        samp_cov = np.cov(*samp)
+        samp = self._rem_cov(samp, samp_cov)
+        samp = self._add_cov(samp, cov)
         return samp
 
     @classmethod
@@ -330,7 +370,7 @@ class Box(Kernel):
         return zz
 
 
-class Parabola(Kernel):
+class Parabola_Asym(Kernel):
 
     _FINITE = True
 
@@ -338,7 +378,8 @@ class Parabola(Kernel):
     def evaluate(self, xx, ref=0.0, bw=1.0, weights=1.0):
         # ndim, nvals = np.shape(xx)
         yy, ndim, nvals, squeeze = self.scale(xx, ref, bw)
-        norm = bw*4/3
+        # norm = bw*4/3
+        norm = np.power(bw, ndim) * (ndim + 2) / _nball_vol(ndim)
         result = np.maximum(1 - yy*yy, 0.0) * weights / norm
         if squeeze:
             result = result.squeeze()
@@ -349,8 +390,10 @@ class Parabola(Kernel):
         # Use the median trick to draw from the Epanechnikov distribution
         samp = np.random.uniform(-1, 1, 3*ndim*size).reshape(ndim, size, 3)
         samp = np.median(samp, axis=-1)
-        # Add coveriance
-        samp = np.dot(cov, samp)
+        # Remove intrinsic coveriance
+        samp = self._rem_cov(samp)
+        # Add desired coveriance
+        samp = self._add_cov(samp, cov)
         return samp
 
     @classmethod
@@ -392,15 +435,17 @@ class Triweight(Kernel):
         return zz
 
 
-_index = {
-    'gaussian': Gaussian,
-    'box': Box,
-    'parabola': Parabola,
-    'epanechnikov': Parabola,
-    'triweight': Triweight
-}
-
 _DEFAULT_KERNEL = Gaussian
+
+_index_list = [
+    ['gaussian', Gaussian],
+    ['box', Box_Asym],
+    ['parabola', Parabola_Asym],
+    ['epanechnikov', Parabola_Asym],
+    ['triweight', Triweight],
+]
+
+_index = OrderedDict([(nam, val) for nam, val in _index_list])
 
 
 def get_kernel_class(arg=None):
@@ -426,7 +471,15 @@ def get_kernel_class(arg=None):
     raise ValueError("Unrecognized Kernel type '{}'!".format(arg))
 
 
-def _get_all_kernels():
-    kerns = set(_index.values())
-    kerns = list(kerns)
+def get_all_kernels():
+    kerns = []
+    for kk in _index.values():
+        if kk not in kerns:
+            kerns.append(kk)
     return kerns
+
+
+def _nball_vol(ndim, rad=1.0):
+    vol = np.pi**(ndim/2)
+    vol = vol / sp.special.gamma((ndim/2) + 1)
+    return vol
