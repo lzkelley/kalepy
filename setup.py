@@ -6,19 +6,19 @@ with open('requirements.txt') as inn:
 with open("README.md", "r") as inn:
     long_description = inn.read().strip()
 
-with open('kdes/VERSION.txt') as inn:
+with open('kalepy/VERSION.txt') as inn:
     version = inn.read().strip()
 
 setup(
-    name="kdes",
+    name="kalepy",
     version=version,
     author="Luke Zoltan Kelley",
     author_email="lzkelley@northwestern.edu",
     description=("Kernel density estimation and sampling."),
     license="MIT",
     keywords="",
-    url="https://github.com/lzkelley/kdes/",
-    packages=['kdes'],
+    url="https://github.com/lzkelley/kalepy/",
+    packages=['kalepy'],
     include_package_data=True,
     install_requires=requirements,
     long_description=long_description,

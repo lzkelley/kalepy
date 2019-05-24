@@ -13,16 +13,9 @@ __copyright__ = "Copyright 2019 - Luke Zoltan Kelley and contributors"
 __contributors__ = []
 __bibtex__ = """"""
 
-import six
-# import logging
-# import warnings
-
-import scipy as sp  # noqa
-import scipy.special  # noqa
-
 import numpy as np
 
-from kdes import utils, kernels, bandwidths   # noqa
+from kalepy import kernels, bandwidths
 
 
 class KDE(object):
@@ -159,3 +152,6 @@ class KDE(object):
     @property
     def bandwidth(self):
         return self._bandwidth
+
+
+from kalepy.kernels import get_kernel_class, get_all_kernels  # noqa

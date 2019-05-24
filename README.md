@@ -1,9 +1,9 @@
-# KDES: Kernel Density Estimation and Sampling
+# kalepy: Kernel Density Estimation and Sampling
 
-[![Build Status](https://travis-ci.org/lzkelley/kdes.svg?branch=master)](https://travis-ci.org/lzkelley/kdes)
-[![codecov](https://codecov.io/gh/lzkelley/kdes/branch/master/graph/badge.svg)](https://codecov.io/gh/lzkelley/kdes)
+[![Build Status](https://travis-ci.org/lzkelley/kalepy.svg?branch=master)](https://travis-ci.org/lzkelley/kalepy)
+[![codecov](https://codecov.io/gh/lzkelley/kalepy/branch/master/graph/badge.svg)](https://codecov.io/gh/lzkelley/kalepy)
 
-dev: [![Build Status](https://travis-ci.org/lzkelley/kdes.svg?branch=dev)](https://travis-ci.org/lzkelley/kdes)
+dev: [![Build Status](https://travis-ci.org/lzkelley/kalepy.svg?branch=dev)](https://travis-ci.org/lzkelley/kalepy)
 
 This package performs KDE operations on multidimensional data to: **1) calculate estimated PDFs** (probability distribution functions), and **2) to resample new data** from those PDFs.
 
@@ -12,8 +12,8 @@ This package performs KDE operations on multidimensional data to: **1) calculate
 #### from source
 
 ```bash
-git clone https://github.com/lzkelley/kdes.git
-pip install -e kdes/
+git clone https://github.com/lzkelley/kalepy.git
+pip install -e kalepy/
 ```
 
 
@@ -24,9 +24,9 @@ pip install -e kdes/
 Without reflection, the KDE (red line) noticeably underestimates the edges of this uniform distribution (grey histogram).  When resampling from the KDE, the new samples (red carpet and histogram) are drawn outside of the original distribution edges.  Reflecting boundary conditions better estimate the PDF, and constrain new samples to be within bounds.
 
 ```python
-import kdes
+import kalepy as kale
 # here `data` has shape (N,) for N data points
-kde = kdes.KDE(data)
+kde = kale.KDE(data)
 grid = np.linspace(-0.5, 2.5, 1000)
 # choose reflection boundaries
 boundaries = [0.0, 2.0]
@@ -39,9 +39,9 @@ samples = kde.resample(100, reflect=boundaries)
 This also works in multiple dimensions.  In each dimension, reflecting boundaries can be applied either on both sides (e.g. x-axis), or only on one side (e.g. y-axis).
 
 ```python
-import kdes
+import kalepy as kale
 # here `data` has shape (2,N) 2-parameters and N data points
-kde = kdes.KDE(data)
+kde = kale.KDE(data)
 xc, yc = np.meshgrid([np.linspace(-0.5, 2.5, 100), np.linspace(-3.0, 2.5, 200)])
 grid = np.vstack([xc.ravel(), yc.ravel()])
 # choose reflection boundaries in each parameter
@@ -67,7 +67,7 @@ The choice in bin-widths and bin-origins makes a significant difference in how a
 ```python
 
 # 2-parameter data, shaped (2,N) for N data-points
-kde = kdes.KDE(data)
+kde = kale.KDE(data)
 
 # Create bins in each dimension
 edges = [np.linspace(-7.5, 10.5, 100), np.linspace(-3, 9, 100)]

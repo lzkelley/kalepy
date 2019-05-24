@@ -2,6 +2,6 @@ include MANIFEST.in
 include *.txt *.rst
 include setup.py
 include notebooks/*.ipynb
-include kdes/VERSION.txt
+include kalepy/VERSION.txt
 
 global-exclude *.pyc

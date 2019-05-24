@@ -11,8 +11,8 @@ import scipy.stats  # noqa
 from numpy.testing import run_module_suite
 from nose.tools import assert_true, assert_false
 
-import kdes
-from kdes import utils
+import kalepy as kale
+from kalepy import utils
 
 
 class Test_KDE_PDF(object):
@@ -33,7 +33,7 @@ class Test_KDE_PDF(object):
 
         methods = ['scott', 0.04, 0.2, 0.8]
         classes = [lambda xx, bw: sp.stats.gaussian_kde(xx, bw_method=bw),
-                   lambda xx, bw: kdes.KDE(xx, bandwidth=bw, kernel=kernel)]
+                   lambda xx, bw: kale.KDE(xx, bandwidth=bw, kernel=kernel)]
         for mm in methods:
             kde_list = [cc(aa, mm).pdf(grid) for cc in classes]
             print("method: {}".format(mm))
@@ -62,9 +62,9 @@ class Test_KDE_PDF(object):
         grid = np.vstack([xc.ravel(), yc.ravel()])
 
         methods = ['scott', 0.04, 0.2, 0.8]
-        # classes = [sp.stats.gaussian_kde, kdes.KDE]
+        # classes = [sp.stats.gaussian_kde, kale.KDE]
         classes = [lambda xx, bw: sp.stats.gaussian_kde(xx, bw_method=bw),
-                   lambda xx, bw: kdes.KDE(xx, bandwidth=bw, kernel=kernel)]
+                   lambda xx, bw: kale.KDE(xx, bandwidth=bw, kernel=kernel)]
         for mm in methods:
             kdes_list = [cc(data, mm).pdf(grid).reshape(xc.shape).T
                          for cc in classes]
@@ -86,7 +86,7 @@ class Test_KDE_PDF(object):
 
         boundaries = [None, EXTR]
         for bnd in boundaries:
-            kde = kdes.KDE(aa, kernel=kernel)
+            kde = kale.KDE(aa, kernel=kernel)
             pdf = kde.pdf(cgrid, reflect=bnd)
 
             # If the kernel's support is infinite, then all points outside of boundaries should be
@@ -129,9 +129,9 @@ class Test_KDE_PDF(object):
         yy = np.concatenate([yy, np.random.choice(yy, NUM-yy.size)])
 
         data = [xx, yy]
-        edges = [kdes.utils.spacing(aa, 'lin', 30) for aa in [xx, yy]]
-        egrid = [kdes.utils.spacing(ee, 'lin', 100, stretch=0.5) for ee in edges]
-        cgrid = [kdes.utils.midpoints(ee, 'lin') for ee in egrid]
+        edges = [kale.utils.spacing(aa, 'lin', 30) for aa in [xx, yy]]
+        egrid = [kale.utils.spacing(ee, 'lin', 100, stretch=0.5) for ee in edges]
+        cgrid = [kale.utils.midpoints(ee, 'lin') for ee in egrid]
         width = [np.diff(ee) for ee in egrid]
 
         xc, yc = np.meshgrid(*cgrid)
@@ -140,7 +140,7 @@ class Test_KDE_PDF(object):
 
         hist, *_ = np.histogram2d(*data, bins=egrid, density=True)
 
-        kde = kdes.KDE(data, kernel=kernel)
+        kde = kale.KDE(data, kernel=kernel)
         inside_test_func = np.all if kernel._FINITE == 'infinite' else np.any
 
         reflections = [
@@ -205,10 +205,10 @@ class Test_KDE_PDF(object):
         more = np.random.multivariate_normal([1.0, 6.0], cov, NUM).T
         data = np.concatenate([data, more], axis=-1)
 
-        kde = kdes.KDE(data, bandwidth=bandwidth, kernel=kernel)
+        kde = kale.KDE(data, bandwidth=bandwidth, kernel=kernel)
 
-        edges = [kdes.utils.spacing(dd, 'lin', 200, stretch=0.1) for dd in data]
-        cents = [kdes.utils.midpoints(ee, 'lin') for ee in edges]
+        edges = [kale.utils.spacing(dd, 'lin', 200, stretch=0.1) for dd in data]
+        cents = [kale.utils.midpoints(ee, 'lin') for ee in edges]
         widths = [np.diff(ee) for ee in edges]
         # area = widths[0][:, np.newaxis] * widths[1][np.newaxis, :]
 
@@ -221,7 +221,7 @@ class Test_KDE_PDF(object):
         for par in range(2):
             xx = cents[par]
             pdf_2d = kde.pdf(xx, params=par)
-            kde_1d = kdes.KDE(data[par, :], bandwidth=bandwidth, kernel=kernel)
+            kde_1d = kale.KDE(data[par, :], bandwidth=bandwidth, kernel=kernel)
             pdf_1d = kde_1d.pdf(xx)
             # print("matrix : ", kde.bandwidth.matrix, kde_1d.bandwidth.matrix)
             assert_true(np.allclose(pdf_2d, pdf_1d, rtol=1e-3))
@@ -242,27 +242,27 @@ class Test_KDE_PDF_Gaussian(Test_KDE_PDF):
 
     def test_compare_scipy_1d(self):
         print("\n|Test_KDE_PDF:test_compare_scipy_1d()|")
-        self.compare_scipy_1d(kdes.kernels.Gaussian)
+        self.compare_scipy_1d(kale.kernels.Gaussian)
         return
 
     def test_compare_scipy_2d(self):
         print("\n|Test_KDE_PDF:test_compare_scipy_2d()|")
-        self.compare_scipy_2d(kdes.kernels.Gaussian)
+        self.compare_scipy_2d(kale.kernels.Gaussian)
         return
 
     def test_reflect_1d(self):
         print("\n|Test_KDE_PDF:test_reflect_1d()|")
-        self.reflect_1d(kdes.kernels.Gaussian)
+        self.reflect_1d(kale.kernels.Gaussian)
         return
 
     def test_reflect_2d(self):
         print("\n|Test_KDE_PDF:test_reflect_2d()|")
-        self.reflect_2d(kdes.kernels.Gaussian)
+        self.reflect_2d(kale.kernels.Gaussian)
         return
 
     def test_pdf_params_fixed_bandwidth(self):
         print("\n|Test_KDE_PDF_Gaussian:test_pdf_params_fixed_bandwidth()|")
-        self.pdf_params_fixed_bandwidth(kdes.kernels.Gaussian)
+        self.pdf_params_fixed_bandwidth(kale.kernels.Gaussian)
         return
 
 
@@ -270,17 +270,17 @@ class Test_KDE_PDF_Box(Test_KDE_PDF):
 
     def test_reflect_1d(self):
         print("\n|Test_KDE_PDF:test_reflect_1d()|")
-        self.reflect_1d(kdes.kernels.Box)
+        self.reflect_1d(kale.kernels.Box)
         return
 
     def test_reflect_2d(self):
         print("\n|Test_KDE_PDF:test_reflect_2d()|")
-        self.reflect_2d(kdes.kernels.Box)
+        self.reflect_2d(kale.kernels.Box)
         return
 
     def test_pdf_params_fixed_bandwidth(self):
         print("\n|Test_KDE_PDF_Box:test_pdf_params_fixed_bandwidth()|")
-        self.pdf_params_fixed_bandwidth(kdes.kernels.Box)
+        self.pdf_params_fixed_bandwidth(kale.kernels.Box)
         return
 
 
@@ -308,8 +308,8 @@ class Test_KDE_Resample(object):
         xc, yc = np.meshgrid(*cents)
 
         bws = [0.5, 2.0]
-        kde2d = kdes.KDE(data, bandwidth=bws)
-        kde1d = [kdes.KDE(dd, bandwidth=ss) for dd, ss in zip(data, bws)]
+        kde2d = kale.KDE(data, bandwidth=bws)
+        kde1d = [kale.KDE(dd, bandwidth=ss) for dd, ss in zip(data, bws)]
 
         for ii in range(2):
             samp_1d = kde1d[ii].resample(NUM).squeeze()
@@ -345,7 +345,7 @@ class Test_KDE_Resample(object):
             test = np.insert(test, ii, norm*np.ones_like(test[0]), axis=0)
 
             # Construct KDE
-            kde3d = kdes.KDE(test)
+            kde3d = kale.KDE(test)
 
             # Resample from KDE preserving the uniform data
             samples = kde3d.resample(NUM, keep=ii)
@@ -395,7 +395,7 @@ class Test_KDE_Resample(object):
             test = np.insert(test, hi, norms[1]*np.ones_like(test[0]), axis=0)
 
             # Construct KDE and draw new samples preserving the inserted variables
-            kde4d = kdes.KDE(test)
+            kde4d = kale.KDE(test)
             samples = kde4d.resample(NUM, keep=(lo, hi))
             # Make sure the target variables are preserved
             for kk, ll in enumerate([lo, hi]):
@@ -421,14 +421,14 @@ class Test_KDE_Resample(object):
         extr = [0.0, 2.0]
         data = np.random.uniform(*extr, NUM)
 
-        edges = kdes.utils.spacing(extr, 'lin', 30)
+        edges = kale.utils.spacing(extr, 'lin', 30)
         edges = np.concatenate([
             edges[0] - np.arange(1, 5)[::-1]*np.diff(edges)[0],
             edges,
             edges[-1] + np.arange(1, 5)*np.diff(edges)[-1],
         ])
 
-        kde = kdes.KDE(data)
+        kde = kale.KDE(data)
 
         reflections = [None, extr]
         for ii, reflect in enumerate(reflections):
@@ -461,9 +461,9 @@ class Test_KDE_Resample(object):
         yy = np.concatenate([yy, np.random.choice(yy, NUM-yy.size)])
 
         data = [xx, yy]
-        edges = [kdes.utils.spacing(aa, 'lin', 30) for aa in [xx, yy]]
-        egrid = [kdes.utils.spacing(ee, 'lin', 100, stretch=0.5) for ee in edges]
-        cgrid = [kdes.utils.midpoints(ee, 'lin') for ee in egrid]
+        edges = [kale.utils.spacing(aa, 'lin', 30) for aa in [xx, yy]]
+        egrid = [kale.utils.spacing(ee, 'lin', 100, stretch=0.5) for ee in edges]
+        cgrid = [kale.utils.midpoints(ee, 'lin') for ee in egrid]
         # width = [np.diff(ee) for ee in egrid]
 
         xc, yc = np.meshgrid(*cgrid)
@@ -472,7 +472,7 @@ class Test_KDE_Resample(object):
 
         hist, *_ = np.histogram2d(*data, bins=egrid, density=True)
 
-        kde = kdes.KDE(data)
+        kde = kale.KDE(data)
 
         reflections = [
             [[0.0, 2.0], [None, 2.0]],

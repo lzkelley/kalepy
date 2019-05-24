@@ -10,7 +10,7 @@ import numpy as np
 from numpy.testing import run_module_suite
 from nose.tools import assert_true
 
-from kdes import utils
+from kalepy import utils
 
 
 class Test_Midpoints(object):

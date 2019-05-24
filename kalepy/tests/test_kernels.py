@@ -11,8 +11,8 @@ import scipy.stats  # noqa
 from numpy.testing import run_module_suite
 from nose import tools
 
-import kdes
-from kdes import utils
+import kalepy as kale
+from kalepy import utils
 
 GOOD_KERNEL_NAMES = ['gaussian', 'box', 'parabola', 'epanechnikov']
 BAD_KERNEL_NAMES = ['triangle', 'spaceship', '', 0.5]
@@ -27,7 +27,7 @@ class Test_Kernels_Base(object):
     def test_not_implemented(self):
         print("\n|Test_Kernels_Base:test_not_implemented()|")
 
-        kern = kdes.kernels.Kernel()
+        kern = kale.kernels.Kernel()
         with tools.assert_raises(NotImplementedError):
             kern.sample(2, [[1.0, 0.0], [0.0, 1.0]], 10)
 
@@ -54,7 +54,7 @@ class Test_Kernels_Base(object):
                 else:
                     keep = np.random.choice(num, ii, replace=False)
 
-                mat = kdes.kernels.Kernel._cov_keep_vars(matrix, keep)
+                mat = kale.kernels.Kernel._cov_keep_vars(matrix, keep)
                 if keep is None:
                     tools.assert_true(np.allclose(matrix, mat))
                 else:
@@ -65,19 +65,19 @@ class Test_Kernels_Base(object):
 
                         # Make sure `reflect` consistency checks work
                         # These should also work
-                        kdes.kernels.Kernel._cov_keep_vars(matrix, keep, reflect=None)
-                        kdes.kernels.Kernel._cov_keep_vars(matrix, keep, reflect=reflect)
+                        kale.kernels.Kernel._cov_keep_vars(matrix, keep, reflect=None)
+                        kale.kernels.Kernel._cov_keep_vars(matrix, keep, reflect=reflect)
                         # Make sure reflection in `keep` parameter fails
                         fail = [rr for rr in reflect]
                         fail[jj] = [1.0, 2.0]
                         with tools.assert_raises(ValueError):
-                            kdes.kernels.Kernel._cov_keep_vars(matrix, keep, reflect=fail)
+                            kale.kernels.Kernel._cov_keep_vars(matrix, keep, reflect=fail)
                         # Make sure reflection in any other parameters succeeds
                         not_keep = list(set(range(num)) - set(keep))
                         succeed = [rr for rr in reflect]
                         for ss in not_keep:
                             succeed[ss] = [1.0, 2.0]
-                        kdes.kernels.Kernel._cov_keep_vars(matrix, keep, reflect=succeed)
+                        kale.kernels.Kernel._cov_keep_vars(matrix, keep, reflect=succeed)
 
         return
 
@@ -100,7 +100,7 @@ class Test_Kernels_Base(object):
                     params = sorted(np.random.choice(num, ii, replace=False))
                     iter_params = params
 
-                sub_data, sub_mat, sub_norm = kdes.kernels.Kernel._params_subset(
+                sub_data, sub_mat, sub_norm = kale.kernels.Kernel._params_subset(
                     data, matrix, params)
 
                 # Compare each parameter
@@ -135,7 +135,7 @@ class Test_Kernels_Generic(object):
             tools.assert_true(nval == 1)
 
             edges = np.linspace(-10*hh, 10*hh, 10000)
-            cents = kdes.utils.midpoints(edges, 'lin')
+            cents = kale.utils.midpoints(edges, 'lin')
             width = np.diff(edges)
             yy = kernel.evaluate(cents, bw=hh)
             # Make sure kernel is callable
@@ -160,40 +160,74 @@ class Test_Kernels_Generic(object):
 
         return
 
+    @classmethod
+    def _test_resample(self, kern):
+
+        def resample_at_bandwidth(bw):
+            NUM = int(1e5)
+            xe, xc, dx = kale.utils.bins(-2*bw, 2*bw, 40)
+            samp = kern.sample(1, np.atleast_2d(bw), NUM).squeeze()
+
+            hist, _ = np.histogram(samp, xe, density=True)
+            pdf = kern.evaluate(xc, 0.0, bw)
+
+            hist_cum = np.cumsum(hist*dx)
+            hist_cum = np.append([0.0], hist_cum)
+            cdf = kern.cdf(xe, bw=bw)
+
+            for aa, bb, name in zip([hist, hist_cum], [pdf, cdf], ['pdf', 'cdf']):
+                idx = (aa > 0.0) & (bb > 0.0)
+                dof = np.count_nonzero(idx) - 1
+                x2 = np.sum(np.square(aa[idx] - bb[idx])/bb[idx]**2)
+                x2 = x2 / dof
+                print("Kernel: {}, bw: {:.2e} :: {} : x2/dof = {:.4e}".format(
+                    kern.__name__, bw, name, x2))
+                print("\t" + kale.utils.array_str(aa[idx]))
+                print("\t" + kale.utils.array_str(bb[idx]))
+                tools.assert_true(x2 < 1e-2)
+
+            return
+
+        bandwidths = [0.5, 1.0, 2.0, 3.0]
+        for jj, bw in enumerate(bandwidths):
+            resample_at_bandwidth(bw)
+
+        return
+
 
 def test_get_kernel_class():
     print("\n|test_kernels.py:test_get_kernel_class()|")
     for name in GOOD_KERNEL_NAMES:
         print("Name: '{}'".format(name))
-        kern = kdes.kernels.get_kernel_class(name)
+        kern = kale.kernels.get_kernel_class(name)
         kern()
 
-    for name in kdes.kernels._index.keys():
-        kern = kdes.kernels.get_kernel_class(name)
+    for name in kale.kernels._index.keys():
+        kern = kale.kernels.get_kernel_class(name)
         kern()
 
     for name in BAD_KERNEL_NAMES:
         with tools.assert_raises(ValueError):
-            kern = kdes.kernels.get_kernel_class(name)
+            kern = kale.kernels.get_kernel_class(name)
 
     # Test defaults
-    kern = kdes.kernels.get_kernel_class(None)
+    kern = kale.kernels.get_kernel_class(None)
     kern()
-    kern = kdes.kernels.get_kernel_class()
+    kern = kale.kernels.get_kernel_class()
     kern()
 
     # Test custom kernel
-    class Good_Kernel(kdes.kernels.Kernel):
+    class Good_Kernel(kale.kernels.Kernel):
         pass
 
-    kern = kdes.kernels.get_kernel_class(Good_Kernel)
+    kern = kale.kernels.get_kernel_class(Good_Kernel)
 
     # Test bad custom kernel
     class Bad_Kernel(object):
         pass
 
     with tools.assert_raises(ValueError):
-        kern = kdes.kernels.get_kernel_class(Bad_Kernel)
+        kern = kale.kernels.get_kernel_class(Bad_Kernel)
 
     return
 
@@ -201,9 +235,19 @@ def test_get_kernel_class():
 def test_kernels_evaluate():
     print("\n|test_kernels.py:test_kernels_evaluate()|")
 
-    for kernel in kdes.kernels._get_all_kernels():
+    for kernel in kale.kernels.get_all_kernels():
         print("Testing '{}'".format(kernel))
         Test_Kernels_Generic._test_evaluate(kernel)
+
+    return
+
+
+def test_kernels_resample():
+    print("\n|test_kernels.py:test_kernels_resample()|")
+
+    for kernel in kale.kernels.get_all_kernels():
+        print("Testing '{}'".format(kernel))
+        Test_Kernels_Generic._test_resample(kernel)
 
     return
 

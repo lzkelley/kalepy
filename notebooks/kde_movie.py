@@ -8,7 +8,7 @@ import numpy as np
 import tqdm
 import matplotlib.pyplot as plt
 
-import kdes
+import kalepy as kale
 
 NUM = int(1e4)
 np.random.seed(123456)
@@ -28,7 +28,7 @@ true_pdf = (num_1/NUM)*np.power(2*np.pi, -1/2) * np.exp(-(grid-4.0)**2/2)
 true_pdf += (num_2/NUM)*np.power(2*np.pi, -1/2)/(0.5*grid) * np.exp(-(np.log(grid)-loc)**2/0.5)
 
 
-kde_full = kdes.KDE(data, kernel='Parabola', bandwidth=0.3)
+kde_full = kale.KDE(data, kernel='Parabola', bandwidth=0.3)
 pdf_full = kde_full.pdf(grid)
 np.random.seed(4321)
 samp_full = kde_full.resample(NUM)
@@ -85,7 +85,7 @@ for ii, NN in enumerate(tqdm.tqdm_notebook(vals)):
     ax = axes[0]
     samp = data[:NN]
 
-    kde = kdes.KDE(samp, kernel='Parabola')
+    kde = kale.KDE(samp, kernel='Parabola')
     pdf = kde.pdf(grid)
     bw = np.sqrt(kde.bandwidth.matrix[0, 0])
 
@@ -99,7 +99,7 @@ for ii, NN in enumerate(tqdm.tqdm_notebook(vals)):
 
     if NN < 20:
         for ss in samp:
-            ps = kdes.kernels.Parabola.evaluate(grid, ref=ss, bw=bw)/NN
+            ps = kale.kernels.Parabola.evaluate(grid, ref=ss, bw=bw)/NN
             idx = (ps > 0)
             ax.plot(grid[idx], ps[idx], 'b--', alpha=0.5, lw=0.5)
 

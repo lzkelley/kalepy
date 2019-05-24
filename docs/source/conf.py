@@ -17,7 +17,7 @@
 
 # -- Project information -----------------------------------------------------
 
-project = 'kdes'
+project = 'kalepy'
 copyright = '2019, Luke Zoltan Kelley and contributors'
 author = 'Luke Zoltan Kelley and contributors'
 
