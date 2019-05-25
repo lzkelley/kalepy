@@ -9,11 +9,27 @@ This package performs KDE operations on multidimensional data to: **1) calculate
 
 ## Installation
 
-#### from source
+#### from pypi (i.e. via pip)
+
+```bash
+pip install kalepy
+```
+
+#### from source (e.g. for development)
 
 ```bash
 git clone https://github.com/lzkelley/kalepy.git
 pip install -e kalepy/
+```
+
+In this case the package can easily be updated be changing into the source directory, pulling, and rebuilding:
+
+```bash
+cd kalepy
+git pull
+pip install -e .
+# Optional: run unit tests (using the `nosetests` package)
+nosetests
 ```
 
 
