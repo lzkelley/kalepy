@@ -22,6 +22,7 @@ setup(
     include_package_data=True,
     install_requires=requirements,
     long_description=long_description,
+    long_description_content_type='text/markdown',
     keywords=['utilities', 'physics', 'astronomy', 'cosmology',
               'astrophysics', 'statistics',
               'kernel density estimation', 'kernel density estimate'],
