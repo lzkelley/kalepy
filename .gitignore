@@ -105,3 +105,4 @@ venv.bak/
 notebooks/*.png
 *.gif
 *.pdf
+.pypirc

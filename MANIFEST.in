@@ -4,4 +4,6 @@ include setup.py
 include notebooks/*.ipynb
 include kalepy/VERSION.txt
 
+recursive-include docs *
+
 global-exclude *.pyc
