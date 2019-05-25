@@ -34,7 +34,9 @@ pdf = kde.pdf(grid, reflect=boundaries)
 samples = kde.resample(100, reflect=boundaries)
 ```
 
-![1D Samples with Reflection](docs/media/kde_1d_reflect.png)
+
+
+![1D Samples with Reflection](https://raw.githubusercontent.com/lzkelley/kalepy/master/docs/media/kde_1d_reflect.png)
 
 This also works in multiple dimensions.  In each dimension, reflecting boundaries can be applied either on both sides (e.g. x-axis), or only on one side (e.g. y-axis).
 
@@ -50,7 +52,7 @@ pdf = kde.pdf(grid, reflect=boundaries)
 samples = kde.resample(1000, reflect=boundaries)
 ```
 
-![2D Samples with Reflection](docs/media/kde_2d_reflect.png)
+![2D Samples with Reflection](https://raw.githubusercontent.com/lzkelley/kalepy/master/docs/media/kde_2d_reflect.png)
 
 
 
@@ -58,7 +60,7 @@ samples = kde.resample(1000, reflect=boundaries)
 
 The choice in bin-widths and bin-origins makes a significant difference in how a histogram appears.  In general, both parameters are chosen arbitrarily.  KDE also have freedom in what kernel is used, and the bandwidth (amount of smoothing), but there are heuristics for optimizing these parameters.  In particular, for general data, the Parabola/"Epanechnikov" kernel is optimal in reducing bias, and the bandwidth can be estimated using Scott's method.
 
-![Different Histograms and Kernels](docs/media/kde_motivation.png)
+![Different Histograms and Kernels](https://raw.githubusercontent.com/lzkelley/kalepy/master/docs/media/kde_motivation.png)
 
 
 
@@ -79,10 +81,10 @@ pdf_x = kde.pdf(edges[0], param=0)
 pdf_y = kde.pdf(edges[1], param=1)
 ```
 
-![2D PDF with projections](docs/media/2d_pdf_projection.png)
+![2D PDF with projections](https://raw.githubusercontent.com/lzkelley/kalepy/master/docs/media/2d_pdf_projection.png)
 
 
 
 ### KDE Refinement with increasing data points
 
-![2D PDF with projections](docs/media/movie.gif)
+![2D PDF with projections](https://raw.githubusercontent.com/lzkelley/kalepy/master/docs/media/movie.gif)
