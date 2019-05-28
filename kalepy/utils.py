@@ -3,6 +3,8 @@
 import logging
 
 import numpy as np
+import scipy as sp
+import scipy.linalg  # noqa
 
 
 def midpoints(data, scale='lin', frac=0.5, axis=-1, squeeze=True):
@@ -156,13 +158,15 @@ def array_str(data, num=3, fmt=':.2e'):
 
 
 def allclose(xx, yy, **kwargs):
+    xx = np.atleast_1d(xx)
+    # yy = np.atleast_1d(yy)
     idx = np.isclose(xx, yy, **kwargs)
     if not np.all(idx):
         logging.error("bads : " + array_str(np.where(~idx)[0]))
         logging.error("left : " + array_str(xx[~idx]))
         try:
             logging.error("right: " + array_str(yy[~idx]))
-        except TypeError:
+        except (TypeError, IndexError):
             logging.error("right: " + str(yy))
 
         raise AssertionError("Arrays do not match!")
@@ -185,3 +189,47 @@ def bins(*args):
     xc = midpoints(xe)
     dx = np.diff(xe)
     return xe, xc, dx
+
+
+def add_cov(data, cov):
+    color_mat = sp.linalg.cholesky(cov)
+    color_data = np.dot(color_mat.T, data)
+    return color_data
+
+
+def rem_cov(data, cov=None):
+    if cov is None:
+        cov = np.cov(*data)
+    color_mat = sp.linalg.cholesky(cov)
+    uncolor_mat = np.linalg.inv(color_mat)
+    white_data = np.dot(uncolor_mat.T, data)
+    return white_data
+
+
+def trapz_nd(data, edges):
+    edges = np.atleast_2d(edges)
+    tot = np.array(data)
+    for ii in range(len(edges)):
+        tot = np.trapz(tot, x=edges[-1-ii])
+    return tot
+
+
+def cov_from_var_cor(var, corr):
+    var = np.atleast_1d(var)
+    assert np.ndim(var) == 1, "`var` should be 1D!"
+    ndim = len(var)
+    # Covariance matrix diagonals should be the variance (of each parameter)
+    cov = np.identity(ndim) * var
+
+    if np.isscalar(corr):
+        corr = corr * np.ones((ndim, ndim))
+    elif np.shape(corr) != (ndim, ndim):
+        raise ValueError("`corr` must be either a scalar or (D,D) matrix!")
+
+    # Set the off-diagonals to be the correlation, times the product of standard-deviations
+    for ii, jj in np.ndindex(cov.shape):
+        if ii == jj:
+            continue
+        cov[ii, jj] = np.sqrt(var[ii]) * np.sqrt(var[jj]) * corr[ii, jj]
+
+    return cov
