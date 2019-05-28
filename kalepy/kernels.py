@@ -110,11 +110,11 @@ class Kernel(object):
         if weights is None:
             weights = self._kde.weights
 
-        matrix_inv = self._kde.bandwidth.matrix_inv
-        norm = self._kde.bandwidth.norm
+        matrix_inv = self._kde.matrix_inv
+        norm = self._kde.norm
 
         if params is not None:
-            matrix = self._kde.bandwidth.matrix
+            matrix = self._kde.matrix
             data, matrix, norm = self._params_subset(data, matrix, params)
             matrix_inv = np.linalg.pinv(matrix)
 
@@ -157,8 +157,8 @@ class Kernel(object):
         if weights is None:
             weights = self._kde.weights
 
-        matrix_inv = self._kde.bandwidth.matrix_inv
-        norm = self._kde.bandwidth.norm
+        matrix_inv = self._kde.matrix_inv
+        norm = self._kde.norm
 
         ndim, num_data = np.shape(data)
         ndim, num_points = np.shape(points)
@@ -215,7 +215,7 @@ class Kernel(object):
         if weights is None:
             weights = self._kde.weights
         if bw_matrix is None:
-            bw_matrix = self._kde.bandwidth.matrix
+            bw_matrix = self._kde.matrix
         bw_matrix = self._cov_keep_vars(bw_matrix, keep)
 
         ndim, nvals = np.shape(data)
@@ -235,7 +235,7 @@ class Kernel(object):
         if weights is None:
             weights = np.array(self._kde.weights)
         if bw_matrix is None:
-            bw_matrix = self._kde.bandwidth.matrix
+            bw_matrix = self._kde.matrix
         bw_matrix = self._cov_keep_vars(bw_matrix, keep, reflect=reflect)
 
         ndim, nvals = np.shape(data)
@@ -489,6 +489,9 @@ _index_list = [
 ]
 
 _index = OrderedDict([(nam, val) for nam, val in _index_list])
+
+Parabola = Parabola_Asym
+Box = Box_Asym
 
 
 def get_kernel_class(arg=None):
