@@ -5,7 +5,7 @@ import six
 
 import numpy as np
 
-from kalepy import kernels
+from kalepy import kernels, utils
 
 
 class KDE(object):
@@ -244,14 +244,7 @@ class KDE(object):
             if self._matrix_inv is None:
                 raise AttributeError
         except AttributeError:
-            try:
-                matrix_inv = np.linalg.inv(self.matrix)
-            except np.linalg.LinAlgError:
-                if not self._quiet:
-                    logging.warning("singular `matrix`, trying SVD...")
-                matrix_inv = np.linalg.pinv(self.matrix)
-            self._matrix_inv = matrix_inv
-
+            self._matrix_inv = utils.matrix_invert(self.matrix, quiet=self._quiet)
         return self._matrix_inv
 
     @property

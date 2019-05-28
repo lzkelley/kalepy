@@ -233,3 +233,14 @@ def cov_from_var_cor(var, corr):
         cov[ii, jj] = np.sqrt(var[ii]) * np.sqrt(var[jj]) * corr[ii, jj]
 
     return cov
+
+
+def matrix_invert(matrix, quiet=True):
+    try:
+        matrix_inv = np.linalg.inv(matrix)
+    except np.linalg.LinAlgError:
+        if quiet:
+            logging.warning("singular `matrix`, trying SVD...")
+        matrix_inv = np.linalg.pinv(matrix)
+
+    return matrix_inv
