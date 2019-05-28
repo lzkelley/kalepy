@@ -14,7 +14,8 @@ from nose import tools
 import kalepy as kale
 from kalepy import utils
 
-GOOD_KERNEL_NAMES = ['gaussian', 'box', 'parabola', 'epanechnikov']
+# GOOD_KERNEL_NAMES = ['gaussian', 'box', 'parabola', 'epanechnikov']
+GOOD_KERNEL_NAMES = [val[0] for val in kale.kernels._index_list]
 BAD_KERNEL_NAMES = ['triangle', 'spaceship', '', 0.5]
 
 
@@ -211,7 +212,7 @@ class Test_Kernels_Generic(object):
     def _test_resample(self, kern):
 
         def resample_at_bandwidth(bw):
-            NUM = int(1e5)
+            NUM = int(1e6)
             xe, xc, dx = kale.utils.bins(-2*bw, 2*bw, 40)
             samp = kern.sample(1, np.atleast_2d(bw), NUM).squeeze()
 
@@ -298,7 +299,7 @@ def test_kernels_evaluate_nd():
 
     return
 
-
+'''
 def test_kernels_resample():
     print("\n|test_kernels.py:test_kernels_resample()|")
 
@@ -307,7 +308,7 @@ def test_kernels_resample():
         Test_Kernels_Generic._test_resample(kernel)
 
     return
-
+'''
 
 # Run all methods as if with `nosetests ...`
 if __name__ == "__main__":

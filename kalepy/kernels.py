@@ -483,9 +483,9 @@ _DEFAULT_KERNEL = Gaussian
 _index_list = [
     ['gaussian', Gaussian],
     ['box', Box_Asym],
-    ['parabola', Parabola_Asym],
-    ['epanechnikov', Parabola_Asym],
-    ['triweight', Triweight],
+    # ['parabola', Parabola_Asym],
+    # ['epanechnikov', Parabola_Asym],
+    # ['triweight', Triweight],
 ]
 
 _index = OrderedDict([(nam, val) for nam, val in _index_list])
