@@ -176,17 +176,18 @@ class KDE(object):
 
         return samples
 
-    def _resample_clear(self, size, data=None, weights=None, keep=None):
+    def _resample_clear(self, size, data=None, weights=None, matrix=None, keep=None):
         if data is None:
             data = self.dataset
         if weights is None:
             weights = self.weights
-        bw_matrix = self.matrix
-        bw_matrix = self._cov_keep_vars(bw_matrix, keep)
+        if matrix is None:
+            matrix = self.matrix
+            matrix = self._cov_keep_vars(matrix, keep)
 
         ndim, nvals = np.shape(data)
         # Draw from the smoothing kernel, here the `bw_matrix` includes the bandwidth
-        norm = self.kernel.sample(ndim, bw_matrix, size)
+        norm = self.kernel.sample(ndim, matrix, size)
 
         indices = np.random.choice(nvals, size=size, p=weights)
         means = data[:, indices]
@@ -197,8 +198,8 @@ class KDE(object):
     def _resample_reflect(self, size, reflect, keep=None):
         wgts = self.weights
         data = self.dataset
-        bw_matrix = self.matrix
-        bw_matrix = self._cov_keep_vars(bw_matrix, keep, reflect=reflect)
+        matrix = self.matrix
+        matrix = self._cov_keep_vars(matrix, keep, reflect=reflect)
 
         ndim, nvals = np.shape(data)
         bounds = np.zeros((ndim, 2))
@@ -233,8 +234,8 @@ class KDE(object):
         draw = size
         while num_good < size and cnt < MAX:
             # Draw candidate resample points
-            #    set `keep` to None, `bw_matrix` is already modified to account for it
-            trial = self._resample_clear(draw, data=data, weights=wgts, bw_matrix=bw_matrix, keep=None)
+            #    set `keep` to None, `matrix` is already modified to account for it
+            trial = self._resample_clear(draw, data=data, weights=wgts, matrix=matrix, keep=None)
             # Find the (boolean) indices of values within target boundaries
             idx = utils.bound_indices(trial, bounds)
 
