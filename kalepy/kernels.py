@@ -13,7 +13,7 @@ from kalepy import utils
 _NUM_PAD = 1e-8
 
 
-class Kernel(object):
+class Kernel_Dist(object):
 
     _FINITE = None
 
@@ -70,7 +70,7 @@ class Kernel(object):
 
     @classmethod
     def evaluate(self, xx, ref=0.0, bw=1.0, weights=1.0):
-        err = "`evaluate` must be overridden by the Kernel subclass!"
+        err = "`evaluate` must be overridden by the Kernel_Dist subclass!"
         raise NotImplementedError(err)
 
     @classmethod
@@ -93,7 +93,7 @@ class Kernel(object):
         return pdf
 
 
-class Gaussian(Kernel):
+class Gaussian(Kernel_Dist):
 
     _FINITE = False
 
@@ -126,7 +126,7 @@ class Gaussian(Kernel):
         return zz
 
 
-class Box_Asym(Kernel):
+class Box_Asym(Kernel_Dist):
 
     _FINITE = True
 
@@ -156,7 +156,7 @@ class Box_Asym(Kernel):
         return zz
 
 
-class Parabola_Asym(Kernel):
+class Parabola_Asym(Kernel_Dist):
 
     _FINITE = True
 
@@ -195,7 +195,7 @@ class Parabola_Asym(Kernel):
         return zz
 
 
-class Triweight(Kernel):
+class Triweight(Kernel_Dist):
 
     _FINITE = True
 
@@ -267,19 +267,19 @@ def get_kernel_class(arg=None):
         arg = arg.lower().strip()
         names = list(_index.keys())
         if arg not in names:
-            err = "Kernel '{}' is not in the index.  Choose one of: '{}'!".format(arg, names)
+            err = "Kernel_Dist '{}' is not in the index.  Choose one of: '{}'!".format(arg, names)
             raise ValueError(err)
 
         return _index[arg]
 
     # This will raise an error if `arg` isn't a class at all
     try:
-        if issubclass(arg, Kernel):
+        if issubclass(arg, Kernel_Dist):
             return arg
     except:
         pass
 
-    raise ValueError("Unrecognized Kernel type '{}'!".format(arg))
+    raise ValueError("Unrecognized Kernel_Dist type '{}'!".format(arg))
 
 
 def get_all_kernels():

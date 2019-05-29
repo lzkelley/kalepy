@@ -164,7 +164,7 @@ class KDE(object):
             # This is now either (D,) [and contains `None` values] or (D,2)
             reflect = self._check_reflect(reflect)
 
-        # Have `Kernel` class perform resampling
+        # Have `Kernel_Dist` class perform resampling
         # ---------------------------------------------------
         if reflect is None:
             samples = self._resample_clear(size, keep=keep)

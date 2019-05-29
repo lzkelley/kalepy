@@ -28,7 +28,7 @@ class Test_Kernels_Base(object):
     def test_not_implemented(self):
         print("\n|Test_Kernels_Base:test_not_implemented()|")
 
-        kern = kale.kernels.Kernel()
+        kern = kale.kernels.Kernel_Dist()
         with tools.assert_raises(NotImplementedError):
             kern.sample(2, [[1.0, 0.0], [0.0, 1.0]], 10)
 
@@ -53,7 +53,7 @@ class Test_Kernels_Base(object):
                 else:
                     keep = np.random.choice(num, ii, replace=False)
 
-                mat = kale.kernels.Kernel._cov_keep_vars(matrix, keep)
+                mat = kale.kernels.Kernel_Dist._cov_keep_vars(matrix, keep)
                 if keep is None:
                     tools.assert_true(np.allclose(matrix, mat))
                 else:
@@ -64,19 +64,19 @@ class Test_Kernels_Base(object):
 
                         # Make sure `reflect` consistency checks work
                         # These should also work
-                        kale.kernels.Kernel._cov_keep_vars(matrix, keep, reflect=None)
-                        kale.kernels.Kernel._cov_keep_vars(matrix, keep, reflect=reflect)
+                        kale.kernels.Kernel_Dist._cov_keep_vars(matrix, keep, reflect=None)
+                        kale.kernels.Kernel_Dist._cov_keep_vars(matrix, keep, reflect=reflect)
                         # Make sure reflection in `keep` parameter fails
                         fail = [rr for rr in reflect]
                         fail[jj] = [1.0, 2.0]
                         with tools.assert_raises(ValueError):
-                            kale.kernels.Kernel._cov_keep_vars(matrix, keep, reflect=fail)
+                            kale.kernels.Kernel_Dist._cov_keep_vars(matrix, keep, reflect=fail)
                         # Make sure reflection in any other parameters succeeds
                         not_keep = list(set(range(num)) - set(keep))
                         succeed = [rr for rr in reflect]
                         for ss in not_keep:
                             succeed[ss] = [1.0, 2.0]
-                        kale.kernels.Kernel._cov_keep_vars(matrix, keep, reflect=succeed)
+                        kale.kernels.Kernel_Dist._cov_keep_vars(matrix, keep, reflect=succeed)
 
         return
 
@@ -99,7 +99,7 @@ class Test_Kernels_Base(object):
                     params = sorted(np.random.choice(num, ii, replace=False))
                     iter_params = params
 
-                sub_data, sub_mat, sub_norm = kale.kernels.Kernel._params_subset(
+                sub_data, sub_mat, sub_norm = kale.kernels.Kernel_Dist._params_subset(
                     data, matrix, params)
 
                 # Compare each parameter
@@ -227,7 +227,7 @@ class Test_Kernels_Generic(object):
                 dof = np.count_nonzero(idx) - 1
                 x2 = np.sum(np.square(aa[idx] - bb[idx])/bb[idx]**2)
                 x2 = x2 / dof
-                print("Kernel: {}, bw: {:.2e} :: {} : x2/dof = {:.4e}".format(
+                print("Kernel_Dist: {}, bw: {:.2e} :: {} : x2/dof = {:.4e}".format(
                     kern.__name__, bw, name, x2))
                 print("\t" + kale.utils.array_str(aa[idx]))
                 print("\t" + kale.utils.array_str(bb[idx]))
@@ -260,7 +260,7 @@ def test_get_kernel_class():
     kale.kernels.get_kernel_class()()
 
     # Test custom kernel
-    class Good_Kernel(kale.kernels.Kernel):
+    class Good_Kernel(kale.kernels.Kernel_Dist):
         pass
 
     kale.kernels.get_kernel_class(Good_Kernel)()
