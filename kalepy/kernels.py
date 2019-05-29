@@ -82,7 +82,6 @@ class Kernel(object):
         samps = utils.add_cov(samps, cov)
         return samps
 
-    '''
     @classmethod
     def grid(cls, edges, **kwargs):
         coords = np.meshgrid(*edges)
@@ -92,7 +91,6 @@ class Kernel(object):
         print("coords = ", np.shape(coords), "pdf = ", np.shape(pdf), "shp = ", shp)
         pdf = pdf.reshape(shp)
         return pdf
-    '''
 
 
 class Gaussian(Kernel):

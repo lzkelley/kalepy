@@ -37,6 +37,7 @@ class Test_Kernels_Base(object):
 
         return
 
+    '''
     def test_cov_keep_vars(self):
         print("\n|Test_Kernels_Base:test_cov_keep_vars()|")
         np.random.seed(3422)
@@ -111,6 +112,7 @@ class Test_Kernels_Base(object):
                 tools.assert_true(np.isclose(test_norm, sub_norm))
 
         return
+    '''
 
 
 class Test_Kernels_Generic(object):
@@ -291,6 +293,7 @@ def test_kernels_evaluate_nd():
         Test_Kernels_Generic._test_evaluate_nd(kernel)
 
     return
+
 
 '''
 def test_kernels_resample():
