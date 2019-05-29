@@ -13,6 +13,10 @@ __copyright__ = "Copyright 2019 - Luke Zoltan Kelley and contributors"
 __contributors__ = []
 __bibtex__ = """"""
 
+_QUIET = True
+_NUM_PAD = 1e-8
+
+
 from kalepy import kernels   # noqa
 from kalepy.kde_base import KDE  # noqa
-from kalepy.kernels import get_kernel_class, get_all_kernels  # noqa
+from kalepy.kernels import get_distribution_class, get_all_distribution_classes  # noqa
