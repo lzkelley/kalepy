@@ -4,6 +4,7 @@ import logging
 import six
 
 import numpy as np
+import scipy as sp
 
 from kalepy import kernels, utils
 
@@ -16,6 +17,7 @@ class KDE(object):
 
     def __init__(self, dataset, bandwidth=None, weights=None, kernel=None, neff=None,
                  quiet=False, **kwargs):
+        self._quiet = quiet
         self.dataset = np.atleast_2d(dataset)
         self._ndim, data_size = self.dataset.shape
         if weights is None:
@@ -28,6 +30,13 @@ class KDE(object):
         if np.shape(weights) != (data_size,):
             raise ValueError("`weights` input should be shaped as (N,)!")
 
+        self._weights = weights
+
+        if neff is None:
+            neff = 1.0 / np.sum(weights**2)
+
+        self._neff = neff
+
         if bandwidth is None:
             bandwidth = self._BANDWIDTH_DEFAULT
         data_cov = np.cov(dataset, rowvar=True, bias=False, aweights=weights)
@@ -36,24 +45,108 @@ class KDE(object):
 
         # Convert from string, class, etc to a kernel
         kernel = kernels.get_kernel_class(kernel)
-        self._kernel = kernel(self.matrix)
+        # self._kernel = kernel(self.matrix)
+        self._kernel = kernel
 
-        self._neff = neff
-        self._weights = weights
-        self._quiet = quiet
         return
 
     def pdf(self, points, reflect=None, **kwargs):
-        points = np.atleast_2d(points)
+        pnts = np.atleast_2d(points)
 
         # Make sure shape/values of reflect look okay
         reflect = self._check_reflect(reflect)
 
         if reflect is None:
-            result = self.kernel.pdf(points, self.dataset, self.weights, **kwargs)
+            result = self._pdf_clear(pnts, **kwargs)
         else:
-            result = self.kernel.pdf_reflect(points, reflect, self.dataset, self.weights, **kwargs)
+            result = self._pdf_reflect(pnts, reflect, **kwargs)
 
+        return result
+
+    def _pdf_clear(self, pnts, params=None):
+        matrix_inv = self.matrix_inv
+        norm = self.norm
+        data = self.dataset
+        wgts = self.weights
+
+        if params is not None:
+            matrix = self._matrix
+            data, matrix, norm = self._params_subset(data, matrix, params)
+            # matrix_inv = np.linalg.pinv(matrix)
+            matrix_inv = utils.matrix_invert(matrix, quiet=self._quiet)
+
+        ndim, num_points = np.shape(pnts)
+
+        whitening = sp.linalg.cholesky(matrix_inv)
+        # Construct the whitened sampling points
+        white_points = np.dot(whitening, pnts)
+
+        result = np.zeros((num_points,), dtype=float)
+        ndim, num_data = np.shape(data)
+        # Construct the 'whitened' (independent) dataset
+        white_dataset = np.dot(whitening, data)
+
+        for ii in range(num_data):
+            yy = white_points - white_dataset[:, ii, np.newaxis]
+            temp = wgts[ii] * self.kernel.evaluate(yy)
+            result += temp.squeeze()
+
+        result = result / norm
+        return result
+
+    def _pdf_reflect(self, pnts, reflect):
+        matrix_inv = self.matrix_inv
+        norm = self.norm
+        data = self.dataset
+        wgts = self.weights
+
+        ndim, num_data = np.shape(data)
+        ndim, num_points = np.shape(pnts)
+        result = np.zeros((num_points,), dtype=float)
+
+        whitening = sp.linalg.cholesky(matrix_inv)
+        # Construct the 'whitened' (independent) dataset
+        white_dataset = np.dot(whitening, data)
+        # Construct the whitened sampling points
+        white_points = np.dot(whitening, pnts)
+
+        for ii in range(num_data):
+            yy = white_points - white_dataset[:, ii, np.newaxis]
+            result += self.kernel.evaluate(yy, weights=wgts[ii])
+
+        for ii, reflect_dim in enumerate(reflect):
+            if reflect_dim is None:
+                continue
+
+            for loc in reflect_dim:
+                if loc is None:
+                    continue
+
+                # shape (D,N) i.e. (dimensions, data-points)
+                refl_data = np.array(data)
+                refl_data[ii, :] = 2*loc - refl_data[ii, :]
+                white_dataset = np.dot(whitening, refl_data)
+                # Construct the whitened sampling points
+                #    shape (D,M) i.e. (dimensions, sample-points)
+                pnts = np.array(pnts)
+                white_points = np.dot(whitening, pnts)
+
+                if num_points >= num_data:
+                    for jj in range(num_data):
+                        yy = white_points - white_dataset[:, jj, np.newaxis]
+                        result += wgts[jj] * self.kernel.evaluate(yy)
+                else:
+                    for jj in range(num_points):
+                        yy = white_dataset - white_points[:, jj, np.newaxis]
+                        res = wgts * self.kernel.evaluate(yy)
+                        result[jj] += np.sum(res, axis=0)
+
+            lo = -np.inf if reflect_dim[0] is None else reflect_dim[0]
+            hi = +np.inf if reflect_dim[1] is None else reflect_dim[1]
+            idx = (pnts[ii, :] < lo) | (hi < pnts[ii, :])
+            result[idx] = 0.0
+
+        result = result / norm
         return result
 
     def resample(self, size=None, keep=None, reflect=None):
@@ -97,6 +190,39 @@ class KDE(object):
             raise ValueError("each row of `reflect` must be `None` or shape (2,)!")
 
         return reflect
+
+    @classmethod
+    def _cov_keep_vars(cls, matrix, keep, reflect=None):
+        matrix = np.array(matrix)
+        if keep is None:
+            return matrix
+
+        keep = np.atleast_1d(keep)
+        for pp in keep:
+            matrix[pp, :] = 0.0
+            matrix[:, pp] = 0.0
+            # Make sure this isn't also a reflection axis
+            if (reflect is not None) and (reflect[pp] is not None):
+                err = "Cannot both 'keep' and 'reflect' about dimension '{}'".format(pp)
+                raise ValueError(err)
+
+        return matrix
+
+    @classmethod
+    def _params_subset(cls, data, matrix, params):
+        if params is None:
+            norm = np.sqrt(np.linalg.det(matrix))
+            return data, matrix, norm
+
+        params = np.atleast_1d(params)
+        params = sorted(params)
+        # Get rows corresponding to these parameters
+        sub_data = data[params, :]
+        # Get rows & cols corresponding to these parameters
+        sub_mat = matrix[np.ix_(params, params)]
+        # Recalculate norm
+        norm = np.sqrt(np.linalg.det(sub_mat))
+        return sub_data, sub_mat, norm
 
     # ==== Properties ====
 
@@ -204,7 +330,7 @@ class KDE(object):
             if self._norm is None:
                 raise AttributeError
         except AttributeError:
-            self._norm = np.sqrt(np.linalg.det(self.matrix))
+            self._norm = np.sqrt(np.fabs(np.linalg.det(self.matrix)))
 
         return self._norm
 

@@ -82,6 +82,7 @@ class Kernel(object):
         samps = utils.add_cov(samps, cov)
         return samps
 
+    '''
     @classmethod
     def grid(cls, edges, **kwargs):
         coords = np.meshgrid(*edges)
@@ -91,7 +92,9 @@ class Kernel(object):
         print("coords = ", np.shape(coords), "pdf = ", np.shape(pdf), "shp = ", shp)
         pdf = pdf.reshape(shp)
         return pdf
+    '''
 
+    '''
     def pdf(self, points, data, weights, params=None):
         """
         """
@@ -121,7 +124,9 @@ class Kernel(object):
 
         result = result / norm
         return result
+    '''
 
+    '''
     def pdf_grid(self, edges, *args, **kwargs):
         ndim = self._ndim
         if len(edges) != ndim:
@@ -134,7 +139,9 @@ class Kernel(object):
         pdf = self.pdf(coords, *args, **kwargs)
         pdf = pdf.reshape(shp)
         return pdf
+    '''
 
+    '''
     def pdf_reflect(self, points, reflect, data, weights):
         """
         """
@@ -189,6 +196,7 @@ class Kernel(object):
 
         result = result / norm
         return result
+    '''
 
     def resample(self, size, data, weights, bw_matrix=None, keep=None):
         if bw_matrix is None:
@@ -266,39 +274,6 @@ class Kernel(object):
 
         samps = samps.T
         return samps
-
-    @classmethod
-    def _cov_keep_vars(cls, matrix, keep, reflect=None):
-        matrix = np.array(matrix)
-        if keep is None:
-            return matrix
-
-        keep = np.atleast_1d(keep)
-        for pp in keep:
-            matrix[pp, :] = 0.0
-            matrix[:, pp] = 0.0
-            # Make sure this isn't also a reflection axis
-            if (reflect is not None) and (reflect[pp] is not None):
-                err = "Cannot both 'keep' and 'reflect' about dimension '{}'".format(pp)
-                raise ValueError(err)
-
-        return matrix
-
-    @classmethod
-    def _params_subset(cls, data, matrix, params):
-        if params is None:
-            norm = np.sqrt(np.linalg.det(matrix))
-            return data, matrix, norm
-
-        params = np.atleast_1d(params)
-        params = sorted(params)
-        # Get rows corresponding to these parameters
-        sub_data = data[params, :]
-        # Get rows & cols corresponding to these parameters
-        sub_mat = matrix[np.ix_(params, params)]
-        # Recalculate norm
-        norm = np.sqrt(np.linalg.det(sub_mat))
-        return sub_data, sub_mat, norm
 
 
 class Gaussian(Kernel):
