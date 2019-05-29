@@ -19,15 +19,18 @@ class KDE(object):
                  quiet=False, **kwargs):
         self._quiet = quiet
         self.dataset = np.atleast_2d(dataset)
-        self._ndim, data_size = self.dataset.shape
+        ndim, ndata = self.dataset.shape
         if weights is None:
-            weights = np.ones(data_size)/data_size
+            weights = np.ones(ndata)/ndata
+
+        self._ndim = ndim
+        self._ndata = ndata
 
         if np.count_nonzero(weights) == 0 or np.any(~np.isfinite(weights) | (weights < 0)):
             raise ValueError("Invalid `weights` entries, all must be finite and > 0!")
         weights = np.atleast_1d(weights).astype(float)
         weights /= np.sum(weights)
-        if np.shape(weights) != (data_size,):
+        if np.shape(weights) != (ndata,):
             raise ValueError("`weights` input should be shaped as (N,)!")
 
         self._weights = weights
@@ -45,8 +48,8 @@ class KDE(object):
 
         # Convert from string, class, etc to a kernel
         kernel = kernels.get_kernel_class(kernel)
-        # self._kernel = kernel(self.matrix)
-        self._kernel = kernel
+        self._kernel = kernel(self.matrix)
+        # self._kernel = kernel
 
         return
 
@@ -149,14 +152,12 @@ class KDE(object):
         result = result / norm
         return result
 
-    def resample(self, size=None, keep=None, reflect=None):
+    def resample(self, size=None, keep=None, reflect=None, squeeze=True):
         """
         """
-
-        # Check / Prepare parameters
-        # -------------------------------------------
         if size is None:
-            size = int(self.neff)
+            # size = int(self.neff)
+            size = self.ndata
 
         # Make sure `reflect` matches
         if reflect is not None:
@@ -166,14 +167,96 @@ class KDE(object):
         # Have `Kernel` class perform resampling
         # ---------------------------------------------------
         if reflect is None:
-            samples = self._kernel.resample(size, self.dataset, self.weights, keep=keep)
+            samples = self._resample_clear(size, keep=keep)
         else:
-            samples = self._kernel.resample_reflect(size, reflect, self.dataset, self.weights, keep=keep)
+            samples = self._resample_reflect(size, reflect, keep=keep)
 
-        if self.ndim == 1:
+        if (self.ndim == 1) and squeeze:
             samples = samples.squeeze()
 
         return samples
+
+    def _resample_clear(self, size, data=None, weights=None, keep=None):
+        if data is None:
+            data = self.dataset
+        if weights is None:
+            weights = self.weights
+        bw_matrix = self.matrix
+        bw_matrix = self._cov_keep_vars(bw_matrix, keep)
+
+        ndim, nvals = np.shape(data)
+        # Draw from the smoothing kernel, here the `bw_matrix` includes the bandwidth
+        norm = self.kernel.sample(ndim, bw_matrix, size)
+
+        indices = np.random.choice(nvals, size=size, p=weights)
+        means = data[:, indices]
+        # Shift each re-drawn sample based on the kernel-samples
+        samps = means + norm
+        return samps
+
+    def _resample_reflect(self, size, reflect, keep=None):
+        wgts = self.weights
+        data = self.dataset
+        bw_matrix = self.matrix
+        bw_matrix = self._cov_keep_vars(bw_matrix, keep, reflect=reflect)
+
+        ndim, nvals = np.shape(data)
+        bounds = np.zeros((ndim, 2))
+
+        # Actually 'reflect' (append new, mirrored points) around the given reflection points
+        # Also construct bounding box for valid data
+        for ii, reflect_dim in enumerate(reflect):
+            if reflect_dim is None:
+                bounds[ii, 0] = -np.inf
+                bounds[ii, 1] = +np.inf
+                continue
+
+            for jj, loc in enumerate(reflect_dim):
+                if loc is None:
+                    # j=0 : -inf,  j=1: +inf
+                    bounds[ii, jj] = np.inf * (2*jj - 1)
+                    continue
+
+                bounds[ii, jj] = loc
+                new_data = np.array(data)
+                new_data[ii, :] = new_data[ii, :] - loc
+                data = np.append(data, new_data, axis=-1)
+                wgts = np.append(wgts, wgts, axis=-1)
+
+        wgts = wgts / np.sum(wgts)
+
+        # Draw randomly from the given data points, proportionally to their weights
+        samps = np.zeros((size, ndim))
+        num_good = 0
+        cnt = 0
+        MAX = 10
+        draw = size
+        while num_good < size and cnt < MAX:
+            # Draw candidate resample points
+            #    set `keep` to None, `bw_matrix` is already modified to account for it
+            trial = self._resample_clear(draw, data=data, weights=wgts, bw_matrix=bw_matrix, keep=None)
+            # Find the (boolean) indices of values within target boundaries
+            idx = utils.bound_indices(trial, bounds)
+
+            # Store good values to output array
+            ngd = np.count_nonzero(idx)
+            if num_good + ngd <= size:
+                samps[num_good:num_good+ngd, :] = trial.T[idx, :]
+            else:
+                ngd = (size - num_good)
+                samps[num_good:num_good+ngd, :] = trial.T[idx, :][:ngd]
+
+            # Increment counters
+            num_good += ngd
+            cnt += 1
+            # Next time, draw twice as many as we need
+            draw = 2*(size - num_good)
+
+        if num_good < size:
+            raise RuntimeError("Failed to draw '{}' samples in {} iterations!".format(size, cnt))
+
+        samps = samps.T
+        return samps
 
     def _check_reflect(self, reflect):
         if reflect is None:
@@ -237,6 +320,10 @@ class KDE(object):
     @property
     def ndim(self):
         return self._ndim
+
+    @property
+    def ndata(self):
+        return self._ndata
 
     @property
     def kernel(self):
@@ -350,3 +437,18 @@ class KDE(object):
     @property
     def matrix_white(self):
         return self._matrix_white
+
+    '''
+    def pdf_grid(self, edges, *args, **kwargs):
+        ndim = self._ndim
+        if len(edges) != ndim:
+            err = "`edges` must be (D,): an array of edges for each dimension!"
+            raise ValueError(err)
+
+        coords = np.meshgrid(*edges)
+        shp = np.shape(coords)[1:]
+        coords = np.vstack([xx.ravel() for xx in coords])
+        pdf = self.pdf(coords, *args, **kwargs)
+        pdf = pdf.reshape(shp)
+        return pdf
+    '''
