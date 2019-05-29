@@ -80,7 +80,6 @@ class Kernel(object):
         samps = sp.interpolate.interp1d(cdf, grid, kind='quadratic')(samps).reshape(ndim, size)
         samps = utils.add_cov(samps)
         samps = utils.add_cov(samps, cov)
-
         return samps
 
     @classmethod
