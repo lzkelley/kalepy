@@ -17,6 +17,7 @@ class Kernel_Dist(object):
 
     _FINITE = None
 
+    '''
     def __init__(self, matrix=None):
         if matrix is None:
             matrix = 1.0
@@ -29,6 +30,26 @@ class Kernel_Dist(object):
         self._norm = np.sqrt(np.fabs(np.linalg.det(matrix)))
         self._ndim = np.shape(matrix)[0]
         return
+    '''
+
+    @classmethod
+    def evaluate(self, xx, ref=0.0, bw=1.0, weights=1.0):
+        err = "`evaluate` must be overridden by the Kernel_Dist subclass!"
+        raise NotImplementedError(err)
+
+    @classmethod
+    def sample(cls, ndim, cov, size):
+        grid, cdf = cls._cdf_grid(0.0, 1.0)
+        samps = np.random.uniform(0.0, 1.0, ndim*size)
+        samps = sp.interpolate.interp1d(cdf, grid, kind='quadratic')(samps).reshape(ndim, size)
+        samps = utils.add_cov(samps)
+        samps = utils.add_cov(samps, cov)
+        return samps
+
+    @classmethod
+    def cdf(cls, xx, ref=0.0, bw=1.0):
+        zz = sp.interpolate.interp1d(*cls._cdf_grid(ref, bw), kind='cubic')(xx)
+        return zz
 
     @classmethod
     def _cdf_grid(cls, ref, bw):
@@ -51,11 +72,7 @@ class Kernel_Dist(object):
         cdf_grid = [xc, csum]
         return cdf_grid
 
-    @classmethod
-    def cdf(cls, xx, ref=0.0, bw=1.0):
-        zz = sp.interpolate.interp1d(*cls._cdf_grid(ref, bw), kind='cubic')(xx)
-        return zz
-
+    '''
     @classmethod
     def scale(self, xx, ref, bw):
         squeeze = (np.ndim(xx) < 2)
@@ -67,20 +84,7 @@ class Kernel_Dist(object):
         ndim, nvals = np.shape(xx)
         yy = (xx - ref)/bw
         return yy, ndim, nvals, squeeze
-
-    @classmethod
-    def evaluate(self, xx, ref=0.0, bw=1.0, weights=1.0):
-        err = "`evaluate` must be overridden by the Kernel_Dist subclass!"
-        raise NotImplementedError(err)
-
-    @classmethod
-    def sample(cls, ndim, cov, size):
-        grid, cdf = cls._cdf_grid(0.0, 1.0)
-        samps = np.random.uniform(0.0, 1.0, ndim*size)
-        samps = sp.interpolate.interp1d(cdf, grid, kind='quadratic')(samps).reshape(ndim, size)
-        samps = utils.add_cov(samps)
-        samps = utils.add_cov(samps, cov)
-        return samps
+    '''
 
     @classmethod
     def grid(cls, edges, **kwargs):
@@ -88,7 +92,7 @@ class Kernel_Dist(object):
         shp = np.shape(coords)[1:]
         coords = np.vstack([xx.ravel() for xx in coords])
         pdf = cls.evaluate(coords, **kwargs)
-        print("coords = ", np.shape(coords), "pdf = ", np.shape(pdf), "shp = ", shp)
+        # print("coords = ", np.shape(coords), "pdf = ", np.shape(pdf), "shp = ", shp)
         pdf = pdf.reshape(shp)
         return pdf
 
@@ -98,32 +102,36 @@ class Gaussian(Kernel_Dist):
     _FINITE = False
 
     @classmethod
-    def evaluate(self, xx, ref=0.0, bw=1.0, weights=1.0):
-        # ndim, nval = np.shape(xx)
-        yy, ndim, nvals, squeeze = self.scale(xx, ref, bw)
+    def evaluate(self, yy):
+        ndim, nval = np.shape(yy)
         energy = np.sum(yy * yy, axis=0) / 2.0
-        norm = np.power(2*np.pi*(bw**2), -ndim/2)
-        result = norm * weights * np.exp(-energy)
-        if squeeze:
-            result = result.squeeze()
+        norm = self.norm(ndim)
+        result = np.exp(-energy) / norm
         return result
 
     @classmethod
-    def sample(self, ndim, cov, size):
-        cov = np.atleast_2d(cov)
-        if np.shape(cov) != (ndim, ndim):
-            err = "Shape of `cov` ({}) does not match `ndim` = {}".format(np.shape(cov), ndim)
-            raise ValueError(err)
-        samp = np.random.multivariate_normal(np.zeros(ndim), cov, size=size).T
-        return samp
+    def norm(self, ndim=1):
+        norm = np.power(2*np.pi, ndim/2)
+        return norm
 
     @classmethod
-    def cdf(self, xx, ref=0.0, bw=1.0):
-        yy, ndim, nvals, squeeze = self.scale(xx, ref, bw)
+    def cdf(self, yy):
         zz = sp.stats.norm.cdf(yy)
-        if squeeze:
-            zz = zz.squeeze()
         return zz
+
+    @classmethod
+    def sample(self, size, ndim=None, squeeze=None):
+        if ndim is None:
+            ndim = 1
+            if squeeze is None:
+                squeeze = True
+
+        if squeeze is None:
+            squeeze = False
+
+        cov = np.eye(ndim)
+        samp = np.random.multivariate_normal(np.zeros(ndim), cov, size=size).T
+        return samp
 
 
 class Box_Asym(Kernel_Dist):
@@ -143,7 +151,7 @@ class Box_Asym(Kernel_Dist):
     def sample(self, ndim, cov, size):
         samp = np.random.uniform(-1.0, 1.0, size=ndim*size).reshape(ndim, size)
         samp_cov = np.cov(*samp)
-        samp = utils.add_cov(samp, samp_cov)
+        samp = utils.rem_cov(samp, samp_cov)
         samp = utils.add_cov(samp, cov)
         return samp
 
