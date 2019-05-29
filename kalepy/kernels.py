@@ -1,6 +1,6 @@
 """Kernal basis functions for KDE calculations.
 """
-# import logging
+import logging
 import six
 from collections import OrderedDict
 
@@ -17,27 +17,18 @@ class Kernel(object):
 
     _FINITE = None
 
-    def __init__(self, kde=None):
-        self._kde = kde
+    def __init__(self, matrix=None):
+        if matrix is None:
+            matrix = 1.0
+            logging.warning("No `matrix` provided, setting to [[1.0]]!")
+
+        matrix = np.atleast_2d(matrix)
+        self._matrix = matrix
+        self._matrix_inv = utils.matrix_invert(matrix)
+        # NOTE: should this raise an error if the determinant is negative??
+        self._norm = np.sqrt(np.fabs(np.linalg.det(matrix)))
+        self._ndim = np.shape(matrix)[0]
         return
-
-    def __call__(self, *args, **kwargs):
-        return self.evaluate(*args, **kwargs)
-
-    @classmethod
-    def _add_cov(cls, data, cov):
-        color_mat = sp.linalg.cholesky(cov)
-        color_data = np.dot(color_mat.T, data)
-        return color_data
-
-    @classmethod
-    def _rem_cov(cls, data, cov=None):
-        if cov is None:
-            cov = np.cov(*data)
-        color_mat = sp.linalg.cholesky(cov)
-        uncolor_mat = np.linalg.inv(color_mat)
-        white_data = np.dot(uncolor_mat.T, data)
-        return white_data
 
     @classmethod
     def _cdf_grid(cls, ref, bw):
@@ -87,8 +78,8 @@ class Kernel(object):
         grid, cdf = cls._cdf_grid(0.0, 1.0)
         samps = np.random.uniform(0.0, 1.0, ndim*size)
         samps = sp.interpolate.interp1d(cdf, grid, kind='quadratic')(samps).reshape(ndim, size)
-        samps = cls._rem_cov(samps)
-        samps = cls._add_cov(samps, cov)
+        samps = utils.add_cov(samps)
+        samps = utils.add_cov(samps, cov)
 
         return samps
 
@@ -102,31 +93,27 @@ class Kernel(object):
         pdf = pdf.reshape(shp)
         return pdf
 
-    def pdf(self, points, data=None, weights=None, params=None):
+    def pdf(self, points, data, weights, params=None):
         """
         """
-        if data is None:
-            data = self._kde.dataset
-        if weights is None:
-            weights = self._kde.weights
-
-        matrix_inv = self._kde.matrix_inv
-        norm = self._kde.norm
+        matrix_inv = self._matrix_inv
+        norm = self._norm
 
         if params is not None:
-            matrix = self._kde.matrix
+            matrix = self._matrix
             data, matrix, norm = self._params_subset(data, matrix, params)
             matrix_inv = np.linalg.pinv(matrix)
 
-        ndim, num_data = np.shape(data)
         ndim, num_points = np.shape(points)
-        result = np.zeros((num_points,), dtype=float)
 
         whitening = sp.linalg.cholesky(matrix_inv)
-        # Construct the 'whitened' (independent) dataset
-        white_dataset = np.dot(whitening, data)
         # Construct the whitened sampling points
         white_points = np.dot(whitening, points)
+
+        result = np.zeros((num_points,), dtype=float)
+        ndim, num_data = np.shape(data)
+        # Construct the 'whitened' (independent) dataset
+        white_dataset = np.dot(whitening, data)
 
         for ii in range(num_data):
             temp = self.evaluate(
@@ -136,8 +123,8 @@ class Kernel(object):
         result = result / norm
         return result
 
-    def pdf_grid(self, edges, **kwargs):
-        ndim = self._kde.ndim
+    def pdf_grid(self, edges, *args, **kwargs):
+        ndim = self._ndim
         if len(edges) != ndim:
             err = "`edges` must be (D,): an array of edges for each dimension!"
             raise ValueError(err)
@@ -145,20 +132,15 @@ class Kernel(object):
         coords = np.meshgrid(*edges)
         shp = np.shape(coords)[1:]
         coords = np.vstack([xx.ravel() for xx in coords])
-        pdf = self.pdf(coords, **kwargs)
+        pdf = self.pdf(coords, *args, **kwargs)
         pdf = pdf.reshape(shp)
         return pdf
 
-    def pdf_reflect(self, points, reflect, data=None, weights=None):
+    def pdf_reflect(self, points, reflect, data, weights):
         """
         """
-        if data is None:
-            data = self._kde.dataset
-        if weights is None:
-            weights = self._kde.weights
-
-        matrix_inv = self._kde.matrix_inv
-        norm = self._kde.norm
+        matrix_inv = self._matrix_inv
+        norm = self._norm
 
         ndim, num_data = np.shape(data)
         ndim, num_points = np.shape(points)
@@ -209,13 +191,9 @@ class Kernel(object):
         result = result / norm
         return result
 
-    def resample(self, size, data=None, weights=None, bw_matrix=None, keep=None):
-        if data is None:
-            data = self._kde.dataset
-        if weights is None:
-            weights = self._kde.weights
+    def resample(self, size, data, weights, bw_matrix=None, keep=None):
         if bw_matrix is None:
-            bw_matrix = self._kde.matrix
+            bw_matrix = self._matrix
         bw_matrix = self._cov_keep_vars(bw_matrix, keep)
 
         ndim, nvals = np.shape(data)
@@ -228,14 +206,8 @@ class Kernel(object):
         samps = means + norm
         return samps
 
-    def resample_reflect(self, size, reflect, data=None, weights=None, bw_matrix=None, keep=None):
-        # shape (D,N) i.e. (dimensions, data-points)
-        if data is None:
-            data = np.array(self._kde.dataset)
-        if weights is None:
-            weights = np.array(self._kde.weights)
-        if bw_matrix is None:
-            bw_matrix = self._kde.matrix
+    def resample_reflect(self, size, reflect, data, weights, keep=None):
+        bw_matrix = self._matrix
         bw_matrix = self._cov_keep_vars(bw_matrix, keep, reflect=reflect)
 
         ndim, nvals = np.shape(data)
@@ -380,8 +352,8 @@ class Box_Asym(Kernel):
     def sample(self, ndim, cov, size):
         samp = np.random.uniform(-1.0, 1.0, size=ndim*size).reshape(ndim, size)
         samp_cov = np.cov(*samp)
-        samp = self._rem_cov(samp, samp_cov)
-        samp = self._add_cov(samp, cov)
+        samp = utils.add_cov(samp, samp_cov)
+        samp = utils.add_cov(samp, cov)
         return samp
 
     @classmethod
@@ -413,9 +385,9 @@ class Parabola_Asym(Kernel):
         samp = np.random.uniform(-1, 1, 3*ndim*size).reshape(ndim, size, 3)
         samp = np.median(samp, axis=-1)
         # Remove intrinsic coveriance
-        samp = self._rem_cov(samp)
+        samp = utils.add_cov(samp)
         # Add desired coveriance
-        samp = self._add_cov(samp, cov)
+        samp = utils.add_cov(samp, cov)
         return samp
 
     @classmethod
@@ -483,10 +455,12 @@ _DEFAULT_KERNEL = Gaussian
 _index_list = [
     ['gaussian', Gaussian],
     ['box', Box_Asym],
-    # ['parabola', Parabola_Asym],
-    # ['epanechnikov', Parabola_Asym],
-    # ['triweight', Triweight],
+    ['parabola', Parabola_Asym],
+    ['epanechnikov', Parabola_Asym],
+    ['triweight', Triweight],
 ]
+
+_all_skip = [Parabola_Asym, Triweight]
 
 _index = OrderedDict([(nam, val) for nam, val in _index_list])
 
@@ -521,6 +495,9 @@ def get_all_kernels():
     kerns = []
     for kk in _index.values():
         if kk not in kerns:
+            if kk in _all_skip:
+                logging.warning("WARNING: skipping kernel '{}'!".format(kk))
+                continue
             kerns.append(kk)
     return kerns
 

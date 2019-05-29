@@ -17,26 +17,26 @@ class KDE(object):
     def __init__(self, dataset, bandwidth=None, weights=None, kernel=None, neff=None,
                  quiet=False, **kwargs):
         self.dataset = np.atleast_2d(dataset)
-        self._ndim, self._data_size = self.dataset.shape
+        self._ndim, data_size = self.dataset.shape
         if weights is None:
-            weights = np.ones(self.data_size)/self.data_size
+            weights = np.ones(data_size)/data_size
 
         if np.count_nonzero(weights) == 0 or np.any(~np.isfinite(weights) | (weights < 0)):
             raise ValueError("Invalid `weights` entries, all must be finite and > 0!")
         weights = np.atleast_1d(weights).astype(float)
         weights /= np.sum(weights)
-        if np.shape(weights) != (self.data_size,):
+        if np.shape(weights) != (data_size,):
             raise ValueError("`weights` input should be shaped as (N,)!")
-
-        # Convert from string, class, etc to a kernel
-        kernel = kernels.get_kernel_class(kernel)
-        self._kernel = kernel(self)
 
         if bandwidth is None:
             bandwidth = self._BANDWIDTH_DEFAULT
         data_cov = np.cov(dataset, rowvar=True, bias=False, aweights=weights)
         self._data_cov = np.atleast_2d(data_cov)
         self.set_bandwidth(bandwidth)
+
+        # Convert from string, class, etc to a kernel
+        kernel = kernels.get_kernel_class(kernel)
+        self._kernel = kernel(self.matrix)
 
         self._neff = neff
         self._weights = weights
@@ -50,9 +50,9 @@ class KDE(object):
         reflect = self._check_reflect(reflect)
 
         if reflect is None:
-            result = self.kernel.pdf(points, **kwargs)
+            result = self.kernel.pdf(points, self.dataset, self.weights, **kwargs)
         else:
-            result = self.kernel.pdf_reflect(points, reflect, **kwargs)
+            result = self.kernel.pdf_reflect(points, reflect, self.dataset, self.weights, **kwargs)
 
         return result
 
@@ -73,9 +73,9 @@ class KDE(object):
         # Have `Kernel` class perform resampling
         # ---------------------------------------------------
         if reflect is None:
-            samples = self._kernel.resample(size, keep=keep)
+            samples = self._kernel.resample(size, self.dataset, self.weights, keep=keep)
         else:
-            samples = self._kernel.resample_reflect(size, reflect, keep=keep)
+            samples = self._kernel.resample_reflect(size, reflect, self.dataset, self.weights, keep=keep)
 
         if self.ndim == 1:
             samples = samples.squeeze()
@@ -98,45 +98,19 @@ class KDE(object):
 
         return reflect
 
+    # ==== Properties ====
+
     @property
     def weights(self):
-        try:
-            if self._weights is None:
-                raise AttributeError
-            return self._weights
-        except AttributeError:
-            self._weights = np.ones(self.data_size)/self.data_size
-            return self._weights
+        return self._weights
 
     @property
     def neff(self):
-        try:
-            if self._neff is None:
-                raise AttributeError
-            return self._neff
-        except AttributeError:
-            self._neff = 1.0 / np.sum(self.weights**2)
-            return self._neff
+        return self._neff
 
     @property
     def ndim(self):
-        try:
-            if self._ndim is None:
-                raise AttributeError
-            return self._ndim
-        except AttributeError:
-            self._ndim, self._data_size = np.shape(self.dataset)
-            return self._ndim
-
-    @property
-    def data_size(self):
-        try:
-            if self._data_size is None:
-                raise AttributeError
-            return self._data_size
-        except AttributeError:
-            self._ndim, self._data_size = np.shape(self.dataset)
-            return self._data_size
+        return self._ndim
 
     @property
     def kernel(self):

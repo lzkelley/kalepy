@@ -35,9 +35,6 @@ class Test_Kernels_Base(object):
         with tools.assert_raises(NotImplementedError):
             kern.evaluate(np.linspace(0.0, 1.0, 10))
 
-        with tools.assert_raises(NotImplementedError):
-            kern(np.linspace(0.0, 1.0, 10))
-
         return
 
     def test_cov_keep_vars(self):
@@ -140,7 +137,7 @@ class Test_Kernels_Generic(object):
             width = np.diff(edges)
             yy = kernel.evaluate(cents, bw=hh)
             # Make sure kernel is callable
-            tools.assert_true(np.allclose(yy, kernel()(cents, bw=hh)))
+            tools.assert_true(np.allclose(yy, kernel().evaluate(cents, bw=hh)))
 
             # Make sure kernel is normalized
             tot = np.sum(yy*width)
@@ -247,35 +244,31 @@ def test_get_kernel_class():
     print("\n|test_kernels.py:test_get_kernel_class()|")
     for name in GOOD_KERNEL_NAMES:
         print("Name: '{}'".format(name))
-        kern = kale.kernels.get_kernel_class(name)
-        kern()
+        kale.kernels.get_kernel_class(name)()
 
     for name in kale.kernels._index.keys():
-        kern = kale.kernels.get_kernel_class(name)
-        kern()
+        kale.kernels.get_kernel_class(name)()
 
     for name in BAD_KERNEL_NAMES:
         with tools.assert_raises(ValueError):
-            kern = kale.kernels.get_kernel_class(name)
+            kale.kernels.get_kernel_class(name)
 
     # Test defaults
-    kern = kale.kernels.get_kernel_class(None)
-    kern()
-    kern = kale.kernels.get_kernel_class()
-    kern()
+    kale.kernels.get_kernel_class(None)()
+    kale.kernels.get_kernel_class()()
 
     # Test custom kernel
     class Good_Kernel(kale.kernels.Kernel):
         pass
 
-    kern = kale.kernels.get_kernel_class(Good_Kernel)
+    kale.kernels.get_kernel_class(Good_Kernel)()
 
     # Test bad custom kernel
     class Bad_Kernel(object):
         pass
 
     with tools.assert_raises(ValueError):
-        kern = kale.kernels.get_kernel_class(Bad_Kernel)
+        kale.kernels.get_kernel_class(Bad_Kernel)
 
     return
 
