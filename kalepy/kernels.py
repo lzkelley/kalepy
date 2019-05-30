@@ -16,7 +16,7 @@ class Kernel(object):
 
     def __init__(self, distribution=None, matrix=None, bandwidth=None):
         distribution = get_distribution_class(distribution)
-        self._distribution = distribution
+        self._distribution = distribution()
 
         if matrix is None:
             if bandwidth is not None:
@@ -358,6 +358,15 @@ class Distribution(object):
         err = "`_evaluate` must be overridden by the Distribution subclass!"
         raise NotImplementedError(err)
 
+    @classmethod
+    def grid(cls, edges, **kwargs):
+        coords = np.meshgrid(*edges)
+        shp = np.shape(coords)[1:]
+        coords = np.vstack([xx.ravel() for xx in coords])
+        pdf = cls.evaluate(coords, **kwargs)
+        pdf = pdf.reshape(shp)
+        return pdf
+
     def sample(self, size, ndim=None, squeeze=None):
         if ndim is None:
             ndim = 1
@@ -407,15 +416,6 @@ class Distribution(object):
 
         return self._cdf_grid
 
-    @classmethod
-    def grid(cls, edges, **kwargs):
-        coords = np.meshgrid(*edges)
-        shp = np.shape(coords)[1:]
-        coords = np.vstack([xx.ravel() for xx in coords])
-        pdf = cls.evaluate(coords, **kwargs)
-        pdf = pdf.reshape(shp)
-        return pdf
-
     @property
     def FINITE(self):
         return self._FINITE
@@ -442,12 +442,10 @@ class Gaussian(Distribution):
         norm = np.power(2*np.pi, ndim/2)
         return norm
 
-    @classmethod
     def cdf(self, yy):
         zz = sp.stats.norm.cdf(yy)
         return zz
 
-    @classmethod
     def _sample(self, size, ndim):
         cov = np.eye(ndim)
         samps = np.random.multivariate_normal(np.zeros(ndim), cov, size=size).T
@@ -472,9 +470,6 @@ class Box_Asym(Distribution):
     @classmethod
     def _sample(self, size, ndim):
         samps = np.random.uniform(-1.0, 1.0, size=ndim*size).reshape(ndim, size)
-        # samp_cov = np.cov(*samps)
-        # samps = utils.rem_cov(samps, samp_cov)
-        # samp = utils.add_cov(samp, cov)
         return samps
 
     @classmethod
@@ -496,37 +491,21 @@ class Parabola_Asym(Distribution):
     _FINITE = True
 
     @classmethod
-    def evaluate(self, xx, ref=0.0, bw=1.0, weights=1.0):
-        yy, ndim, nvals, squeeze = self.scale(xx, ref, bw)
-        norm = (2*_nball_vol(ndim, bw)) / (ndim + 2)
-        zz = np.product(np.maximum(1 - yy**2, 0.0), axis=0)
-        zz = zz * weights / norm
-        if squeeze:
-            zz = zz.squeeze()
+    def _evaluate(self, yy, ndim):
+        norm = 2 * _nball_vol(ndim) / (ndim + 2)
+        zz = np.product(np.maximum(1 - yy**2, 0.0), axis=0) / norm
         return zz
 
-    @classmethod
-    def sample(self, ndim, cov, size):
+    def _sample(self, size, ndim):
         # Use the median trick to draw from the Epanechnikov distribution
         samp = np.random.uniform(-1, 1, 3*ndim*size).reshape(ndim, size, 3)
         samp = np.median(samp, axis=-1)
-        # Remove intrinsic coveriance
-        samp = utils.add_cov(samp)
-        # Add desired coveriance
-        samp = utils.add_cov(samp, cov)
         return samp
 
     @classmethod
-    def cdf(self, xx, ref=0.0, bw=1.0):
-        yy, ndim, nvals, squeeze = self.scale(xx, ref, bw)
-        try:
-            yy = np.minimum(np.maximum(yy, -1), 1)
-        except:
-            print(yy)
-            raise
-        zz = 0.5 + (3/4)*(yy - yy**3 / 3)
-        if squeeze:
-            zz = zz.squeeze()
+    def cdf(self, xx):
+        xx = np.minimum(np.maximum(xx, -1), 1)
+        zz = 0.5 + (3/4)*(xx - xx**3 / 3)
         return zz
 
 
@@ -535,44 +514,18 @@ class Triweight(Distribution):
     _FINITE = True
 
     @classmethod
-    def evaluate(self, xx, ref=0.0, bw=1.0, weights=1.0):
-        yy, ndim, nvals, squeeze = self.scale(xx, ref, bw)
-        norm = bw*32/35
+    def _evaluate(self, yy, ndim):
+        norm = 32.0 / 35.0
         zz = np.product(np.maximum((1 - yy*yy)**3, 0.0), axis=0)
-        zz = zz * weights / norm
-        if squeeze:
-            zz = zz.squeeze()
+        zz = zz / norm
         return zz
 
     @classmethod
-    def _cdf_grid(cls, ref, bw):
-        if cls._FINITE:
-            pad = (1 + _NUM_PAD)
-            args = [-pad*bw, pad*bw, 2000]
-        else:
-            args = [-10*bw, 10*bw, 20000]
-        xe, xc, dx = utils.bins(*args)
-
-        yy = cls.cdf(xc, ref, bw)
-        norm = yy[-1]
-        if not np.isclose(norm, 1.0, rtol=1e-4):
-            err = "Failed to reach unitarity in CDF grid norm: {:.4e}!".format(norm)
-            raise ValueError(err)
-        # csum = csum / norm
-        xc = np.concatenate([[args[0]], [args[0]], xc, [args[1]], [args[1]]], axis=0)
-        yy = np.concatenate([[0.0 - _NUM_PAD], [0.0], yy, [1.0], [1.0+_NUM_PAD]], axis=0)
-        cdf_grid = [xc, yy]
-        return cdf_grid
-
-    @classmethod
-    def cdf(self, xx, ref=0.0, bw=1.0):
-        yy, ndim, nvals, squeeze = self.scale(xx, ref, bw)
-        yy = np.minimum(np.maximum(yy, -1), 1)
+    def cdf(self, xx):
+        yy = np.minimum(np.maximum(xx, -1), 1)
         coeffs = [35/32, -35/32, 21/32, -5/32]
         powers = [1, 3, 5, 7]
         zz = 0.5 + np.sum([aa*np.power(yy, pp) for aa, pp in zip(coeffs, powers)], axis=0)
-        if squeeze:
-            zz = zz.squeeze()
         return zz
 
 
@@ -586,12 +539,13 @@ _index_list = [
     ['triweight', Triweight],
 ]
 
-_all_skip = [Parabola_Asym, Triweight]
+# _all_skip = [Parabola_Asym, Triweight]
+_all_skip = []
 
 _index = OrderedDict([(nam, val) for nam, val in _index_list])
 
-Parabola = Parabola_Asym
-Box = Box_Asym
+# Parabola = Parabola_Asym
+# Box = Box_Asym
 
 
 def get_distribution_class(arg=None):
