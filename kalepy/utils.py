@@ -126,11 +126,14 @@ def spacing(data, scale='log', num=None, dex=10, **kwargs):
     return spaced
 
 
-def bound_indices(data, bounds):
+def bound_indices(data, bounds, outside=False):
     ndim, nvals = np.shape(data)
     idx = np.ones(nvals, dtype=bool)
     for ii, bnd in enumerate(bounds):
-        idx = idx & (bnd[0] < data[ii, :]) & (data[ii, :] < bnd[1])
+        if outside:
+            idx = idx & (data[ii, :] < bnd[0]) & (bnd[1] < data[ii, :])
+        else:
+            idx = idx & (bnd[0] < data[ii, :]) & (data[ii, :] < bnd[1])
     return idx
 
 
@@ -157,31 +160,53 @@ def array_str(data, num=3, fmt=':.2e'):
     return rv
 
 
-def allclose(xx, yy, **kwargs):
+def allclose(xx, yy, msg=None, **kwargs):
+    msg_succ, msg_fail = _prep_msg(msg)
     xx = np.atleast_1d(xx)
     # yy = np.atleast_1d(yy)
     idx = np.isclose(xx, yy, **kwargs)
     if not np.all(idx):
-        logging.error("bads : " + array_str(np.where(~idx)[0]))
+        logging.error("bads : " + array_str(np.where(~idx)[0], fmt=':d'))
         logging.error("left : " + array_str(xx[~idx]))
         try:
             logging.error("right: " + array_str(yy[~idx]))
         except (TypeError, IndexError):
             logging.error("right: " + str(yy))
 
-        raise AssertionError("Arrays do not match!")
+        raise AssertionError(msg_fail)
+
+    if msg_succ is not None:
+        print(msg_succ)
 
     return
 
 
-def alltrue(xx):
+def alltrue(xx, msg=None):
+    msg_succ, msg_fail = _prep_msg(msg)
     idx = (xx == True)
     if not np.all(idx):
-        logging.error("bads : " + array_str(np.where(~idx)[0]))
+        logging.error("bads : " + array_str(np.where(~idx)[0], fmt=':d'))
         logging.error("vals : " + array_str(xx[~idx]))
-        raise AssertionError("Not all elements are True!")
+        raise AssertionError(msg_fail)
+
+    if msg_succ is not None:
+        print(msg_succ)
 
     return
+
+
+def _prep_msg(msg=None):
+    if (msg is None) or (msg is True):
+        msg_fail = "FAILURE:: arrays do not match!"
+        if msg is True:
+            msg_succ = "SUCC:: arrays match"
+        else:
+            msg_succ = None
+    else:
+        msg_fail = "FAILURE:: " + msg.format(fail="not ") + "!"
+        msg_succ = "SUCCESS:: " + msg.format(fail="")
+
+    return msg_succ, msg_fail
 
 
 def bins(*args):
