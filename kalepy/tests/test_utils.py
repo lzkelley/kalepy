@@ -156,6 +156,81 @@ class Test_Spacing(object):
         return
 
 
+class Test_Trapz(object):
+
+    def test_1d(self):
+        print("\n|Test_Trapz:test_1d()|")
+        from kalepy import utils
+
+        extr = sorted(np.random.uniform(-10, 10, 2))
+        xx = np.linspace(*extr, 1000)
+        yy = np.random.uniform(0.0, 1.0, xx.size)
+
+        np_trapz = np.trapz(yy, xx)
+        test = utils.trapz_nd(yy, xx)
+        utils.allclose(test, np_trapz)
+        return
+
+    def test_2d(self):
+        print("\n|Test_Trapz:test_2d()|")
+        from kalepy import utils
+        extr = [sorted(np.random.uniform(-10, 10, 2)) for ii in range(2)]
+        edges = [np.linspace(*ex, 100) for ex in extr]
+
+        grid = np.meshgrid(*edges)
+        shp = np.shape(grid[0])
+        vals = np.random.uniform(0.0, 1.0, size=shp)
+
+        test = utils.trapz_nd(vals, edges)
+
+        def sum_corner(ii, jj):
+            area = np.diff(edges[0]) * np.diff(edges[1])
+            temp = area * vals[ii, jj]
+            return np.sum(temp)
+
+        tot = 0.0
+        for ii in range(2):
+            for jj in range(2):
+                cuts = []
+                for kk in [ii, jj]:
+                    if kk == 0:
+                        cuts.append(slice(None, -1, None))
+                    else:
+                        cuts.append(slice(1, None, None))
+                tot += sum_corner(*cuts) * 0.25
+
+        print("test = {}, tot = {}".format(test, tot))
+        utils.allclose(test, tot)
+        return
+
+    def test_nd(self):
+        print("\n|Test_Trapz:test_nd()|")
+
+        def _test_dim(dim, num=1e7):
+            from kalepy import utils
+
+            num_per_dim = int(np.power(num, 1/dim))
+            norm = np.random.normal(10.0, 1.0)
+            extr = [sorted(np.random.uniform(-10, 10, 2)) for ii in range(dim)]
+            edges = [np.linspace(*ex, num_per_dim) for ex in extr]
+
+            shp = [len(ed) for ed in edges]
+            vals = norm * np.ones(shp)
+            tot = utils.trapz_nd(vals, edges)
+
+            truth = np.product(np.diff(extr, axis=-1)) * norm
+            print("\t{:.4e} vs {:.4e}".format(tot, truth))
+            utils.allclose(tot, truth)
+
+            return
+
+        for ii in range(1, 5):
+            print("Dimensions: {}".format(ii))
+            _test_dim(ii)
+
+        return
+
+
 # Run all methods as if with `nosetests ...`
 if __name__ == "__main__":
     run_module_suite()
