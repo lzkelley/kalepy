@@ -320,50 +320,92 @@ class Kernel(object):
             self._matrix_inv = utils.matrix_invert(self.matrix, quiet=_QUIET)
         return self._matrix_inv
 
+    @property
+    def FINITE(self):
+        return self.distribution.FINITE
+
 
 class Distribution(object):
 
     _FINITE = None
 
-    @classmethod
-    def evaluate(self, xx, ref=0.0, bw=1.0, weights=1.0):
-        err = "`evaluate` must be overridden by the Distribution subclass!"
-        raise NotImplementedError(err)
+    def __init__(self):
+        self._cdf_grid = None
+        return
 
     @classmethod
-    def sample(cls, ndim, cov, size):
-        grid, cdf = cls._cdf_grid(0.0, 1.0)
-        samps = np.random.uniform(0.0, 1.0, ndim*size)
-        samps = sp.interpolate.interp1d(cdf, grid, kind='quadratic')(samps).reshape(ndim, size)
-        samps = utils.add_cov(samps)
-        samps = utils.add_cov(samps, cov)
-        return samps
+    def name(cls):
+        name = cls.__name__
+        return name
 
     @classmethod
-    def cdf(cls, xx, ref=0.0, bw=1.0):
-        zz = sp.interpolate.interp1d(*cls._cdf_grid(ref, bw), kind='cubic')(xx)
+    def _parse(self, xx):
+        squeeze = (np.ndim(xx) < 2)
+        xx = np.atleast_2d(xx)
+        ndim, nval = np.shape(xx)
+        return xx, ndim, squeeze
+
+    @classmethod
+    def evaluate(self, xx):
+        yy, ndim, squeeze = self._parse(xx)
+        zz = self._evaluate(yy, ndim)
+        if squeeze:
+            zz = zz.squeeze()
         return zz
 
     @classmethod
-    def _cdf_grid(cls, ref, bw):
-        if cls._FINITE:
-            pad = (1 + _NUM_PAD)
-            args = [-pad*bw, pad*bw, 2000]
-        else:
-            args = [-10*bw, 10*bw, 20000]
-        xe, xc, dx = utils.bins(*args)
+    def _evaluate(self, yy, ndim):
+        err = "`_evaluate` must be overridden by the Distribution subclass!"
+        raise NotImplementedError(err)
 
-        yy = cls.evaluate(xc, ref, bw)
-        csum = np.cumsum(yy*dx)
-        norm = csum[-1]
-        if not np.isclose(norm, 1.0, rtol=1e-4):
-            err = "Failed to reach unitarity in CDF grid norm: {:.4e}!".format(norm)
-            raise ValueError(err)
-        # csum = csum / norm
-        xc = np.concatenate([[args[0]], [args[0]], xc, [args[1]], [args[1]]], axis=0)
-        csum = np.concatenate([[0.0 - _NUM_PAD], [0.0], csum, [1.0], [1.0+_NUM_PAD]], axis=0)
-        cdf_grid = [xc, csum]
-        return cdf_grid
+    def sample(self, size, ndim=None, squeeze=None):
+        if ndim is None:
+            ndim = 1
+            if squeeze is None:
+                squeeze = True
+
+        if squeeze is None:
+            squeeze = False
+
+        samps = self._sample(size, ndim)
+        if squeeze:
+            samps = samps.squeeze()
+        return samps
+
+    def _sample(self, size, ndim):
+        grid, cdf = self.cdf_grid
+        samps = np.random.uniform(0.0, 1.0, ndim*size)
+        samps = sp.interpolate.interp1d(cdf, grid, kind='quadratic')(samps).reshape(ndim, size)
+        # samps = utils.rem_cov(samps)
+        # samps = utils.add_cov(samps, cov)
+        return samps
+
+    def cdf(self, xx):
+        zz = sp.interpolate.interp1d(*self.cdf_grid, kind='cubic')(xx)
+        return zz
+
+    @property
+    def cdf_grid(self):
+        if self._cdf_grid is None:
+            if self._FINITE:
+                pad = (1 + _NUM_PAD)
+                args = [-pad, pad, 2000]
+            else:
+                args = [-10, 10, 20000]
+            xe, xc, dx = utils.bins(*args)
+
+            yy = self.evaluate(xc)
+            csum = np.cumsum(yy*dx)
+            norm = csum[-1]
+            if not np.isclose(norm, 1.0, rtol=1e-4):
+                err = "Failed to reach unitarity in CDF grid norm: {:.4e}!".format(norm)
+                raise ValueError(err)
+            # csum = csum / norm
+            xc = np.concatenate([[args[0]], [args[0]], xc, [args[1]], [args[1]]], axis=0)
+            csum = np.concatenate([[0.0 - _NUM_PAD], [0.0], csum, [1.0], [1.0+_NUM_PAD]], axis=0)
+            self._cdf_grid = [xc, csum]
+
+        return self._cdf_grid
 
     @classmethod
     def grid(cls, edges, **kwargs):
@@ -371,9 +413,17 @@ class Distribution(object):
         shp = np.shape(coords)[1:]
         coords = np.vstack([xx.ravel() for xx in coords])
         pdf = cls.evaluate(coords, **kwargs)
-        # print("coords = ", np.shape(coords), "pdf = ", np.shape(pdf), "shp = ", shp)
         pdf = pdf.reshape(shp)
         return pdf
+
+    @property
+    def FINITE(self):
+        return self._FINITE
+
+    @classmethod
+    def inside(cls, pnts):
+        idx = (cls.evaluate(pnts) > 0.0)
+        return idx
 
 
 class Gaussian(Distribution):
@@ -381,8 +431,7 @@ class Gaussian(Distribution):
     _FINITE = False
 
     @classmethod
-    def evaluate(self, yy):
-        ndim, nval = np.shape(yy)
+    def _evaluate(self, yy, ndim):
         energy = np.sum(yy * yy, axis=0) / 2.0
         norm = self.norm(ndim)
         result = np.exp(-energy) / norm
@@ -399,18 +448,15 @@ class Gaussian(Distribution):
         return zz
 
     @classmethod
-    def sample(self, size, ndim=None, squeeze=None):
-        if ndim is None:
-            ndim = 1
-            if squeeze is None:
-                squeeze = True
-
-        if squeeze is None:
-            squeeze = False
-
+    def _sample(self, size, ndim):
         cov = np.eye(ndim)
-        samp = np.random.multivariate_normal(np.zeros(ndim), cov, size=size).T
-        return samp
+        samps = np.random.multivariate_normal(np.zeros(ndim), cov, size=size).T
+        return samps
+
+    @classmethod
+    def inside(cls, pnts):
+        ndim, nvals = np.shape(np.atleast_2d(pnts))
+        return np.ones(nvals, dtype=bool)
 
 
 class Box_Asym(Distribution):
@@ -418,29 +464,31 @@ class Box_Asym(Distribution):
     _FINITE = True
 
     @classmethod
-    def evaluate(self, xx, ref=0.0, bw=1.0, weights=1.0):
-        yy, ndim, nvals, squeeze = self.scale(xx, ref, bw)
-        norm = np.power(2*bw, ndim)
-        zz = (weights / norm) * (np.max(np.fabs(yy), axis=0) < 1.0)
-        if squeeze:
-            zz = zz.squeeze()
+    def _evaluate(self, yy, ndim):
+        norm = np.power(2, ndim)
+        zz = (np.max(np.fabs(yy), axis=0) < 1.0) / norm
         return zz
 
     @classmethod
-    def sample(self, ndim, cov, size):
-        samp = np.random.uniform(-1.0, 1.0, size=ndim*size).reshape(ndim, size)
-        samp_cov = np.cov(*samp)
-        samp = utils.rem_cov(samp, samp_cov)
-        samp = utils.add_cov(samp, cov)
-        return samp
+    def _sample(self, size, ndim):
+        samps = np.random.uniform(-1.0, 1.0, size=ndim*size).reshape(ndim, size)
+        # samp_cov = np.cov(*samps)
+        # samps = utils.rem_cov(samps, samp_cov)
+        # samp = utils.add_cov(samp, cov)
+        return samps
 
     @classmethod
-    def cdf(self, xx, ref=0.0, bw=1.0):
-        yy, ndim, nval, squeeze = self.scale(xx, ref, bw)
-        zz = 0.5 + np.minimum(np.maximum(yy, -1), 1)/2
-        if squeeze:
-            zz = zz.squeeze()
+    def cdf(self, xx):
+        zz = 0.5 + np.minimum(np.maximum(xx, -1), 1)/2
         return zz
+
+    @classmethod
+    def inside(cls, pnts):
+        pnts = np.atleast_2d(pnts)
+        ndim, nvals = np.shape(pnts)
+        bounds = [[-1.0, 1.0] for ii in range(ndim)]
+        idx = utils.bound_indices(pnts, bounds)
+        return idx
 
 
 class Parabola_Asym(Distribution):
