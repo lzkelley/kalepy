@@ -231,6 +231,52 @@ class Test_Trapz(object):
         return
 
 
+class Test_Trapz_Dens_To_Mass(object):
+
+    def _test_nd(self, ndim):
+        print("\n|Test_Trapz_Dens_To_Mass:_test_nd()|")
+
+        from kalepy import utils
+
+        BIN_SIZE_RANGE = [30, 40]
+
+        extr = [[0.0, np.random.uniform(0.0, 2.0)] for ii in range(ndim)]
+        norm = np.random.uniform(0.0, 10.0)
+        # extr = [[0.0, 1.0] for ii in range(ndim)]
+        # norm = 1.0
+
+        edges = [np.linspace(*ex, np.random.randint(*BIN_SIZE_RANGE)) for ex in extr]
+        grid = np.meshgrid(*edges, indexing='ij')
+
+        lengths = np.max(extr, axis=-1)
+
+        xx = np.min(np.moveaxis(grid, 0, -1)/lengths, axis=-1)
+
+        pdf = norm * xx
+        area = np.product(lengths)
+        pmf = utils.trapz_dens_to_mass(pdf, edges)
+
+        # Known area of a pyramid in ndim
+        vol = area * norm / (ndim + 1)
+        tot = np.sum(pmf)
+        print("Volume = {:.4e}, Total Mass = {:.4e};  ratio = {:.4e}".format(vol, tot, tot/vol))
+        utils.allclose(vol, tot, rtol=1e-2, msg="total volume does {fail:}match analytic value")
+
+        test = utils.trapz_nd(pdf, edges)
+        print("Volume = {:.4e}, Total Mass = {:.4e};  ratio = {:.4e}".format(test, tot, tot/test))
+        utils.allclose(vol, tot, rtol=1e-2, msg="total volume does {fail:}match `trapz_nd` value")
+
+        return
+
+    def test_nd(self):
+        print("\n|Test_Trapz_Dens_To_Mass:test_nd()|")
+
+        for ii in range(1, 5):
+            self._test_nd(ii)
+
+        return
+
+
 # Run all methods as if with `nosetests ...`
 if __name__ == "__main__":
     run_module_suite()

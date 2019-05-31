@@ -232,10 +232,13 @@ def rem_cov(data, cov=None):
 
 
 def trapz_nd(data, edges):
-    edges = np.atleast_2d(edges)
+    if np.isscalar(edges[0]):
+        edges = np.atleast_2d(edges)
     tot = np.array(data)
     for ii in range(len(edges)):
-        tot = np.trapz(tot, x=edges[-1-ii])
+        xx = edges[-1-ii]
+        # print(ii, np.shape(xx), np.shape(tot))
+        tot = np.trapz(tot, x=xx)
     return tot
 
 
@@ -269,3 +272,58 @@ def matrix_invert(matrix, quiet=True):
         matrix_inv = np.linalg.pinv(matrix)
 
     return matrix_inv
+
+
+def trapz_dens_to_mass(pdf, edges):
+    """Convert from density to mass, for values on the corner of a grid, using the trapezoid rule.
+
+    Arguments
+    ---------
+    pdf : array_like
+        Density values, computed at the grid edges specified by the `edges` list-of-lists.
+    edges : array_like of array_like
+        List of edge-locations along each dimension specifying the grid of values at which `pdf`
+        are located.
+        e.g. `[[x0, x1, ... xn], [y0, y1, ... ym], ...]`
+        The length of each sub-list in `edges`, must match the shape of `pdf`.
+        e.g. if `edges` is a (3,) list, composed of sub-lists with lengths: `[N, M, L,]` then
+             the shape of `pdf` must be `(N, M, L,)`.
+
+    Returns
+    -------
+    mass : array_like
+        The `mass` array has as many dimensions as `pdf`, with each dimension one element shorter.
+        e.g. if the shape of `pdf` is (N, M, ...), then the shape of `mass` is (N-1, M-1, ...).
+
+    """
+
+    # Make sure `edges` is a list/array of list/arrays
+    if np.isscalar(edges[0]):
+        edges = np.atleast_2d(edges)
+
+    shp = np.array([len(ed) for ed in edges])
+    ndim = len(shp)
+    if not np.all(np.shape(pdf) == shp):
+        err = "Shape of pdf ({}) does not match edges ({})!".format(np.shape(pdf), shp)
+        raise ValueError(err)
+
+    _widths = [np.diff(ed) for ed in edges]
+    widths = []
+    for ii, wid in enumerate(_widths):
+        cut = [np.newaxis for ii in range(ndim)]
+        cut[ii] = slice(None)
+        temp = wid[tuple(cut)]
+        widths.append(temp)
+
+    volumes = np.product(widths, axis=0)
+
+    mass = []
+    for inds in np.ndindex(*([2]*ndim)):
+        cut = [slice(0, -1, None) if ii == 0 else slice(1, None, None)
+               for ii in inds]
+        temp = pdf[tuple(cut)]
+        mass.append(temp * volumes)
+
+    mass = np.sum(mass, axis=0) / (2**ndim)
+
+    return mass
