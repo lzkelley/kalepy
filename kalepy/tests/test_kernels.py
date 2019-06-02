@@ -125,85 +125,85 @@ class Test_Kernels_Generic(object):
     def _test_evaluate(self, kernel):
         print("\n|Test_Kernels_Generic:_test_evaluate()|")
         print(kernel)
-        bws = [0.1, 1.0, 2.0, 10.0]
-        for ii, hh in enumerate(bws):
-            print("\t", ii, hh)
-            # bandwidth should always be scaled to 1.0
-            yy, ndim, nval, squeeze = kernel.scale(hh, 0.0, hh)
-            tools.assert_true(np.isclose(yy, 1.0))
-            tools.assert_true(ndim == 1)
-            tools.assert_true(nval == 1)
 
-            edges = np.linspace(-10*hh, 10*hh, 10000)
-            cents = kale.utils.midpoints(edges, 'lin')
-            width = np.diff(edges)
-            yy = kernel.evaluate(cents, bw=hh)
-            # Make sure kernel is callable
-            tools.assert_true(np.allclose(yy, kernel().evaluate(cents, bw=hh)))
+        # bandwidth should always be scaled to 1.0
+        # yy, ndim, nval, squeeze = kernel.scale(hh, 0.0, hh)
+        # tools.assert_true(np.isclose(yy, 1.0))
+        # tools.assert_true(ndim == 1)
+        # tools.assert_true(nval == 1)
 
-            # Make sure kernel is normalized
-            tot = np.sum(yy*width)
-            # print("\t\ttot = {:.4e}".format(tot))
-            tools.assert_almost_equal(tot, 1.0, delta=1e-3)
+        hh = 1.0
+        edges = np.linspace(-10*hh, 10*hh, 10000)
+        cents = kale.utils.midpoints(edges, 'lin')
+        # width = np.diff(edges)
+        yy = kernel.evaluate(cents)
+        # Make sure kernel is callable
+        # tools.assert_true(np.allclose(yy, kernel().evaluate(cents)))
 
-            # Make sure kernels have expected support
-            tools.assert_true(np.all(yy >= 0.0))
-            if kernel._FINITE:
-                outside = (cents < -hh) | (hh < cents)
-                inside = (-hh < cents) & (cents < hh)
-            else:
-                outside = []
-                inside = np.ones_like(yy, dtype=bool)
+        # Make sure kernel is normalized
+        # tot = np.sum(yy*width)
+        tot = np.trapz(yy, cents)
+        # print("\t\ttot = {:.4e}".format(tot))
+        tools.assert_almost_equal(tot, 1.0, delta=1e-3)
 
-            utils.allclose(yy[outside], 0.0, rtol=1e-4, atol=1e-4)
-            utils.alltrue(yy[inside] > 0.0)
+        # Make sure kernels have expected support
+        tools.assert_true(np.all(yy >= 0.0))
+        if kernel._FINITE:
+            outside = (cents < -hh) | (hh < cents)
+            inside = (-hh < cents) & (cents < hh)
+        else:
+            outside = []
+            inside = np.ones_like(yy, dtype=bool)
+
+        utils.allclose(yy[outside], 0.0, rtol=1e-4, atol=1e-4)
+        utils.alltrue(yy[inside] > 0.0)
 
         return
 
     @classmethod
-    def _test_evaluate_nd(self, kernel):
+    def kernel_at_dim(cls, kern, ndim, num=1e6):
+        if ndim > 4:
+            raise ValueError("`ndim` = {} is too memory intensive!")
+        pad = 2.0 if kern._FINITE else 4.0
+        bw = 1.0
+        extr = [-pad*bw, pad*bw]
+        num = np.power(num, 1/ndim)
+        num = int(num)
+        edges = np.zeros((ndim, num+1))
+        cents = np.zeros((ndim, num))
+        diffs = np.zeros_like(cents)
+        for ii in range(ndim):
+            edges[ii, :], cents[ii, :], diffs[ii, :] = kale.utils.bins(*extr, num+1)
+
+        pdf_edges = kern.grid(edges)
+        tot = np.array(pdf_edges)
+        for ii in range(ndim):
+            tot = np.trapz(tot, x=edges[-1-ii])
+
+        print("{} :: nd={}, bw={:.2f} : tot={:.4e}".format(
+            kern.__name__, ndim, bw, tot))
+
+        dpow = -4 + ndim
+        delta = 2*np.power(10.0, np.minimum(dpow, -1))
+
+        tools.assert_almost_equal(tot, 1.0, delta=delta)
+
+        return
+
+    @classmethod
+    def _test_evaluate_nd(cls, kernel):
         print("\n|Test_Kernels_Generic:_test_evaluate_nd()|")
         print(kernel)
 
-        def kernel_at_dim_bw(kern, ndim, bw, num=1e6):
-            if ndim > 3:
-                raise ValueError("`ndim` = {} is too memory intensive!")
-            pad = 2.0 if kern._FINITE else 4.0
-            extr = [-pad*bw, pad*bw]
-            num = np.power(num, 1/ndim)
-            num = int(num)
-            edges = np.zeros((ndim, num+1))
-            cents = np.zeros((ndim, num))
-            diffs = np.zeros_like(cents)
-            for ii in range(ndim):
-                edges[ii, :], cents[ii, :], diffs[ii, :] = kale.utils.bins(*extr, num+1)
-
-            pdf_edges = kern.grid(edges, ref=np.zeros(ndim), bw=bw)
-            tot = np.array(pdf_edges)
-            for ii in range(ndim):
-                tot = np.trapz(tot, x=edges[-1-ii])
-
-            print("{} :: nd={}, bw={:.2f} : tot={:.4e}".format(
-                kern.__name__, ndim, bw, tot))
-
-            dpow = -4 + ndim
-            delta = 2*np.power(10.0, np.minimum(dpow, -1))
-
-            tools.assert_almost_equal(tot, 1.0, delta=delta)
-
-            return
-
         kernels = kale.kernels.get_all_distribution_classes()
 
-        num_dims = [1, 2, 3]
-        bandwidths = [0.5, 1.0, 2.0, 4.0]
+        num_dims = [1, 2, 3, 4]
 
         for kern in kernels:
             print("\nkern: ", kern)
             for ndim in num_dims:
                 print("\nndim: ", ndim)
-                for bw in bandwidths:
-                    kernel_at_dim_bw(kern, ndim, bw)
+                cls.kernel_at_dim(kern, ndim)
 
         return
 

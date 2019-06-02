@@ -486,14 +486,16 @@ class Box_Asym(Distribution):
         return idx
 
 
-class Parabola_Asym(Distribution):
+class Parabola(Distribution):
 
     _FINITE = True
 
     @classmethod
     def _evaluate(self, yy, ndim):
         norm = 2 * _nball_vol(ndim) / (ndim + 2)
-        zz = np.product(np.maximum(1 - yy**2, 0.0), axis=0) / norm
+        dist = np.sum(yy**2, axis=0)
+        zz = np.maximum(1 - dist, 0.0) / norm
+        # zz = np.product(np.maximum(1 - yy**2, 0.0), axis=0) / norm
         return zz
 
     def _sample(self, size, ndim):
@@ -534,8 +536,8 @@ _DEFAULT_DISTRIBUTION = Gaussian
 _index_list = [
     ['gaussian', Gaussian],
     ['box', Box_Asym],
-    ['parabola', Parabola_Asym],
-    ['epanechnikov', Parabola_Asym],
+    ['parabola', Parabola],
+    ['epanechnikov', Parabola],
     ['triweight', Triweight],
 ]
 
