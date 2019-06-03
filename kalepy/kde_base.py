@@ -4,18 +4,99 @@ import logging
 import six
 
 import numpy as np
-# import scipy as sp
 
 from kalepy import kernels
 
 
 class KDE(object):
-    """
+    """Core class and primary API for using `Kalepy`, by constructin a KDE based on given data.
+
+    The `KDE` class acts as an API to the underlying `kernel` structures and methods.  From the
+    passed data, a 'bandwidth' is calculated and/or set (using optional specifications using the
+    `bandwidth` argument).  A `kernel` is constructed (using optional specifications in the
+    `kernel` argument) which performs the calculations of the kernel density estimation.
+
+
+    Notes
+    -----
+    Reflection ::
+
+        Reflective boundary conditions can be used to better reconstruct a PDF that is known to
+        have finite support (i.e. boundaries outside of which the PDF should be zero).
+
+        The `pdf` and `resample` methods accept the keyword-argument (kwarg) `reflect` to specify
+        that a reflecting boundary should be used.
+
+        reflect : (D,) array_like, None (default)
+            Locations at which reflecting boundary conditions should be imposed.
+            For each dimension `D`, a pair of boundary locations (for: lower, upper) must be
+            specified, or `None`.  `None` can also be given to specify no boundary at that
+            location.
+
+            If a pair of boundaries are given, then the
+            first value corresponds to the lower boundary, and the second value to the upper
+            boundary, in that dimension.  If there should only be a single lower or upper
+            boundary, then `None` should be passed as the other boundary value.
+
+        Example:
+           ```reflect=[None, [-1.0, 1.0], [0.0, None]]```
+        specifies that the 0th dimension has no boundaries, the 1st dimension has
+        boundaries at both -1.0 and 1.0, and the 2nd dimension has a lower boundary at 0.0,
+        and no upper boundary.
+
+    Projection / Marginalization ::
+
+        The PDF can be calculated for only particular parameters/dimensions.
+        The `pdf` method accepts the keyword-argument (kwarg) `params` to specify particular
+        parameters over which to calculate the PDF (i.e. the other parameters are projected over).
+
+        params : int, array_like of int, None (default)
+            Only calculate the PDF for certain parameters (dimensions).
+
+            If `None`, then calculate PDF along all dimensions.
+            If `params` is specified, then the target evaluation points `pnts`, must only
+            contain the corresponding dimensions.
+
+        Example:
+        If the `dataset` has shape (4, 100), but `pdf` is called with `params=(1, 2)`,
+        then the `pnts` array should have shape `(2, M)` where the two provides dimensions
+        correspond to the 1st and 2nd variables of the `dataset`.
+
     """
     _BANDWIDTH_DEFAULT = 'scott'
     _SET_OFF_DIAGONAL = True
 
-    def __init__(self, dataset, bandwidth=None, weights=None, kernel=None, neff=None, **kwargs):
+    def __init__(self, dataset, bandwidth=None, weights=None, kernel=None, neff=None):
+        """Initialize the `KDE` class with the given dataset and optional specifications.
+
+        Arguments
+        ---------
+        dataset : array_like (N,) or (D,N,)
+            Dataset from which to construct the kernel-density-estimate.
+            For multivariate data with `D` variables and `N` values, the data must be shaped (D,N).
+            For univariate (D=1) data, this can be a single array with shape (N,).
+
+        bandwidth : str, float, array of float, None  [optional]
+            Specification for the bandwidth, or the method by which the bandwidth should be
+            determined.  If a `str` is given, it must match one of the standard bandwidth
+            determination methods.  If a `float` is given, it is used as the bandwidth in each
+            dimension.  If an array of `float`s are given, then each value will be used as the
+            bandwidth for the corresponding data dimension.
+        weights : array_like (N,), None  [optional]
+            Weights corresponding to each `dataset` point.  Must match the number of points `N` in
+            the `dataset`.
+            If `None`, weights are uniformly set to 1/N for each value.
+        kernel : str, Distribution, None  [optional]
+            The distribution function that should be used for the kernel.  This can be a `str`
+            specification that must match one of the existing distribution functions, or this can
+            be a `Distribution` subclass itself that overrides the `_evaluate` method.
+        neff : int, None  [optional]
+            An effective number of datapoints.  This is used in the plugin bandwidth determination
+            methods.
+            If `None`, `neff` is calculated from the `weights` array.  If `weights` are all
+            uniform, then `neff` equals the number of datapoints `N`.
+
+        """
         self.dataset = np.atleast_2d(dataset)
         ndim, ndata = self.dataset.shape
         if weights is None:
@@ -50,12 +131,69 @@ class KDE(object):
 
         return
 
-    def pdf(self, pnts, *args, **kwargs):
-        result = self.kernel.pdf(pnts, self.dataset, self.weights, *args, **kwargs)
+    def pdf(self, pnts, **kwargs):
+        """Evaluate the kernel-density-estimate PDF at the given data-points.
+
+        This method acts as an API to the `Kernel.pdf` method of this instance's `kernel`.
+
+        Arguments
+        ---------
+        pnts : ([D,]M,) array_like of float
+            The locations at which the PDF should be evaluated.  The number of dimensions `D` must
+            match that of the `dataset` that initialized this class' instance.
+            NOTE: If the `params` kwarg (see below) is given, then only those dimensions of the
+            target parameters should be specified in `pnts`.
+
+        kwargs ::
+            Additional, optional keyword arguments passed to `Kernel.pdf`.  Accepted arguments:
+
+            reflect : (D,) array_like, None (default)
+                Locations at which reflecting boundary conditions should be imposed.
+                For each dimension `D`, a pair of boundary locations (for: lower, upper) must be
+                specified, or `None`.  `None` can also be given to specify no boundary at that
+                location.  See class docstrings:`Reflection` for more information.
+
+            params : int, array_like of int, None (default)
+                Only calculate the PDF for certain parameters (dimensions).
+                See class docstrings:`Projection` for more information.
+
+        """
+        result = self.kernel.pdf(pnts, self.dataset, self.weights, **kwargs)
         return result
 
     def resample(self, size=None, keep=None, reflect=None, squeeze=True):
-        """
+        """Draw new values from the kernel-density-estimate calculated PDF.
+
+        The KDE calculates a PDF from the given dataset.  This method draws new, semi-random data
+        points from that PDF.
+
+        Arguments
+        ---------
+        size : int, None (default)
+            The number of new data points to draw.  If `None`, then the number of `datapoints` is
+            used.
+
+        keep : int, array_like of int, None (default)
+            Parameters/dimensions where the original data-values should be drawn from, instead of
+            from the reconstructed PDF.
+            TODO: add more information.
+        reflect : (D,) array_like, None (default)
+            Locations at which reflecting boundary conditions should be imposed.
+            For each dimension `D`, a pair of boundary locations (for: lower, upper) must be
+            specified, or `None`.  `None` can also be given to specify no boundary at that
+            location.
+        squeeze : bool, (default: True)
+            If the number of dimensions `D` is one, then return an array of shape (L,) instead of
+            (1, L).
+
+        Returns
+        -------
+        samples : ([D,]L) ndarray of float
+            Newly drawn samples from the PDF, where the number of points `L` is determined by the
+            `size` argument.
+            If `squeeze` is True (default), and the number of dimensions in the original dataset
+            `D` is one, then the returned array will have shape (L,).
+
         """
         samples = self.kernel.resample(
             self.dataset, self.weights,
