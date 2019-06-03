@@ -129,6 +129,21 @@ class Kernel(object):
         result = result / norm
         return result
 
+    '''
+    def pdf_grid(self, edges, *args, **kwargs):
+        ndim = self._ndim
+        if len(edges) != ndim:
+            err = "`edges` must be (D,): an array of edges for each dimension!"
+            raise ValueError(err)
+
+        coords = np.meshgrid(*edges)
+        shp = np.shape(coords)[1:]
+        coords = np.vstack([xx.ravel() for xx in coords])
+        pdf = self.pdf(coords, *args, **kwargs)
+        pdf = pdf.reshape(shp)
+        return pdf
+    '''
+
     def resample(self, data, weights, size=None, keep=None, reflect=None, squeeze=True):
         """
         """
