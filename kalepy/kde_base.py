@@ -62,6 +62,50 @@ class KDE(object):
         then the `pnts` array should have shape `(2, M)` where the two provides dimensions
         correspond to the 1st and 2nd variables of the `dataset`.
 
+
+    Examples
+    --------
+    Construct semi-random data:
+
+    >>> np.random.seed(1234)
+    >>> data = np.random.normal(0.0, 1.0, 1000)
+
+    Construct `KDE` instance using this data, and the default bandwidth and kernels.
+
+    >>> kde = kale.KDE(data)
+
+    Compare original PDF and the data to the reconstructed PDF from the KDE:
+
+    >>> xx = np.linspace(-3, 3, 400)
+    >>> pdf_tru = np.exp(-xx*xx/2) / np.sqrt(2*np.pi)
+    >>> pdf_kde = kde.pdf(xx)
+
+    >>> plt.plot(xx, pdf_tru, 'k--', label='Normal PDF')
+    >>> _, bins, _ = plt.hist(data, bins=14, density=True,
+    >>>                       color='0.5', rwidth=0.9, alpha=0.5, label='Data')
+    >>> plt.plot(xx, pdf_kde, 'r-', label='KDE')
+    >>> plt.legend()
+
+    Compare the KDE reconstructed PDF to the "true" PDF, make sure the chi-squared is consistent:
+
+    >>> dof = xx.size - 1
+    >>> x2 = np.sum(np.square(pdf_kde - pdf_tru)/pdf_tru**2)
+    >>> x2 = x2 / dof
+    >>> x2 < 0.1
+    True
+    >>> print("Chi-Squared: {:.2e}".format(x2))
+    Chi-Squared: 1.70e-02
+
+    Draw new samples from the data and make sure they are consistent with the original data:
+
+    >>> samp = kde.resample()
+    >>> plt.hist(samp, bins=bins, density=True, color='r', alpha=0.5, rwidth=0.5, label='Samples')
+    >>> ks, pv = sp.stats.ks_2samp(data, samp)
+    >>> pv > 0.05
+    True
+    >>> print("p-value: {:.2e}".format(pv))
+    p-value: 9.52e-01
+
     """
     _BANDWIDTH_DEFAULT = 'scott'
     _SET_OFF_DIAGONAL = True
