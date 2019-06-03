@@ -183,6 +183,7 @@ def allclose(xx, yy, msg=None, **kwargs):
 
 def alltrue(xx, msg=None):
     msg_succ, msg_fail = _prep_msg(msg)
+    xx = np.atleast_1d(xx)
     idx = (xx == True)
     if not np.all(idx):
         logging.error("bads : " + array_str(np.where(~idx)[0], fmt=':d'))
@@ -327,3 +328,26 @@ def trapz_dens_to_mass(pdf, edges):
     mass = np.sum(mass, axis=0) / (2**ndim)
 
     return mass
+
+
+class Test_Base(object):
+
+    DEF_SEED = 1234
+
+    @classmethod
+    def setup_class(cls):
+        np.random.seed(cls.DEF_SEED)
+        return
+
+    # Override `__getattribute__` to print the class and function name whenever they are called
+    def __getattribute__(self, attr):
+        value = object.__getattribute__(self, attr)
+        if attr.startswith('__'):
+            return value
+
+        name = object.__getattribute__(self, "__class__").__name__
+        if callable(value):
+            print("\n|{}:{}|".format(name, attr))
+
+        np.random.seed(object.__getattribute__(self, "DEF_SEED"))
+        return value
