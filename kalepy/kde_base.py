@@ -96,8 +96,8 @@ class KDE(object):
     >>> x2 = x2 / dof
     >>> x2 < 0.1
     True
-    >>> print("Chi-Squared: {:.2e}".format(x2))
-    Chi-Squared: 1.70e-02
+    >>> print("Chi-Squared: {:.1e}".format(x2))
+    Chi-Squared: 1.7e-02
 
     Draw new samples from the data and make sure they are consistent with the original data:
 
@@ -108,8 +108,8 @@ class KDE(object):
     >>> ks, pv = sp.stats.ks_2samp(data, samp)
     >>> pv > 0.05
     True
-    >>> print("p-value: {:.2e}".format(pv))
-    p-value: 9.52e-01
+    >>> print("p-value: {:.1e}".format(pv))
+    p-value: 9.5e-01
 
     """
     _BANDWIDTH_DEFAULT = 'scott'
