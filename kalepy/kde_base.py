@@ -67,11 +67,13 @@ class KDE(object):
     --------
     Construct semi-random data:
 
+    >>> import numpy as np
     >>> np.random.seed(1234)
     >>> data = np.random.normal(0.0, 1.0, 1000)
 
     Construct `KDE` instance using this data, and the default bandwidth and kernels.
 
+    >>> import kalepy as kale
     >>> kde = kale.KDE(data)
 
     Compare original PDF and the data to the reconstructed PDF from the KDE:
@@ -80,11 +82,12 @@ class KDE(object):
     >>> pdf_tru = np.exp(-xx*xx/2) / np.sqrt(2*np.pi)
     >>> pdf_kde = kde.pdf(xx)
 
-    >>> plt.plot(xx, pdf_tru, 'k--', label='Normal PDF')
-    >>> _, bins, _ = plt.hist(data, bins=14, density=True,
-    >>>                       color='0.5', rwidth=0.9, alpha=0.5, label='Data')
-    >>> plt.plot(xx, pdf_kde, 'r-', label='KDE')
-    >>> plt.legend()
+    >>> import matplotlib.pyplot as plt
+    >>> ll = plt.plot(xx, pdf_tru, 'k--', label='Normal PDF')
+    >>> _, bins, _ = plt.hist(data, bins=14, density=True, \
+                              color='0.5', rwidth=0.9, alpha=0.5, label='Data')
+    >>> ll = plt.plot(xx, pdf_kde, 'r-', label='KDE')
+    >>> ll = plt.legend()
 
     Compare the KDE reconstructed PDF to the "true" PDF, make sure the chi-squared is consistent:
 
@@ -98,8 +101,10 @@ class KDE(object):
 
     Draw new samples from the data and make sure they are consistent with the original data:
 
+    >>> import scipy as sp
     >>> samp = kde.resample()
-    >>> plt.hist(samp, bins=bins, density=True, color='r', alpha=0.5, rwidth=0.5, label='Samples')
+    >>> ll = plt.hist(samp, bins=bins, density=True, color='r', alpha=0.5, rwidth=0.5, \
+                      label='Samples')
     >>> ks, pv = sp.stats.ks_2samp(data, samp)
     >>> pv > 0.05
     True
