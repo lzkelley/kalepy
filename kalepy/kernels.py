@@ -518,7 +518,9 @@ class Triweight(Distribution):
     @classmethod
     def _evaluate(self, yy, ndim):
         norm = 32.0 / 35.0
-        zz = np.product(np.maximum((1 - yy*yy)**3, 0.0), axis=0)
+        dist = np.sum(yy**2, axis=0)
+        zz = np.maximum((1 - dist)**3, 0.0)
+        # zz = np.product(np.maximum((1 - yy*yy)**3, 0.0), axis=0)
         zz = zz / norm
         return zz
 
