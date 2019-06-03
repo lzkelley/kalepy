@@ -339,22 +339,22 @@ class Distribution(object):
         return name
 
     @classmethod
-    def _parse(self, xx):
+    def _parse(cls, xx):
         squeeze = (np.ndim(xx) < 2)
         xx = np.atleast_2d(xx)
         ndim, nval = np.shape(xx)
         return xx, ndim, squeeze
 
     @classmethod
-    def evaluate(self, xx):
-        yy, ndim, squeeze = self._parse(xx)
-        zz = self._evaluate(yy, ndim)
+    def evaluate(cls, xx):
+        yy, ndim, squeeze = cls._parse(xx)
+        zz = cls._evaluate(yy, ndim)
         if squeeze:
             zz = zz.squeeze()
         return zz
 
     @classmethod
-    def _evaluate(self, yy, ndim):
+    def _evaluate(cls, yy, ndim):
         err = "`_evaluate` must be overridden by the Distribution subclass!"
         raise NotImplementedError(err)
 
@@ -374,7 +374,7 @@ class Distribution(object):
                 squeeze = True
 
         if squeeze is None:
-            squeeze = False
+            squeeze = (ndim == 1)
 
         samps = self._sample(size, ndim)
         if squeeze:
@@ -517,7 +517,7 @@ class Triweight(Distribution):
 
     @classmethod
     def _evaluate(self, yy, ndim):
-        norm = 32.0 / 35.0
+        norm = (32.0 / 35.0) * _nball_vol(ndim) / (ndim + 1)
         dist = np.sum(yy**2, axis=0)
         zz = np.maximum((1 - dist)**3, 0.0)
         # zz = np.product(np.maximum((1 - yy*yy)**3, 0.0), axis=0)
@@ -543,13 +543,10 @@ _index_list = [
     ['triweight', Triweight],
 ]
 
-# _all_skip = [Parabola_Asym, Triweight]
-_all_skip = []
+_all_skip = [Triweight]
+# _all_skip = []
 
 _index = OrderedDict([(nam, val) for nam, val in _index_list])
-
-# Parabola = Parabola_Asym
-# Box = Box_Asym
 
 
 def get_distribution_class(arg=None):
