@@ -161,10 +161,11 @@ class Kernel(object):
 
         ndim, nvals = np.shape(data)
         # Draw from the smoothing kernel, here the `bw_matrix` includes the bandwidth
-        norm = self.distribution.sample(size, ndim=ndim)
+        norm = self.distribution.sample(size, ndim=ndim, squeeze=False)
         # norm_cov = np.cov(*norm)
         # norm = utils.rem_cov(norm, norm_cov)
         norm = utils.add_cov(norm, matrix)
+
         if keep is not None:
             keep = np.atleast_1d(keep)
             for pp in keep:
