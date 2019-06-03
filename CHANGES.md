@@ -1,5 +1,6 @@
 ## To-Do
 - Optimization drastically needed.  Things are done in (generally) the simplest ways, currently, need to be optimized for performance (both speed and memory [e.g. with reflections]).
+- Use `sp.stats.rv_continuous` as base-class for 'Distribution' to provide functionality like 'ppf' etc.
 - `kdes/`
     - Allow for calculating PDF and resampling in only particular dimensions/parameters.
         - FIX: Doesn't work quite right for non-fixed bandwidth, bandwidth needs to be re-calculated for different number of dimensions
