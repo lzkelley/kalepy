@@ -12,8 +12,10 @@
 
 
 
-
 ## Current
+
+
+## v0.1 – 2019/06/03
 - Module renamed from `kdes` to `kalepy`.
 - Notebooks are now included in travis unit testing. 
 - Added skeleton for sphinx documentation; not written yet.
