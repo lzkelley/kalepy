@@ -15,6 +15,8 @@
 
 ## Current
 - `kalepy/`
+    - `__init__.py`
+        - Import desired API methods into module namespace.  Use `__all__` in both `kernels.py` and `utils.py`.
     - `kde_base.py`
         - `class KDE`
             - `pdf_grid()`  [new-function]

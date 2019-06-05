@@ -7,6 +7,8 @@ import numpy as np
 
 from kalepy import kernels
 
+__all__ = ['KDE']
+
 
 class KDE(object):
     """Core class and primary API for using `Kalepy`, by constructin a KDE based on given data.

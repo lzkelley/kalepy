@@ -6,6 +6,120 @@ import numpy as np
 import scipy as sp
 import scipy.linalg  # noqa
 
+__all__ = [
+    'add_cov', 'array_str', 'bins', 'midpoints',
+    'minmax', 'rem_cov', 'spacing', 'stats_str',
+    'trapz_nd', 'trapz_dens_to_mass'
+]
+
+
+def add_cov(data, cov):
+    color_mat = sp.linalg.cholesky(cov)
+    color_data = np.dot(color_mat.T, data)
+    return color_data
+
+
+def array_str(data, num=3, fmt=':.2e'):
+    spec = "{{{}}}".format(fmt)
+
+    def _astr(vals):
+        temp = ", ".join([spec.format(dd) for dd in vals])
+        return temp
+
+    if len(data) <= 2*num:
+        rv = _astr(data)
+    else:
+        rv = _astr(data[:num]) + " ... " + _astr(data[-num:])
+
+    rv = '[' + rv + ']'
+    return rv
+
+
+def allclose(xx, yy, msg=None, **kwargs):
+    msg_succ, msg_fail = _prep_msg(msg)
+    xx = np.atleast_1d(xx)
+    # yy = np.atleast_1d(yy)
+    idx = np.isclose(xx, yy, **kwargs)
+    if not np.all(idx):
+        logging.error("bads : " + array_str(np.where(~idx)[0], fmt=':d'))
+        logging.error("left : " + array_str(xx[~idx]))
+        try:
+            logging.error("right: " + array_str(yy[~idx]))
+        except (TypeError, IndexError):
+            logging.error("right: " + str(yy))
+
+        raise AssertionError(msg_fail)
+
+    if msg_succ is not None:
+        print(msg_succ)
+
+    return
+
+
+def alltrue(xx, msg=None):
+    msg_succ, msg_fail = _prep_msg(msg)
+    xx = np.atleast_1d(xx)
+    idx = (xx == True)
+    if not np.all(idx):
+        logging.error("bads : " + array_str(np.where(~idx)[0], fmt=':d'))
+        logging.error("vals : " + array_str(xx[~idx]))
+        raise AssertionError(msg_fail)
+
+    if msg_succ is not None:
+        print(msg_succ)
+
+    return
+
+
+def bins(*args):
+    xe = np.linspace(*args)
+    xc = midpoints(xe)
+    dx = np.diff(xe)
+    return xe, xc, dx
+
+
+def bound_indices(data, bounds, outside=False):
+    ndim, nvals = np.shape(data)
+    idx = np.ones(nvals, dtype=bool)
+    for ii, bnd in enumerate(bounds):
+        if outside:
+            idx = idx & (data[ii, :] < bnd[0]) & (bnd[1] < data[ii, :])
+        else:
+            idx = idx & (bnd[0] < data[ii, :]) & (data[ii, :] < bnd[1])
+    return idx
+
+
+def cov_from_var_cor(var, corr):
+    var = np.atleast_1d(var)
+    assert np.ndim(var) == 1, "`var` should be 1D!"
+    ndim = len(var)
+    # Covariance matrix diagonals should be the variance (of each parameter)
+    cov = np.identity(ndim) * var
+
+    if np.isscalar(corr):
+        corr = corr * np.ones((ndim, ndim))
+    elif np.shape(corr) != (ndim, ndim):
+        raise ValueError("`corr` must be either a scalar or (D,D) matrix!")
+
+    # Set the off-diagonals to be the correlation, times the product of standard-deviations
+    for ii, jj in np.ndindex(cov.shape):
+        if ii == jj:
+            continue
+        cov[ii, jj] = np.sqrt(var[ii]) * np.sqrt(var[jj]) * corr[ii, jj]
+
+    return cov
+
+
+def matrix_invert(matrix, quiet=True):
+    try:
+        matrix_inv = np.linalg.inv(matrix)
+    except np.linalg.LinAlgError:
+        if quiet:
+            logging.warning("singular `matrix`, trying SVD...")
+        matrix_inv = np.linalg.pinv(matrix)
+
+    return matrix_inv
+
 
 def midpoints(data, scale='lin', frac=0.5, axis=-1, squeeze=True):
     """Return the midpoints between values in the given array.
@@ -98,6 +212,15 @@ def minmax(data, prev=None, stretch=None, log_stretch=None, limit=None):
     return minmax
 
 
+def rem_cov(data, cov=None):
+    if cov is None:
+        cov = np.cov(*data)
+    color_mat = sp.linalg.cholesky(cov)
+    uncolor_mat = np.linalg.inv(color_mat)
+    white_data = np.dot(uncolor_mat.T, data)
+    return white_data
+
+
 def spacing(data, scale='log', num=None, dex=10, **kwargs):
     DEF_NUM_LIN = 20
 
@@ -126,110 +249,11 @@ def spacing(data, scale='log', num=None, dex=10, **kwargs):
     return spaced
 
 
-def bound_indices(data, bounds, outside=False):
-    ndim, nvals = np.shape(data)
-    idx = np.ones(nvals, dtype=bool)
-    for ii, bnd in enumerate(bounds):
-        if outside:
-            idx = idx & (data[ii, :] < bnd[0]) & (bnd[1] < data[ii, :])
-        else:
-            idx = idx & (bnd[0] < data[ii, :]) & (data[ii, :] < bnd[1])
-    return idx
-
-
 def stats_str(data, percs=[0.0, 5.0, 25.0, 50.0, 75.0, 95.0, 100.0]):
     vals = np.percentile(data, percs)
     rv = ", ".join(["{:.2e}".format(xx) for xx in vals])
     rv = "[" + rv + "]"
     return rv
-
-
-def array_str(data, num=3, fmt=':.2e'):
-    spec = "{{{}}}".format(fmt)
-
-    def _astr(vals):
-        temp = ", ".join([spec.format(dd) for dd in vals])
-        return temp
-
-    if len(data) <= 2*num:
-        rv = _astr(data)
-    else:
-        rv = _astr(data[:num]) + " ... " + _astr(data[-num:])
-
-    rv = '[' + rv + ']'
-    return rv
-
-
-def allclose(xx, yy, msg=None, **kwargs):
-    msg_succ, msg_fail = _prep_msg(msg)
-    xx = np.atleast_1d(xx)
-    # yy = np.atleast_1d(yy)
-    idx = np.isclose(xx, yy, **kwargs)
-    if not np.all(idx):
-        logging.error("bads : " + array_str(np.where(~idx)[0], fmt=':d'))
-        logging.error("left : " + array_str(xx[~idx]))
-        try:
-            logging.error("right: " + array_str(yy[~idx]))
-        except (TypeError, IndexError):
-            logging.error("right: " + str(yy))
-
-        raise AssertionError(msg_fail)
-
-    if msg_succ is not None:
-        print(msg_succ)
-
-    return
-
-
-def alltrue(xx, msg=None):
-    msg_succ, msg_fail = _prep_msg(msg)
-    xx = np.atleast_1d(xx)
-    idx = (xx == True)
-    if not np.all(idx):
-        logging.error("bads : " + array_str(np.where(~idx)[0], fmt=':d'))
-        logging.error("vals : " + array_str(xx[~idx]))
-        raise AssertionError(msg_fail)
-
-    if msg_succ is not None:
-        print(msg_succ)
-
-    return
-
-
-def _prep_msg(msg=None):
-    if (msg is None) or (msg is True):
-        msg_fail = "FAILURE:: arrays do not match!"
-        if msg is True:
-            msg_succ = "SUCC:: arrays match"
-        else:
-            msg_succ = None
-    else:
-        msg_fail = "FAILURE:: " + msg.format(fail="not ") + "!"
-        msg_succ = "SUCCESS:: " + msg.format(fail="")
-
-    return msg_succ, msg_fail
-
-
-def bins(*args):
-    xe = np.linspace(*args)
-    xc = midpoints(xe)
-    dx = np.diff(xe)
-    return xe, xc, dx
-
-
-def add_cov(data, cov):
-    color_mat = sp.linalg.cholesky(cov)
-    color_data = np.dot(color_mat.T, data)
-    return color_data
-
-
-def rem_cov(data, cov=None):
-    if cov is None:
-        cov = np.cov(*data)
-    color_mat = sp.linalg.cholesky(cov)
-    uncolor_mat = np.linalg.inv(color_mat)
-    white_data = np.dot(uncolor_mat.T, data)
-    return white_data
 
 
 def trapz_nd(data, edges):
@@ -241,38 +265,6 @@ def trapz_nd(data, edges):
         # print(ii, np.shape(xx), np.shape(tot))
         tot = np.trapz(tot, x=xx)
     return tot
-
-
-def cov_from_var_cor(var, corr):
-    var = np.atleast_1d(var)
-    assert np.ndim(var) == 1, "`var` should be 1D!"
-    ndim = len(var)
-    # Covariance matrix diagonals should be the variance (of each parameter)
-    cov = np.identity(ndim) * var
-
-    if np.isscalar(corr):
-        corr = corr * np.ones((ndim, ndim))
-    elif np.shape(corr) != (ndim, ndim):
-        raise ValueError("`corr` must be either a scalar or (D,D) matrix!")
-
-    # Set the off-diagonals to be the correlation, times the product of standard-deviations
-    for ii, jj in np.ndindex(cov.shape):
-        if ii == jj:
-            continue
-        cov[ii, jj] = np.sqrt(var[ii]) * np.sqrt(var[jj]) * corr[ii, jj]
-
-    return cov
-
-
-def matrix_invert(matrix, quiet=True):
-    try:
-        matrix_inv = np.linalg.inv(matrix)
-    except np.linalg.LinAlgError:
-        if quiet:
-            logging.warning("singular `matrix`, trying SVD...")
-        matrix_inv = np.linalg.pinv(matrix)
-
-    return matrix_inv
 
 
 def trapz_dens_to_mass(pdf, edges):
@@ -328,6 +320,20 @@ def trapz_dens_to_mass(pdf, edges):
     mass = np.sum(mass, axis=0) / (2**ndim)
 
     return mass
+
+
+def _prep_msg(msg=None):
+    if (msg is None) or (msg is True):
+        msg_fail = "FAILURE:: arrays do not match!"
+        if msg is True:
+            msg_succ = "SUCC:: arrays match"
+        else:
+            msg_succ = None
+    else:
+        msg_fail = "FAILURE:: " + msg.format(fail="not ") + "!"
+        msg_succ = "SUCCESS:: " + msg.format(fail="")
+
+    return msg_succ, msg_fail
 
 
 class Test_Base(object):

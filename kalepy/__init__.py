@@ -16,7 +16,13 @@ __bibtex__ = """"""
 _QUIET = True
 _NUM_PAD = 1e-8
 
-
 from kalepy import kernels   # noqa
+from kalepy.kernels import *  # noqa
+from kalepy import utils   # noqa
+from kalepy.utils import *  # noqa
+
 from kalepy.kde_base import KDE  # noqa
-from kalepy.kernels import get_distribution_class, get_all_distribution_classes  # noqa
+
+__all__ = []
+__all__.extend(kernels.__all__)
+__all__.extend(utils.__all__)
