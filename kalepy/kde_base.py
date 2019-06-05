@@ -210,6 +210,48 @@ class KDE(object):
         result = self.kernel.pdf(pnts, self.dataset, self.weights, **kwargs)
         return result
 
+    def pdf_grid(self, edges, **kwargs):
+        """Convenience method to compute the PDF given the edges of a grid in each dimension.
+
+        Arguments
+        ---------
+        edges : (D,) arraylike of arraylike
+            The edges defining a regular grid to use as points when calculating PDF values.
+            These edges are used with `numpy.meshgrid` to construct the grid points.
+
+            Example:
+            If the KDE is initialized with a 3-parameter dataset [i.e. (3,N)], then `edges`
+            must be a list of three arrays, each specifying the grid-points along the corresponding
+            parameter.  Define the lengths of each array as: A, B, C; then the grid and the
+            returned PDF will have a shape (A, B, C).
+
+        kwargs ::
+            Additional, optional keyword arguments passed to `Kernel.pdf`.  Accepted arguments:
+
+            reflect : (D,) array_like, None (default)
+                Locations at which reflecting boundary conditions should be imposed.
+                For each dimension `D`, a pair of boundary locations (for: lower, upper) must be
+                specified, or `None`.  `None` can also be given to specify no boundary at that
+                location.  See class docstrings:`Reflection` for more information.
+
+            params : int, array_like of int, None (default)
+                Only calculate the PDF for certain parameters (dimensions).
+                See class docstrings:`Projection` for more information.
+
+        """
+        ndim = self.ndim
+        if len(edges) != ndim:
+            err = "`edges` must be (D,)=({},): an arraylike of edges for each dim/param!"
+            err = err.format(ndim)
+            raise ValueError(err)
+
+        coords = np.meshgrid(*edges)
+        shp = np.shape(coords)[1:]
+        coords = np.vstack([xx.ravel() for xx in coords])
+        pdf = self.pdf(coords, **kwargs)
+        pdf = pdf.reshape(shp)
+        return pdf
+
     def resample(self, size=None, keep=None, reflect=None, squeeze=True):
         """Draw new values from the kernel-density-estimate calculated PDF.
 
@@ -356,18 +398,3 @@ class KDE(object):
     @property
     def data_cov(self):
         return self._data_cov
-
-    '''
-    def pdf_grid(self, edges, *args, **kwargs):
-        ndim = self._ndim
-        if len(edges) != ndim:
-            err = "`edges` must be (D,): an array of edges for each dimension!"
-            raise ValueError(err)
-
-        coords = np.meshgrid(*edges)
-        shp = np.shape(coords)[1:]
-        coords = np.vstack([xx.ravel() for xx in coords])
-        pdf = self.pdf(coords, *args, **kwargs)
-        pdf = pdf.reshape(shp)
-        return pdf
-    '''

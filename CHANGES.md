@@ -4,6 +4,7 @@
 - `kalepy/`
     - Allow for calculating PDF and resampling in only particular dimensions/parameters.
         - FIX: Doesn't work quite right for non-fixed bandwidth, bandwidth needs to be re-calculated for different number of dimensions
+    - Re-enable the `Kernel.pdf_grid` method, and have `KDE.pdf_grid` call that.
     - `tests/`
         - No tests currently check that proper errors are raised.
         - Make sure tests check both cases of `num_points > num_data` and visa-versa (e.g. in PDF calculation).
@@ -13,6 +14,11 @@
 
 
 ## Current
+- `kalepy/`
+    - `kde_base.py`
+        - `class KDE`
+            - `pdf_grid()`  [new-function]
+                - Convenience / wrapper function to calculate the PDF given the edges of a grid.
 
 
 ## v0.1 – 2019/06/03
