@@ -57,8 +57,8 @@ class Test_KDE_PDF(object):
         edges = [utils.spacing(dd, 'lin', 30, stretch=0.5) for dd in data]
         cents = [utils.midpoints(ee, 'lin') for ee in edges]
 
-        xe, ye = np.meshgrid(*edges)
-        xc, yc = np.meshgrid(*cents)
+        xe, ye = np.meshgrid(*edges, indexing='ij')
+        xc, yc = np.meshgrid(*cents, indexing='ij')
         grid = np.vstack([xc.ravel(), yc.ravel()])
 
         methods = ['scott', 0.04, 0.2, 0.8]
@@ -134,7 +134,7 @@ class Test_KDE_PDF(object):
         cgrid = [kale.utils.midpoints(ee, 'lin') for ee in egrid]
         width = [np.diff(ee) for ee in egrid]
 
-        xc, yc = np.meshgrid(*cgrid)
+        xc, yc = np.meshgrid(*cgrid, indexing='ij')
 
         grid = np.vstack([xc.ravel(), yc.ravel()])
 
@@ -212,8 +212,8 @@ class Test_KDE_PDF(object):
         widths = [np.diff(ee) for ee in edges]
         # area = widths[0][:, np.newaxis] * widths[1][np.newaxis, :]
 
-        xe, ye = np.meshgrid(*edges)
-        xc, yc = np.meshgrid(*cents)
+        xe, ye = np.meshgrid(*edges, indexing='ij')
+        xc, yc = np.meshgrid(*cents, indexing='ij')
         # grid = np.vstack([xc.ravel(), yc.ravel()])
 
         hist, *_ = np.histogram2d(*data, bins=edges, density=True)
@@ -304,8 +304,8 @@ class Test_KDE_Resample(object):
         edges = [utils.spacing(dd, 'lin', 100, stretch=1.0) for dd in data]
         cents = [utils.midpoints(ee, 'lin') for ee in edges]
 
-        xe, ye = np.meshgrid(*edges)
-        xc, yc = np.meshgrid(*cents)
+        xe, ye = np.meshgrid(*edges, indexing='ij')
+        xc, yc = np.meshgrid(*cents, indexing='ij')
 
         bws = [0.5, 2.0]
         kde2d = kale.KDE(data, bandwidth=bws)
@@ -476,7 +476,7 @@ class Test_KDE_Resample(object):
         cgrid = [kale.utils.midpoints(ee, 'lin') for ee in egrid]
         # width = [np.diff(ee) for ee in egrid]
 
-        xc, yc = np.meshgrid(*cgrid)
+        xc, yc = np.meshgrid(*cgrid, indexing='ij')
 
         # grid = np.vstack([xc.ravel(), yc.ravel()])
 

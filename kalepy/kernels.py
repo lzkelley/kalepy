@@ -140,7 +140,7 @@ class Kernel(object):
             err = "`edges` must be (D,): an array of edges for each dimension!"
             raise ValueError(err)
 
-        coords = np.meshgrid(*edges)
+        coords = np.meshgrid(*edges, indexing='ij')
         shp = np.shape(coords)[1:]
         coords = np.vstack([xx.ravel() for xx in coords])
         pdf = self.pdf(coords, *args, **kwargs)
@@ -380,7 +380,7 @@ class Distribution(object):
 
     @classmethod
     def grid(cls, edges, **kwargs):
-        coords = np.meshgrid(*edges)
+        coords = np.meshgrid(*edges, indexing='ij')
         shp = np.shape(coords)[1:]
         coords = np.vstack([xx.ravel() for xx in coords])
         pdf = cls.evaluate(coords, **kwargs)

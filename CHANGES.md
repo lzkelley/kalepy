@@ -13,6 +13,7 @@
 
 
 
+
 ## Current
 - `kalepy/`
     - `__init__.py`
@@ -21,6 +22,8 @@
         - `class KDE`
             - `pdf_grid()`  [new-function]
                 - Convenience / wrapper function to calculate the PDF given the edges of a grid.
+
+
 
 
 ## v0.1 – 2019/06/03

@@ -177,7 +177,7 @@ class Test_Trapz(object):
         extr = [sorted(np.random.uniform(-10, 10, 2)) for ii in range(2)]
         edges = [np.linspace(*ex, 100) for ex in extr]
 
-        grid = np.meshgrid(*edges)
+        grid = np.meshgrid(*edges, indexing='ij')
         shp = np.shape(grid[0])
         vals = np.random.uniform(0.0, 1.0, size=shp)
 

@@ -247,7 +247,7 @@ class KDE(object):
             err = err.format(ndim)
             raise ValueError(err)
 
-        coords = np.meshgrid(*edges)
+        coords = np.meshgrid(*edges, indexing='ij')
         shp = np.shape(coords)[1:]
         coords = np.vstack([xx.ravel() for xx in coords])
         pdf = self.pdf(coords, **kwargs)

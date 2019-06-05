@@ -121,6 +121,10 @@ def matrix_invert(matrix, quiet=True):
     return matrix_inv
 
 
+def meshgrid(*args, indexing='ij', **kwargs):
+    return np.meshgrid(*args, indexing=indexing, **kwargs)
+
+
 def midpoints(data, scale='lin', frac=0.5, axis=-1, squeeze=True):
     """Return the midpoints between values in the given array.
     """
