@@ -12,6 +12,9 @@
         - Use meta-classes to register subclasses of `Distribution`.
 
 
+## Known-Issues
+- Differences between covariance-matrix elements of numerous orders of magnitude can cause spurious results, in particular in the PDF marginalized over parameters.  See "KDE::Dynamic Range" docstrings.  Currently this is checked for in the `KDE._finalize()` method, at the end of initialization, and a warning is given if the dynamic range seems too large. 
+
 
 
 ## Current

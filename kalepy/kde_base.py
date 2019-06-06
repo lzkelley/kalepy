@@ -5,7 +5,7 @@ import six
 
 import numpy as np
 
-from kalepy import kernels
+from kalepy import kernels, utils
 
 __all__ = ['KDE']
 
@@ -64,6 +64,15 @@ class KDE(object):
         then the `pnts` array should have shape `(2, M)` where the two provides dimensions
         correspond to the 1st and 2nd variables of the `dataset`.
 
+    Dynamic Range ::
+
+        When the elements of the covariace matrix between data variables differs by numerous
+        orders of magnitude, the KDE values (especially marginalized values) can become spurious.
+        One solution is to use a diagonal covariance matrix by initializing the KDE instance with
+        `diagonal=True`.  An alternative is to transform the input data in such a way that each
+        variable's dynamic range becomes similar (e.g. taking the log of the values).  A warning
+        is given if the covariance matrix has a large dynamic very-large dynamic range, but no
+        error is raised.
 
     Examples
     --------
@@ -114,10 +123,9 @@ class KDE(object):
     p-value: 9.5e-01
 
     """
-    _BANDWIDTH_DEFAULT = 'scott'
-    _SET_OFF_DIAGONAL = True
 
-    def __init__(self, dataset, bandwidth=None, weights=None, kernel=None, neff=None):
+    def __init__(self, dataset, bandwidth='scott', weights=None, kernel=None,
+                 neff=None, diagonal=False):
         """Initialize the `KDE` class with the given dataset and optional specifications.
 
         Arguments
@@ -146,6 +154,10 @@ class KDE(object):
             methods.
             If `None`, `neff` is calculated from the `weights` array.  If `weights` are all
             uniform, then `neff` equals the number of datapoints `N`.
+        diagonal : bool,
+            Whether the bandwidth/covariance matrix should be set as a diagonal matrix
+            (i.e. without covariances between parameters).
+            NOTE: see `KDE` docstrings, "Dynamic Range".
 
         """
         self.dataset = np.atleast_2d(dataset)
@@ -153,6 +165,7 @@ class KDE(object):
         if weights is None:
             weights = np.ones(ndata)/ndata
 
+        self._diagonal = diagonal
         self._ndim = ndim
         self._ndata = ndata
 
@@ -170,8 +183,6 @@ class KDE(object):
 
         self._neff = neff
 
-        if bandwidth is None:
-            bandwidth = self._BANDWIDTH_DEFAULT
         data_cov = np.cov(dataset, rowvar=True, bias=False, aweights=weights)
         self._data_cov = np.atleast_2d(data_cov)
         self.set_bandwidth(bandwidth)
@@ -180,6 +191,7 @@ class KDE(object):
         dist = kernels.get_distribution_class(kernel)
         self._kernel = kernels.Kernel(distribution=dist, matrix=self.matrix)
 
+        self._finalize()
         return
 
     def pdf(self, pnts, **kwargs):
@@ -293,6 +305,32 @@ class KDE(object):
             size=size, keep=keep, reflect=reflect, squeeze=squeeze)
         return samples
 
+    def _finalize(self, log_ratio_tol=5.0):
+
+        mat = self.matrix
+        ndim = self.ndim
+        # Diagonal elements of the matrix
+        diag = mat.diagonal()
+
+        # Off-diagonal matrix elements
+        ui = np.triu_indices(ndim, 1)
+        li = np.tril_indices(ndim, -1)
+        offd = np.append(mat[ui], mat[li])
+
+        if np.any(offd != 0.0):
+            d_extr = utils.minmax(np.log10(np.fabs(diag)))
+            o_extr = utils.minmax(np.log10(np.fabs(offd)))
+            ratio = np.fabs(d_extr[:, np.newaxis] - o_extr[np.newaxis, :])
+            if np.any(ratio >= log_ratio_tol):
+                logging.warning("Covariance matrix:\n" + str(mat))
+                msg = "(log) Ratio of covariance elements ({}) exceeds tolerance ({})!".format(
+                    ratio, log_ratio_tol)
+                logging.warning(msg)
+                msg = "Recommend rescaling input data, or using a diagonal covariance matrix"
+                logging.warning(msg)
+
+        return
+
     # ==== Properties ====
 
     @property
@@ -324,7 +362,7 @@ class KDE(object):
 
         if len(np.atleast_1d(bandwidth)) == 1:
             _bw, method = self._compute_bandwidth(bandwidth)
-            if self._SET_OFF_DIAGONAL:
+            if not self._diagonal:
                 matrix_white[...] = _bw
             else:
                 idx = np.arange(ndim)
@@ -360,9 +398,6 @@ class KDE(object):
         return
 
     def _compute_bandwidth(self, bandwidth, param=None):
-        if bandwidth is None:
-            bandwidth = self._BANDWIDTH_DEFAULT
-
         if isinstance(bandwidth, six.string_types):
             if bandwidth == 'scott':
                 bw = self.scott_factor(param=param)
