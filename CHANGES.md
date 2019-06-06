@@ -25,11 +25,15 @@
     - `utils.py`
         - `trapz_dens_to_mass()`
             - New argument `axis` to integrate only along target axes.
+        - `trapz_nd()`
+            - New argument `axis` to integrate only along target axes.
 - `notebooks/`
     - `init.ipy`     [new-file]
         - Convenience script for setting up the imports in each notebook file
     - `utils.ipynb`  [new-file]
         - New notebook for testing/exploring the `utils.py` submodule.
+
+
 
 
 ## v0.1 – 2019/06/03

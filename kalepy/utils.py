@@ -260,14 +260,27 @@ def stats_str(data, percs=[0.0, 5.0, 25.0, 50.0, 75.0, 95.0, 100.0]):
     return rv
 
 
-def trapz_nd(data, edges):
+def trapz_nd(data, edges, axis=None):
+
     if np.isscalar(edges[0]):
         edges = np.atleast_2d(edges)
+    shp = [len(ee) for ee in edges]
+    if not np.all(np.array(shp) == np.shape(data)):
+        err = "Shape of `edges` ({}) does not match data ({})!".format(shp, np.shape(data))
+        raise ValueError(err)
+
+    ndim = len(shp)
+    if axis is None:
+        axis = np.arange(ndim)
+    else:
+        axis = np.atleast_1d(axis)
+
+    axis = sorted(axis)[::-1]
     tot = np.array(data)
-    for ii in range(len(edges)):
-        xx = edges[-1-ii]
-        # print(ii, np.shape(xx), np.shape(tot))
-        tot = np.trapz(tot, x=xx)
+    for ii in axis:
+        xx = edges[ii]
+        tot = np.trapz(tot, x=xx, axis=ii)
+
     return tot
 
 
