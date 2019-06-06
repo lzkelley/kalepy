@@ -22,7 +22,9 @@
         - `class KDE`
             - `pdf_grid()`  [new-function]
                 - Convenience / wrapper function to calculate the PDF given the edges of a grid.
-
+    - `utils.py`
+        - `trapz_dens_to_mass()`
+            - New argument `axis` to integrate only along target axes.
 
 
 

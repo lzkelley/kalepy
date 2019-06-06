@@ -271,7 +271,7 @@ def trapz_nd(data, edges):
     return tot
 
 
-def trapz_dens_to_mass(pdf, edges):
+def trapz_dens_to_mass(pdf, edges, axis=None):
     """Convert from density to mass, for values on the corner of a grid, using the trapezoid rule.
 
     Arguments
@@ -285,6 +285,8 @@ def trapz_dens_to_mass(pdf, edges):
         The length of each sub-list in `edges`, must match the shape of `pdf`.
         e.g. if `edges` is a (3,) list, composed of sub-lists with lengths: `[N, M, L,]` then
              the shape of `pdf` must be `(N, M, L,)`.
+    axis : int, array_like int, or None
+        Along which axes to convert from density to mass.
 
     Returns
     -------
@@ -298,30 +300,70 @@ def trapz_dens_to_mass(pdf, edges):
     if np.isscalar(edges[0]):
         edges = np.atleast_2d(edges)
 
-    shp = np.array([len(ed) for ed in edges])
-    ndim = len(shp)
-    if not np.all(np.shape(pdf) == shp):
-        err = "Shape of pdf ({}) does not match edges ({})!".format(np.shape(pdf), shp)
+    # Make sure the lengths of the `edges` array matches the shape of `pdf`
+    shp_inn = np.array([len(ed) for ed in edges])
+    ndim = len(shp_inn)
+    if not np.all(np.shape(pdf) == shp_inn):
+        err = "Shape of pdf ({}) does not match edges ({})!".format(np.shape(pdf), shp_inn)
         raise ValueError(err)
 
-    _widths = [np.diff(ed) for ed in edges]
+    if axis is None:
+        axis = np.arange(ndim)
+
+    axis = np.atleast_1d(axis)
+    axis_ndim = len(axis)
+    axis = sorted(axis)
+    not_axis = np.arange(ndim)
+    for ii in axis[::-1]:
+        not_axis = np.delete(not_axis, ii)
+
+    # Determine final output shape: that of `pdf` but one-less along each dimension
+    shp_out = np.zeros(ndim, dtype=int)
+    # `widths` will be the widths of bins along each axis; broadcastable to final shape `shp_out`
     widths = []
-    for ii, wid in enumerate(_widths):
+    for ii in range(ndim):
+        dim_len_inn = shp_inn[ii]
+        if ii in axis:
+            shp_out[ii] = dim_len_inn - 1
+            wid = np.diff(edges[ii])
+        else:
+            shp_out[ii] = dim_len_inn
+            wid = np.ones(dim_len_inn)
+
+        # Create new axes along all by the current dimension, slice along the current dimension
         cut = [np.newaxis for ii in range(ndim)]
         cut[ii] = slice(None)
         temp = wid[tuple(cut)]
         widths.append(temp)
 
+    # Multiply the widths along each dimension to get the volume of each grid cell
     volumes = np.product(widths, axis=0)
+    # NOTE
+    assert np.all(np.shape(volumes) == shp_out), "BAD `volume` shape!"
 
-    mass = []
+    mass = np.zeros(shp_out)
+    # Iterate over left and right edges over all dimensions,
+    #    e.g.  ..., [... 0 0], [... 0 1], [... 1 0], [... 1 1]
     for inds in np.ndindex(*([2]*ndim)):
-        cut = [slice(0, -1, None) if ii == 0 else slice(1, None, None)
+        # We only need a single slice along axes we are *not* integrating
+        if np.any([inds[jj] > 0 for jj in not_axis]):
+            continue
+        # Designate axes we are *not* integrating specially: as `-1`
+        inds = [-1 if (ii in not_axis) else inds[ii] for ii in range(ndim)]
+
+        # Along each dimension, take the left-side slice, or the right-side slice if we are
+        #    integrating over that dimension, otherwise take the full slice
+        cut = [slice(0, -1, None) if ii == 0 else slice(1, None, None) if ii == 1 else slice(None)
                for ii in inds]
         temp = pdf[tuple(cut)]
-        mass.append(temp * volumes)
+        mass += (temp * volumes)
+        # Store each left/right approximation, in each dimension
+        # mass.append(temp * volumes)
 
-    mass = np.sum(mass, axis=0) / (2**ndim)
+    # Normalize the average
+    mass /= (2**axis_ndim)
+    # Take the average of each approximation
+    # mass = np.sum(mass, axis=0) / (2**ndim)
 
     return mass
 

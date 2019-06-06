@@ -231,14 +231,14 @@ class Test_Trapz(object):
         return
 
 
-class Test_Trapz_Dens_To_Mass(object):
+class Test_Trapz_Dens_To_Mass(utils.Test_Base):
 
-    def _test_nd(self, ndim):
-        print("\n|Test_Trapz_Dens_To_Mass:_test_nd()|")
-
+    def _test_ndim(self, ndim):
         from kalepy import utils
 
-        BIN_SIZE_RANGE = [30, 40]
+        print("`ndim` = {}".format(ndim))
+
+        BIN_SIZE_RANGE = [10, 30]
 
         extr = [[0.0, np.random.uniform(0.0, 2.0)] for ii in range(ndim)]
         norm = np.random.uniform(0.0, 10.0)
@@ -268,12 +268,120 @@ class Test_Trapz_Dens_To_Mass(object):
 
         return
 
-    def test_nd(self):
-        print("\n|Test_Trapz_Dens_To_Mass:test_nd()|")
+    def _test_ndim_a1(self, ndim):
+        from kalepy import utils
 
+        BIN_SIZE_RANGE = [10, 30]
+        num_bins = np.random.randint(*BIN_SIZE_RANGE, ndim)
+        # num_bins = [3, 4]
+
+        edges = []
+        for nb in num_bins:
+            ee = np.cumsum(np.random.uniform(0.0, 2.0, nb))
+            edges.append(ee)
+
+        grid = np.meshgrid(*edges, indexing='ij')
+        shp = [len(ee) for ee in edges]
+
+        for axis in range(ndim):
+            not_axis = (axis + 1) % ndim
+            print("\nndim = {}, axis = {}, other = {}".format(ndim, axis, not_axis))
+
+            bcast_norm = [np.newaxis for ii in range(ndim)]
+            bcast_norm[not_axis] = slice(None)
+            bcast_norm = tuple(bcast_norm)
+            norm = np.random.uniform(0.0, 10.0, shp[not_axis])[bcast_norm]
+
+            bcast_wids = [np.newaxis for ii in range(ndim)]
+            bcast_wids[axis] = slice(None)
+            bcast_wids = tuple(bcast_wids)
+            wids = np.diff(edges[axis])[bcast_wids]
+
+            pdf = np.ones_like(grid[0]) * norm
+            pmf = utils.trapz_dens_to_mass(pdf, edges, axis=axis)
+
+            new_shp = [ss for ss in shp]
+            new_shp[axis] -= 1
+            utils.alltrue(np.shape(pmf) == np.array(new_shp), "Output shape is {fail:}correct")
+
+            utils.alltrue(pmf == norm*wids, 'Values do {fail:}match')
+
+            # print(pdf)
+            # print(wids)
+            # print(pmf)
+
+        return
+
+    def _test_ndim_a2(self, ndim):
+        from kalepy import utils
+
+        BIN_SIZE_RANGE = [10, 30]
+        num_bins = np.random.randint(*BIN_SIZE_RANGE, ndim)
+
+        edges = []
+        for nb in num_bins:
+            ee = np.cumsum(np.random.uniform(0.0, 2.0, nb))
+            edges.append(ee)
+
+        grid = np.meshgrid(*edges, indexing='ij')
+        shp = np.array([len(ee) for ee in edges])
+
+        for axis in np.ndindex(*([ndim]*2)):
+            if len(np.unique(axis)) != len(axis):
+                continue
+
+            axis = np.asarray(axis)
+            not_axis = np.array(list(set(range(ndim)) - set(axis)))
+            print("\nndim = {}, axis = {}, other = {}".format(ndim, axis, not_axis))
+
+            bcast_norm = [np.newaxis for ii in range(ndim)]
+            for na in not_axis:
+                bcast_norm[na] = slice(None)
+
+            bcast_norm = tuple(bcast_norm)
+            norm = np.random.uniform(0.0, 10.0, shp[not_axis])[bcast_norm]
+
+            widths = []
+            for ii in range(ndim):
+                dim_len_inn = shp[ii]
+                if ii in axis:
+                    wid = np.diff(edges[ii])
+                else:
+                    wid = np.ones(dim_len_inn)
+
+                # Create new axes along all by the current dimension, slice along the current dimension
+                cut = [np.newaxis for ii in range(ndim)]
+                cut[ii] = slice(None)
+                temp = wid[tuple(cut)]
+                widths.append(temp)
+
+            wids = np.product(widths, axis=0)
+
+            pdf = np.ones_like(grid[0]) * norm
+            pmf = utils.trapz_dens_to_mass(pdf, edges, axis=axis)
+
+            new_shp = [ss for ss in shp]
+            for aa in axis:
+                new_shp[aa] -= 1
+
+            utils.alltrue(np.shape(pmf) == np.array(new_shp), "Output shape is {fail:}correct")
+            utils.alltrue(pmf == norm*wids, 'Values do {fail:}match')
+
+        return
+
+    def test_ndim(self):
         for ii in range(1, 5):
-            self._test_nd(ii)
+            self._test_ndim(ii)
+        return
 
+    def test_ndim_a1(self):
+        for ii in range(2, 5):
+            self._test_ndim_a1(ii)
+        return
+
+    def test_ndim_a2(self):
+        for ii in range(3, 5):
+            self._test_ndim_a2(ii)
         return
 
 
