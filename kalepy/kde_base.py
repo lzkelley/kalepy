@@ -64,6 +64,8 @@ class KDE(object):
         then the `pnts` array should have shape `(2, M)` where the two provides dimensions
         correspond to the 1st and 2nd variables of the `dataset`.
 
+    TODO: add notes on `keep` parameter
+
     Dynamic Range ::
 
         When the elements of the covariace matrix between data variables differs by numerous

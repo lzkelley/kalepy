@@ -26,6 +26,8 @@
         - `class KDE`
             - `pdf_grid()`  [new-function]
                 - Convenience / wrapper function to calculate the PDF given the edges of a grid.
+    - `kernels.py`
+        - Allow the `keep` parameter to be `True` in which case all parameters are kept.
     - `utils.py`
         - `ave_std()`  [new-function]
             - Calculation of (optionally) *weighted* average and standard-deviation.

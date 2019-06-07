@@ -186,6 +186,8 @@ class Kernel(object):
         norm = utils.add_cov(norm, matrix)
 
         if keep is not None:
+            if keep is True:
+                keep = np.arange(ndim)
             keep = np.atleast_1d(keep)
             for pp in keep:
                 norm[pp, :] = 0.0
@@ -284,6 +286,8 @@ class Kernel(object):
         if keep is None:
             return matrix
 
+        if keep is True:
+            keep = np.arange(matrix.shape[0])
         keep = np.atleast_1d(keep)
         for pp in keep:
             matrix[pp, :] = 0.0
