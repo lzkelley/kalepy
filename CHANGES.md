@@ -31,6 +31,10 @@
     - `utils.py`
         - `ave_std()`  [new-function]
             - Calculation of (optionally) *weighted* average and standard-deviation.
+        - `percentiles()`  [new-function]
+            - Copied from `zcode.math.statistic`, allows for weighted percentiles.
+        - `stats_str()`
+            - Copied function from `zcode.math.math_core` with more extended functionality.
         - `trapz_dens_to_mass()`
             - New argument `axis` to integrate only along target axes.
         - `trapz_nd()`

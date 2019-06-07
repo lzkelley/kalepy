@@ -8,7 +8,7 @@ import scipy.linalg  # noqa
 
 __all__ = [
     'add_cov', 'array_str', 'ave_std', 'bins', 'midpoints',
-    'minmax', 'rem_cov', 'spacing', 'stats_str',
+    'minmax', 'percentiles', 'rem_cov', 'spacing', 'stats_str',
     'trapz_nd', 'trapz_dens_to_mass'
 ]
 
@@ -227,6 +227,62 @@ def minmax(data, prev=None, stretch=None, log_stretch=None, limit=None):
     return minmax
 
 
+def percentiles(values, percs=None, sigmas=None, weights=None, axis=None, values_sorted=False):
+    """Compute weighted percentiles.
+
+    Taken from `zcode.math.statistics`
+    Based on @Alleo answer: http://stackoverflow.com/a/29677616/230468
+
+    Arguments
+    ---------
+    values: (N,)
+        input data
+    percs: (M,) scalar [0.0, 1.0]
+        Desired percentiles of the data.
+    weights: (N,) or `None`
+        Weighted for each input data point in `values`.
+    values_sorted: bool
+        If True, then input values are assumed to already be sorted.
+
+    Returns
+    -------
+    percs : (M,) float
+        Array of percentiles of the weighted input data.
+
+    """
+    values = np.array(values)
+    if percs is None:
+        percs = sp.stats.norm.cdf(sigmas)
+
+    if np.ndim(values) > 1:
+        if axis is None:
+            values = values.flatten()
+
+    percs = np.array(percs)
+    if weights is None:
+        weights = np.ones_like(values)
+    weights = np.array(weights)
+    assert np.all(percs >= 0.0) and np.all(percs <= 1.0), 'percentiles must be in [0, 1]'
+
+    if not values_sorted:
+        sorter = np.argsort(values, axis=axis)
+        values = np.take_along_axis(values, sorter, axis=axis)
+        weights = np.take_along_axis(weights, sorter, axis=axis)
+
+    weighted_quantiles = np.cumsum(weights, axis=axis) - 0.5 * weights
+    weighted_quantiles /= np.sum(weights, axis=axis)[..., np.newaxis]
+    if axis is None:
+        percs = np.interp(percs, weighted_quantiles, values)
+    else:
+        values = np.moveaxis(values, axis, -1)
+        weighted_quantiles = np.moveaxis(weighted_quantiles, axis, -1)
+        percs = [np.interp(percs, weighted_quantiles[idx], values[idx])
+                 for idx in np.ndindex(values.shape[:-1])]
+        percs = np.array(percs)
+
+    return percs
+
+
 def rem_cov(data, cov=None):
     if cov is None:
         cov = np.cov(*data)
@@ -264,11 +320,86 @@ def spacing(data, scale='log', num=None, dex=10, **kwargs):
     return spaced
 
 
+'''
 def stats_str(data, percs=[0.0, 5.0, 25.0, 50.0, 75.0, 95.0, 100.0]):
     vals = np.percentile(data, percs)
     rv = ", ".join(["{:.2e}".format(xx) for xx in vals])
     rv = "[" + rv + "]"
     return rv
+'''
+
+
+def stats_str(data, percs=[0.0, 0.16, 0.50, 0.84, 1.00], ave=False, std=False, weights=None,
+              format=None, log=False, label_log=True):
+    """Return a string with the statistics of the given array.
+
+    Arguments
+    ---------
+    data : ndarray of scalar
+        Input data from which to calculate statistics.
+    percs : array_like of scalars in {0, 100}
+        Which percentiles to calculate.
+    ave : bool
+        Include average value in output.
+    std : bool
+        Include standard-deviation in output.
+    format : str
+        Formatting for all numerical output, (e.g. `":.2f"`).
+    log : bool
+        Convert values to log10 before printing.
+
+    Output
+    ------
+    out : str
+        Single-line string of the desired statistics.
+
+    """
+    # data = np.array(data).astype(np.float)
+    data = np.array(data)
+
+    if log:
+        data = np.log10(data)
+
+    percs = np.atleast_1d(percs)
+
+    percs_flag = False
+    if (percs is not None) and len(percs):
+        percs_flag = True
+
+    out = ""
+
+    if format is None:
+        allow_int = False if (ave or std) else True
+        format = _guess_str_format_from_range(data, allow_int=allow_int)
+
+    # If a `format` is given, but missing the colon, add the colon
+    if len(format) and not format.startswith(':'):
+        format = ':' + format
+    form = "{{{}}}".format(format)
+
+    # Add average
+    if ave:
+        out += "ave = " + form.format(np.average(data))
+        if std or percs_flag:
+            out += ", "
+
+    # Add standard-deviation
+    if std:
+        out += "std = " + form.format(np.std(data))
+        if percs_flag:
+            out += ", "
+
+    # Add percentiles
+    if percs_flag:
+        tiles = percentiles(data, percs, weights=weights).astype(data.dtype)
+        out += "(" + ", ".join(form.format(tt) for tt in tiles) + ")"
+        out += ", for (" + ", ".join("{:.0f}%".format(100*pp) for pp in percs) + ")"
+
+    # Note if these are log-values
+    if log and label_log:
+        out += " (log values)"
+
+    return out
 
 
 def trapz_nd(data, edges, axis=None):
@@ -390,6 +521,28 @@ def trapz_dens_to_mass(pdf, edges, axis=None):
     # mass = np.sum(mass, axis=0) / (2**ndim)
 
     return mass
+
+
+def _guess_str_format_from_range(arr, prec=2, log_limit=2, allow_int=True):
+    """
+    """
+
+    try:
+        extr = np.log10(np.fabs(minmax(arr, filter='ne')))
+    # string values will raise a `TypeError` exception
+    except (TypeError, AttributeError):
+        return ":"
+
+    if any(extr < -log_limit) or any(extr > log_limit):
+        form = ":.{precision:d}e"
+    elif np.issubdtype(arr.dtype, np.integer) and allow_int:
+        form = ":d"
+    else:
+        form = ":.{precision:d}f"
+
+    form = form.format(precision=prec)
+
+    return form
 
 
 def _prep_msg(msg=None):
