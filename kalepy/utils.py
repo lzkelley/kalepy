@@ -7,7 +7,7 @@ import scipy as sp
 import scipy.linalg  # noqa
 
 __all__ = [
-    'add_cov', 'array_str', 'bins', 'midpoints',
+    'add_cov', 'array_str', 'ave_std', 'bins', 'midpoints',
     'minmax', 'rem_cov', 'spacing', 'stats_str',
     'trapz_nd', 'trapz_dens_to_mass'
 ]
@@ -69,6 +69,17 @@ def alltrue(xx, msg=None):
         print(msg_succ)
 
     return
+
+
+def ave_std(values, weights=None, **kwargs):
+    """
+    Return the weighted average and (biased[1]) standard deviation.
+
+    [1]: i.e. we are dividing by the size `n` of values, not `n-1`.
+    """
+    average = np.average(values, weights=weights, **kwargs)
+    variance = np.average((values - average)**2, weights=weights, **kwargs)
+    return average, np.sqrt(variance)
 
 
 def bins(*args):

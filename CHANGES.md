@@ -1,6 +1,7 @@
 ## To-Do
 - **Optimization desperately needed**.  Things are done in (generally) the simplest ways, currently, need to be optimized for performance (both speed and memory [e.g. with reflections]).  Especially in the case of finite-support kernels, the calculations can be drastically sped up.  Can also use an approximation for infinite-support kernels, truncating at some threshold value of sigma (or percentile; etc).
 - Use `sp.stats.rv_continuous` as base-class for 'Distribution' to provide functionality like 'ppf' etc.
+- Add checks for 'reflection', make sure boundaries are appropriate for data values (e.g. lower boundary is not above them, etc)
 - `kalepy/`
     - Allow for calculating PDF and resampling in only particular dimensions/parameters.
         - FIX: Doesn't work quite right for non-fixed bandwidth, bandwidth needs to be re-calculated for different number of dimensions
@@ -26,6 +27,8 @@
             - `pdf_grid()`  [new-function]
                 - Convenience / wrapper function to calculate the PDF given the edges of a grid.
     - `utils.py`
+        - `ave_std()`  [new-function]
+            - Calculation of (optionally) *weighted* average and standard-deviation.
         - `trapz_dens_to_mass()`
             - New argument `axis` to integrate only along target axes.
         - `trapz_nd()`
