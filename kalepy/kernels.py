@@ -18,7 +18,8 @@ __all__ = ['Kernel', 'Distribution',
 
 class Kernel(object):
 
-    def __init__(self, distribution=None, matrix=None, bandwidth=None):
+    def __init__(self, distribution=None, matrix=None, bandwidth=None, helper=False):
+        self._helper = helper
         distribution = get_distribution_class(distribution)
         self._distribution = distribution()
 
@@ -42,7 +43,7 @@ class Kernel(object):
         ndim, nval = np.shape(data)
 
         # Make sure shape/values of reflect look okay
-        reflect = self._check_reflect(reflect, ndim)
+        reflect = self._check_reflect(reflect, ndim, data, weights)
 
         if reflect is None:
             result = self._pdf_clear(pnts, data, weights, **kwargs)
@@ -153,13 +154,12 @@ class Kernel(object):
         """
         ndim, nval = np.shape(data)
         if size is None:
-            # size = int(self.neff)
             size = nval
 
         # Make sure `reflect` matches
         if reflect is not None:
             # This is now either (D,) [and contains `None` values] or (D,2)
-            reflect = self._check_reflect(reflect, ndim)
+            reflect = self._check_reflect(reflect, ndim, data, weights)
 
         # Have `Distribution` class perform resampling
         # ---------------------------------------------------
@@ -188,6 +188,8 @@ class Kernel(object):
         if keep is not None:
             if keep is True:
                 keep = np.arange(ndim)
+            elif keep is False:
+                keep = []
             keep = np.atleast_1d(keep)
             for pp in keep:
                 norm[pp, :] = 0.0
@@ -199,8 +201,6 @@ class Kernel(object):
         return samps
 
     def _resample_reflect(self, data, weights, size, reflect, keep=None):
-        # wgts = self.weights
-        # data = self.dataset
         matrix = self.matrix
         matrix = self._cov_keep_vars(matrix, keep, reflect=reflect)
 
@@ -223,7 +223,7 @@ class Kernel(object):
 
                 bounds[ii, jj] = loc
                 new_data = np.array(data)
-                new_data[ii, :] = new_data[ii, :] - loc
+                new_data[ii, :] = loc - (new_data[ii, :] - loc)
                 data = np.append(data, new_data, axis=-1)
                 weights = np.append(weights, weights, axis=-1)
 
@@ -235,6 +235,7 @@ class Kernel(object):
         cnt = 0
         MAX = 10
         draw = size
+        fracs = []
         while num_good < size and cnt < MAX:
             # Draw candidate resample points
             #    set `keep` to None, `matrix` is already modified to account for it
@@ -244,6 +245,8 @@ class Kernel(object):
 
             # Store good values to output array
             ngd = np.count_nonzero(idx)
+            fracs.append(ngd/idx.size)
+
             if num_good + ngd <= size:
                 samps[num_good:num_good+ngd, :] = trial.T[idx, :]
             else:
@@ -254,17 +257,28 @@ class Kernel(object):
             num_good += ngd
             cnt += 1
             # Next time, draw twice as many as we need
-            draw = 2*(size - num_good)
+            draw = (2**ndim) * (size - num_good)
 
         if num_good < size:
-            raise RuntimeError("Failed to draw '{}' samples in {} iterations!".format(size, cnt))
+            err = "Failed to draw '{}' samples in {} iterations!".format(size, cnt)
+            logging.error("")
+            logging.error(err)
+            logging.error("fracs = {}\n\t{}".format(utils.stats_str(fracs), fracs))
+            logging.error("Obtained {} samples".format(num_good))
+            logging.error("Reflect: {}".format(reflect))
+            logging.error("Bandwidths: {}".format(np.sqrt(self.matrix.diagonal().squeeze())))
+            logging.error("data = ")
+            for dd in data:
+                logging.error("\t{}".format(utils.stats_str(dd)))
+
+            raise RuntimeError(err)
 
         samps = samps.T
         return samps
 
     # ==== Utilities ====
 
-    def _check_reflect(self, reflect, ndim):
+    def _check_reflect(self, reflect, ndim, data, weights):
         if reflect is None:
             return reflect
 
@@ -275,19 +289,56 @@ class Kernel(object):
             msg = "`reflect` ({}) must have length (D,) = ({},)!".format(
                 len(reflect), ndim)
             raise ValueError(msg)
+
         if not np.all([(ref is None) or len(ref) == 2 for ref in reflect]):
             raise ValueError("each row of `reflect` must be `None` or shape (2,)!")
+
+        # Perform additional diagnostics
+        if self._helper:
+            for ii in range(ndim):
+                # Warn if any datapoints are outside of reflection bounds
+                bads = utils.bound_indices(data[ii, :], reflect[ii], outside=True)
+                if np.any(bads):
+                    frac = np.sum(weights[bads]) / np.sum(weights)
+                    msg = ("A fraction {:.2e} of data[{}] ".format(frac, ii) +
+                           " are outside of `reflect` bounds!")
+                    logging.warning(msg)
+                    msg = (
+                        "`reflect[{}]` = {}; ".format(ii, reflect[ii]) +
+                        "`data[{}]` = {}".format(ii, utils.stats_str(data[ii], weights=weights))
+                    )
+                    logging.info(msg)
+                    logging.info("I hope you know what you're doing.")
+
+                # Warn if bandwidth is comparable to area in-bounds
+                if np.all(np.array(reflect[ii]) != None):   # noqa
+                    width = np.diff(reflect[ii])
+                    bw = np.sqrt(self.matrix[ii, ii])
+                    rat = width / bw
+                    thresh = 1.0 if self.FINITE else 5.0
+                    if rat < thresh:
+                        msg = (
+                            "The bandwidth[{}] = {:.2e} is comparable ".format(bw) +
+                            "to the area within reflect = {:.2e}!".format(width)
+                        )
+                        logging.warning(msg)
+                        msg = ""
+                        if not self.FINITE:
+                            msg += "consider using a kernel with finite-support, or "
+                        msg += "consider setting `keep={}`".format(ii)
+                        logging.info(msg.capitalize())
 
         return reflect
 
     @classmethod
     def _cov_keep_vars(cls, matrix, keep, reflect=None):
         matrix = np.array(matrix)
-        if keep is None:
+        if (keep is None) or (keep is False):
             return matrix
 
         if keep is True:
             keep = np.arange(matrix.shape[0])
+
         keep = np.atleast_1d(keep)
         for pp in keep:
             matrix[pp, :] = 0.0

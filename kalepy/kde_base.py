@@ -127,7 +127,7 @@ class KDE(object):
     """
 
     def __init__(self, dataset, bandwidth='scott', weights=None, kernel=None,
-                 neff=None, diagonal=False):
+                 neff=None, diagonal=False, helper=True):
         """Initialize the `KDE` class with the given dataset and optional specifications.
 
         Arguments
@@ -162,6 +162,7 @@ class KDE(object):
             NOTE: see `KDE` docstrings, "Dynamic Range".
 
         """
+        self._helper = helper
         self.dataset = np.atleast_2d(dataset)
         ndim, ndata = self.dataset.shape
         if weights is None:
@@ -191,7 +192,7 @@ class KDE(object):
 
         # Convert from string, class, etc to a kernel
         dist = kernels.get_distribution_class(kernel)
-        self._kernel = kernels.Kernel(distribution=dist, matrix=self.matrix)
+        self._kernel = kernels.Kernel(distribution=dist, matrix=self.matrix, helper=helper)
 
         self._finalize()
         return
