@@ -19,11 +19,18 @@ def add_cov(data, cov):
     return color_data
 
 
-def array_str(data, num=3, fmt=':.2e'):
-    spec = "{{{}}}".format(fmt)
+def array_str(data, num=3, format=':.2e'):
+    spec = "{{{}}}".format(format)
 
     def _astr(vals):
-        temp = ", ".join([spec.format(dd) for dd in vals])
+        try:
+            temp = ", ".join([spec.format(dd) for dd in vals])
+        except TypeError:
+            logging.error("Failed to format object of type: {}, shape: {}!".format(
+                type(vals), np.shape(vals)))
+            logging.error("Object = '{}'".format(str(vals)))
+            raise
+
         return temp
 
     if len(data) <= 2*num:
@@ -90,13 +97,27 @@ def bins(*args):
 
 
 def bound_indices(data, bounds, outside=False):
+    """Find the indices of the `data` array that are bounded by the given `bounds`.
+
+    If `outside` is True, then indices for values *outside* of the bounds are returned.
+    """
+    data = np.atleast_2d(data)
+    bounds = np.atleast_2d(bounds)
     ndim, nvals = np.shape(data)
     idx = np.ones(nvals, dtype=bool)
     for ii, bnd in enumerate(bounds):
+        if bnd is None or ((len(bnd) == 1) and (bnd[0] is None)):
+            idx = idx & ~outside
+            continue
+
         if outside:
-            idx = idx & (data[ii, :] < bnd[0]) & (bnd[1] < data[ii, :])
+            lo = (data[ii, :] < bnd[0]) if (bnd[0] is not None) else False
+            hi = (bnd[1] < data[ii, :]) if (bnd[1] is not None) else False
+            idx = idx & lo & hi
         else:
-            idx = idx & (bnd[0] < data[ii, :]) & (data[ii, :] < bnd[1])
+            lo = True if (bnd[0] is None) else (bnd[0] < data[ii, :])
+            hi = True if (bnd[1] is None) else (data[ii, :] < bnd[1])
+            idx = idx & lo & hi
     return idx
 
 

@@ -36,6 +36,8 @@
     - `utils.py`
         - `ave_std()`  [new-function]
             - Calculation of (optionally) *weighted* average and standard-deviation.
+        - `bound_indices()`
+            - Allow boundaries to be `None` (for no boundaries)
         - `percentiles()`  [new-function]
             - Copied from `zcode.math.statistic`, allows for weighted percentiles.
         - `stats_str()`
