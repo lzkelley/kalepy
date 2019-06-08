@@ -33,6 +33,7 @@
             - Add additional checks for where the reflection boundaries are relative to the data-values and bandwidth.
         - `_resample_reflect()`
             - BUG: reflection was actually a periodic boundary (ish), instead of reflection.  Not sure why it was still behaving well in testing...
+            - BUG: reflection was unnecessarily duplicating (already reflected) data, making fewer new points valid.
     - `utils.py`
         - `ave_std()`  [new-function]
             - Calculation of (optionally) *weighted* average and standard-deviation.

@@ -207,6 +207,9 @@ class Kernel(object):
         ndim, nvals = np.shape(data)
         bounds = np.zeros((ndim, 2))
 
+        old_data = np.copy(data)
+        old_weights = np.copy(weights)
+
         # Actually 'reflect' (append new, mirrored points) around the given reflection points
         # Also construct bounding box for valid data
         for ii, reflect_dim in enumerate(reflect):
@@ -222,10 +225,11 @@ class Kernel(object):
                     continue
 
                 bounds[ii, jj] = loc
-                new_data = np.array(data)
+                new_data = np.array(old_data)
                 new_data[ii, :] = loc - (new_data[ii, :] - loc)
+                # NOTE: this returns a copy, so original `data` is *not* changed in-place
                 data = np.append(data, new_data, axis=-1)
-                weights = np.append(weights, weights, axis=-1)
+                weights = np.append(weights, old_weights)
 
         weights = weights / np.sum(weights)
 
