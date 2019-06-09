@@ -300,12 +300,13 @@ class Kernel(object):
     # def _get_truncation_bounds(self, bounds):
     #     trunc = np.zeros_like(bounds)
     #     ndim = len(bounds)
-    #     tol = _TRUNCATE_INFINITE_KERNELS
     #
     #     if self.FINITE:
     #         trunc[:, 0] = bounds[:, 0] - self.bandwidth.diagonal()
     #         trunc[:, 1] = bounds[:, 1] + self.bandwidth.diagonal()
     #     else:
+    #         tol = _TRUNCATE_INFINITE_KERNELS
+    #
     #
     #
     #     for ii, jj in np.ndindex(ndim, 2):
@@ -442,9 +443,13 @@ class Kernel(object):
 class Distribution(object):
 
     _FINITE = None
+    _SYMMETRIC = True
+    _CDF_INTERP = True
+    _INTERP_KWARGS = dict(kind='cubic', fill_value=np.nan)
 
     def __init__(self):
         self._cdf_grid = None
+        self._cdf = None
         return
 
     @classmethod
@@ -504,35 +509,62 @@ class Distribution(object):
         return samps
 
     def cdf(self, xx):
-        zz = sp.interpolate.interp1d(*self.cdf_grid, kind='cubic')(xx)
+        func = sp.interpolate.interp1d(
+            *self.cdf_grid, fill_value=(0.0, 1.0), **self._INTERP_KWARGS)
+        zz = func(xx)
         return zz
 
     def ppf(self, cd):
-        xc, csum = self.cdf_grid
-        y0, idx = np.unique(csum, return_index=True)
-        x0 = xc[idx]
-        xx = sp.interpolate.interp1d(y0, x0, kind='cubic')(cd)
+        """Percentile Point Function - the inverse of the cumulative distribution function.
+
+        NOTE: for symmetric kernels, this (effectively) uses points only with cdf in [0.0, 0.5],
+        which produces better numerical results (unclear why).
+
+        """
+        x0, y0 = self.cdf_grid
+        # Symmetry can be utilized to get better accuracy of results, see 'note' above
+        if self._SYMMETRIC:
+            idx = (cd > 0.5)
+            cd = np.copy(cd)
+            cd[idx] = 1 - cd[idx]
+
+        func = sp.interpolate.interp1d(y0, x0, **self._INTERP_KWARGS)
+        xx = func(cd)
+        if self._SYMMETRIC:
+            xx[idx] = -xx[idx]
+
         return xx
 
     @property
     def cdf_grid(self):
         if self._cdf_grid is None:
+            num_per_stdev = int(1e5)
             if self._FINITE:
                 pad = (1 + _NUM_PAD)
-                args = [-pad, pad, 2000]
+                args = [-pad, pad]
             else:
-                args = [-10, 10, 20000]
-            xe, xc, dx = utils.bins(*args)
+                args = [-6, 6]
 
-            yy = self.evaluate(xc)
-            csum = np.cumsum(yy*dx)
+            num = np.diff(args)[0] * num_per_stdev
+            args = args + [num, ]
+
+            # xe, xc, dx = utils.bins(*args)
+            xc = np.linspace(*args)
+            if self._CDF_INTERP:
+                yy = self.evaluate(xc)
+                # csum = np.cumsum(yy*dx)
+                csum = utils.cumtrapz(yy, xc)
+            else:
+                csum = self.cdf(xc)
+
             norm = csum[-1]
-            if not np.isclose(norm, 1.0, rtol=1e-4):
+            if not np.isclose(norm, 1.0, rtol=1e-5):
                 err = "Failed to reach unitarity in CDF grid norm: {:.4e}!".format(norm)
                 raise ValueError(err)
+
             # csum = csum / norm
-            xc = np.concatenate([[args[0]], [args[0]], xc, [args[1]], [args[1]]], axis=0)
-            csum = np.concatenate([[0.0 - _NUM_PAD], [0.0], csum, [1.0], [1.0+_NUM_PAD]], axis=0)
+            # xc = np.concatenate([[args[0]], [args[0]], xc, [args[1]], [args[1]]], axis=0)
+            # csum = np.concatenate([[0.0 - _NUM_PAD], [0.0], csum, [1.0], [1.0+_NUM_PAD]], axis=0)
             self._cdf_grid = [xc, csum]
 
         return self._cdf_grid
@@ -550,6 +582,7 @@ class Distribution(object):
 class Gaussian(Distribution):
 
     _FINITE = False
+    _CDF_INTERP = False
 
     @classmethod
     def _evaluate(self, yy, ndim):
@@ -581,6 +614,7 @@ class Gaussian(Distribution):
 class Box_Asym(Distribution):
 
     _FINITE = True
+    _CDF_INTERP = False
 
     @classmethod
     def _evaluate(self, yy, ndim):
@@ -610,6 +644,7 @@ class Box_Asym(Distribution):
 class Parabola(Distribution):
 
     _FINITE = True
+    _CDF_INTERP = False
 
     @classmethod
     def _evaluate(self, yy, ndim):
@@ -635,6 +670,7 @@ class Parabola(Distribution):
 class Triweight(Distribution):
 
     _FINITE = True
+    _CDF_INTERP = False
 
     @classmethod
     def _evaluate(self, yy, ndim):

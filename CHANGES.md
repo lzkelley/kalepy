@@ -21,6 +21,7 @@
 - `kalepy/`
     - `kernels.py`
         - `class Distribution`
+            - Significant improvements to the way CDFs are handled.
             - `ppf()`  [new-function]
                 - "Percent point function" the inverse of the CDF (returns quantiles given cumulative-probabilities).
     - `utils.py`
