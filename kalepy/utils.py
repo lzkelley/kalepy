@@ -7,7 +7,7 @@ import scipy as sp
 import scipy.linalg  # noqa
 
 __all__ = [
-    'add_cov', 'array_str', 'ave_std', 'bins', 'midpoints',
+    'add_cov', 'array_str', 'ave_std', 'bins', 'cumtrapz', 'midpoints',
     'minmax', 'percentiles', 'rem_cov', 'spacing', 'stats_str',
     'trapz_nd', 'trapz_dens_to_mass'
 ]
@@ -445,6 +445,12 @@ def trapz_nd(data, edges, axis=None):
         tot = np.trapz(tot, x=xx, axis=ii)
 
     return tot
+
+
+def cumtrapz(pdf, edges, **kwargs):
+    pmf = trapz_dens_to_mass(pdf, edges, **kwargs)
+    cdf = np.cumsum(pmf)
+    return cdf
 
 
 def trapz_dens_to_mass(pdf, edges, axis=None):
