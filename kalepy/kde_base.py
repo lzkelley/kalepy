@@ -127,7 +127,7 @@ class KDE(object):
     """
 
     def __init__(self, dataset, bandwidth='scott', weights=None, kernel=None,
-                 neff=None, diagonal=False, helper=True):
+                 neff=None, diagonal=False, helper=True, bw_rescale=None):
         """Initialize the `KDE` class with the given dataset and optional specifications.
 
         Arguments
@@ -188,7 +188,7 @@ class KDE(object):
 
         data_cov = np.cov(dataset, rowvar=True, bias=False, aweights=weights)
         self._data_cov = np.atleast_2d(data_cov)
-        self.set_bandwidth(bandwidth)
+        self.set_bandwidth(bandwidth, bw_rescale)
 
         # Convert from string, class, etc to a kernel
         dist = kernels.get_distribution_class(kernel)
@@ -358,42 +358,50 @@ class KDE(object):
 
     # ==== BANDWIDTH ====
 
-    def set_bandwidth(self, bandwidth):
+    def set_bandwidth(self, bandwidth, bw_rescale):
         ndim = self.ndim
         _input = bandwidth
-        matrix_white = np.zeros((ndim, ndim))
+        bw_white_matrix = np.zeros((ndim, ndim))
 
         if len(np.atleast_1d(bandwidth)) == 1:
             _bw, method = self._compute_bandwidth(bandwidth)
             if not self._diagonal:
-                matrix_white[...] = _bw
+                bw_white_matrix[...] = _bw
             else:
                 idx = np.arange(ndim)
-                matrix_white[idx, idx] = _bw
+                bw_white_matrix[idx, idx] = _bw
         else:
             if np.shape(bandwidth) == (ndim,):
                 # bw_method = 'diagonal'
                 for ii in range(ndim):
-                    matrix_white[ii, ii] = self._compute_bandwidth(
+                    bw_white_matrix[ii, ii] = self._compute_bandwidth(
                         bandwidth[ii], param=(ii, ii))[0]
                 method = 'diagonal'
             elif np.shape(bandwidth) == (ndim, ndim):
                 for ii, jj in np.ndindex(ndim, ndim):
-                    matrix_white[ii, jj] = self._compute_bandwidth(
+                    bw_white_matrix[ii, jj] = self._compute_bandwidth(
                         bandwidth[ii, jj], param=(ii, jj))[0]
                 method = 'matrix'
             else:
                 raise ValueError("`bandwidth` have shape (1,), (N,) or (N,) for `N` dimensions!")
 
-        if np.any(np.isclose(matrix_white.diagonal(), 0.0)):
-            ii = np.where(np.isclose(matrix_white.diagonal(), 0.0))[0]
+        if self._helper and np.any(np.isclose(bw_white_matrix.diagonal(), 0.0)):
+            ii = np.where(np.isclose(bw_white_matrix.diagonal(), 0.0))[0]
             msg = "WARNING: diagonal '{}' of bandwidth is near zero!".format(ii)
             logging.warning(msg)
 
-        matrix = self.data_cov * (matrix_white ** 2)
+        # Rescale the bandwidth matrix
+        if bw_rescale is not None:
+            bwr = np.atleast_2d(bw_rescale)
+            bw_white_matrix = bwr * bw_white_matrix
+            if self._helper:
+                logging.info("Rescaling `bw_white_matrix` by '{}'".format(
+                    bwr.squeeze().flatten()))
+
+        matrix = self.data_cov * (bw_white_matrix ** 2)
 
         # prev: bw_white
-        self._matrix_white = matrix_white
+        self._bw_white_matrix = bw_white_matrix
         self._method = method
         self._input = _input
         # prev: bw_cov

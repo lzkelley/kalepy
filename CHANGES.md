@@ -24,6 +24,7 @@
     - `kde_base.py`
         - `class KDE`
             - Introduce `helper` argument upon initialization which determines if extra checks and verbose feedback are given.
+            - Introcuce `bw_rescale` initialization argument to rescale the bw-matrix by some factor (matrix, or array).
             - `pdf_grid()`  [new-function]
                 - Convenience / wrapper function to calculate the PDF given the edges of a grid.
     - `kernels.py`
