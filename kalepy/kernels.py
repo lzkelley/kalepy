@@ -16,6 +16,9 @@ __all__ = ['Kernel', 'Distribution',
            'get_distribution_class', 'get_all_distribution_classes']
 
 
+_INTERP_NUM_PER_STD = int(1e4)
+
+
 class Kernel(object):
 
     def __init__(self, distribution=None, matrix=None, bandwidth=None, helper=False):
@@ -456,7 +459,8 @@ class Distribution(object):
 
     def __init__(self):
         self._cdf_grid = None
-        self._cdf = None
+        self._cdf_func = None
+        self._ppf_func = None
         return
 
     @classmethod
@@ -516,9 +520,11 @@ class Distribution(object):
         return samps
 
     def cdf(self, xx):
-        func = sp.interpolate.interp1d(
-            *self.cdf_grid, fill_value=(0.0, 1.0), **self._INTERP_KWARGS)
-        zz = func(xx)
+        if self._cdf_func is None:
+            self._cdf_func = sp.interpolate.interp1d(
+                *self.cdf_grid, fill_value=(0.0, 1.0), **self._INTERP_KWARGS)
+
+        zz = self._cdf_func(xx)
         return zz
 
     def ppf(self, cd):
@@ -528,7 +534,10 @@ class Distribution(object):
         which produces better numerical results (unclear why).
 
         """
-        x0, y0 = self.cdf_grid
+        if self._ppf_func is None:
+            x0, y0 = self.cdf_grid
+            self._ppf_func = sp.interpolate.interp1d(y0, x0, **self._INTERP_KWARGS)
+
         # Symmetry can be utilized to get better accuracy of results, see 'note' above
         if self._SYMMETRIC:
             cd = np.atleast_1d(cd)
@@ -536,8 +545,7 @@ class Distribution(object):
             cd = np.copy(cd)
             cd[idx] = 1 - cd[idx]
 
-        func = sp.interpolate.interp1d(y0, x0, **self._INTERP_KWARGS)
-        xx = func(cd)
+        xx = self._ppf_func(cd)
         if self._SYMMETRIC:
             xx[idx] = -xx[idx]
 
@@ -546,14 +554,13 @@ class Distribution(object):
     @property
     def cdf_grid(self):
         if self._cdf_grid is None:
-            num_per_stdev = int(1e5)
             if self._FINITE:
                 pad = (1 + _NUM_PAD)
                 args = [-pad, pad]
             else:
                 args = [-6, 6]
 
-            num = np.diff(args)[0] * num_per_stdev
+            num = np.diff(args)[0] * _INTERP_NUM_PER_STD
             args = args + [num, ]
 
             # xe, xc, dx = utils.bins(*args)
