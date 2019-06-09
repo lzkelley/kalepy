@@ -202,36 +202,17 @@ class Kernel(object):
 
     def _resample_reflect(self, data, weights, size, reflect, keep=None):
         matrix = self.matrix
+        # Modify covariance-matrix for any `keep` dimensions
         matrix = self._cov_keep_vars(matrix, keep, reflect=reflect)
 
         ndim, nvals = np.shape(data)
-        bounds = np.zeros((ndim, 2))
-
-        old_data = np.copy(data)
-        old_weights = np.copy(weights)
 
         # Actually 'reflect' (append new, mirrored points) around the given reflection points
         # Also construct bounding box for valid data
-        for ii, reflect_dim in enumerate(reflect):
-            if reflect_dim is None:
-                bounds[ii, 0] = -np.inf
-                bounds[ii, 1] = +np.inf
-                continue
+        data, weights, bounds = self._reflect_data(data, weights, reflect)
 
-            for jj, loc in enumerate(reflect_dim):
-                if loc is None:
-                    # j=0 : -inf,  j=1: +inf
-                    bounds[ii, jj] = np.inf * (2*jj - 1)
-                    continue
-
-                bounds[ii, jj] = loc
-                new_data = np.array(old_data)
-                new_data[ii, :] = loc - (new_data[ii, :] - loc)
-                # NOTE: this returns a copy, so original `data` is *not* changed in-place
-                data = np.append(data, new_data, axis=-1)
-                weights = np.append(weights, old_weights)
-
-        weights = weights / np.sum(weights)
+        # Remove data points outside of kernels (or truncated region)
+        data, weights = self._truncate_reflections(data, weights, bounds)
 
         # Draw randomly from the given data points, proportionally to their weights
         samps = np.zeros((size, ndim))
@@ -281,6 +262,56 @@ class Kernel(object):
         return samps
 
     # ==== Utilities ====
+
+    def _reflect_data(self, data, weights, reflect):
+        bounds = np.zeros((data.shape[0], 2))
+
+        old_data = np.copy(data)
+        old_weights = np.copy(weights)
+
+        for ii, reflect_dim in enumerate(reflect):
+            if reflect_dim is None:
+                bounds[ii, 0] = -np.inf
+                bounds[ii, 1] = +np.inf
+                continue
+
+            for jj, loc in enumerate(reflect_dim):
+                if loc is None:
+                    # j=0 : -inf,  j=1: +inf
+                    bounds[ii, jj] = np.inf * (2*jj - 1)
+                    continue
+
+                bounds[ii, jj] = loc
+                new_data = np.array(old_data)
+                new_data[ii, :] = loc - (new_data[ii, :] - loc)
+                # NOTE: this returns a copy, so original `data` is *not* changed in-place
+                data = np.append(data, new_data, axis=-1)
+                weights = np.append(weights, old_weights)
+
+        # Re-normalize the weights
+        weights = weights / np.sum(weights)
+        return data, weights, bounds
+
+    def _truncate_reflections(self, data, weights, bounds):
+        trunc = self._get_truncation_bounds(bounds)
+
+        return data, weights
+
+    # def _get_truncation_bounds(self, bounds):
+    #     trunc = np.zeros_like(bounds)
+    #     ndim = len(bounds)
+    #     tol = _TRUNCATE_INFINITE_KERNELS
+    #
+    #     if self.FINITE:
+    #         trunc[:, 0] = bounds[:, 0] - self.bandwidth.diagonal()
+    #         trunc[:, 1] = bounds[:, 1] + self.bandwidth.diagonal()
+    #     else:
+    #
+    #
+    #     for ii, jj in np.ndindex(ndim, 2):
+    #
+    #
+    #     return trunc
 
     def _check_reflect(self, reflect, ndim, data, weights):
         if reflect is None:
@@ -391,6 +422,10 @@ class Kernel(object):
         return self._matrix
 
     @property
+    def bandwidth(self):
+        return np.sqrt(self.matrix)
+
+    @property
     def matrix_inv(self):
         try:
             if self._matrix_inv is None:
@@ -471,6 +506,13 @@ class Distribution(object):
     def cdf(self, xx):
         zz = sp.interpolate.interp1d(*self.cdf_grid, kind='cubic')(xx)
         return zz
+
+    def ppf(self, cd):
+        xc, csum = self.cdf_grid
+        y0, idx = np.unique(csum, return_index=True)
+        x0 = xc[idx]
+        xx = sp.interpolate.interp1d(y0, x0, kind='cubic')(cd)
+        return xx
 
     @property
     def cdf_grid(self):
