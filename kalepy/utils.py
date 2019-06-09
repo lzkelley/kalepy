@@ -48,7 +48,7 @@ def allclose(xx, yy, msg=None, **kwargs):
     # yy = np.atleast_1d(yy)
     idx = np.isclose(xx, yy, **kwargs)
     if not np.all(idx):
-        logging.error("bads : " + array_str(np.where(~idx)[0], fmt=':d'))
+        logging.error("bads : " + array_str(np.where(~idx)[0], format=':d'))
         logging.error("left : " + array_str(xx[~idx]))
         try:
             logging.error("right: " + array_str(yy[~idx]))
@@ -68,7 +68,7 @@ def alltrue(xx, msg=None):
     xx = np.atleast_1d(xx)
     idx = (xx == True)
     if not np.all(idx):
-        logging.error("bads : " + array_str(np.where(~idx)[0], fmt=':d'))
+        logging.error("bads : " + array_str(np.where(~idx)[0], format=':d'))
         logging.error("vals : " + array_str(xx[~idx]))
         raise AssertionError(msg_fail)
 
