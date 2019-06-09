@@ -113,12 +113,49 @@ def bound_indices(data, bounds, outside=False):
         if outside:
             lo = (data[ii, :] < bnd[0]) if (bnd[0] is not None) else False
             hi = (bnd[1] < data[ii, :]) if (bnd[1] is not None) else False
-            idx = idx & lo & hi
+            idx = idx & (lo | hi)
         else:
             lo = True if (bnd[0] is None) else (bnd[0] < data[ii, :])
             hi = True if (bnd[1] is None) else (data[ii, :] < bnd[1])
-            idx = idx & lo & hi
+            idx = idx & (lo & hi)
+
     return idx
+
+
+''' NOTE: this is SLOWER
+def bound_indices(data, bounds, outside=False):
+    """Find the indices of the `data` array that are bounded by the given `bounds`.
+
+    If `outside` is True, then indices for values *outside* of the bounds are returned.
+    """
+    data = np.atleast_2d(data)
+    bounds = np.atleast_2d(bounds)
+    ndim, nvals = np.shape(data)
+    # shape = (ndim, 2, nvals)
+    shape = (ndim, nvals)
+
+    if outside:
+        idx = np.zeros(shape, dtype=int)
+    else:
+        idx = np.ones(shape, dtype=int)
+
+    for ii, bnd in enumerate(bounds):
+        if ((len(bnd) == 1) and (bnd[0] is None)):
+            continue
+
+        if bnd[0] is None:
+            bnd[0] = -np.inf
+        if bnd[1] is None:
+            bnd[1] = +np.inf
+
+        temp = np.searchsorted(bnd, data[ii, :])
+        temp = (temp + outside) % 2
+        idx[ii, :] = temp
+
+    idx = np.product(idx, axis=0).astype(bool)
+
+    return idx
+'''
 
 
 def cov_from_var_cor(var, corr):

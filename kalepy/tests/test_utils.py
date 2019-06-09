@@ -13,6 +13,36 @@ from nose.tools import assert_true
 from kalepy import utils
 
 
+class Test_Bound_Indices(utils.Test_Base):
+
+    def test_1d(self):
+        aa = np.random.uniform(*[-100, 100], 1000)
+        bounds = [-23, 43]
+        print(aa)
+        print(bounds)
+
+        for out in [False, True]:
+            idx = utils.bound_indices(aa, bounds, outside=out)
+            test_yes = aa[idx]
+            test_not = aa[~idx]
+            print("\n", out, idx)
+
+            for val, test in zip([out, not out], [test_yes, test_not]):
+                if len(test) == 0:
+                    continue
+
+                outside = (test < bounds[0]) | (bounds[1] < test)
+                inside = (bounds[0] < test) & (test < bounds[1])
+
+                print("outside = {}, out = {}, val = {}".format(np.all(outside), out, val))
+                utils.alltrue(outside == val)
+
+                print("inside  = {}, out = {}, val = {}".format(np.all(inside), out, val))
+                utils.alltrue(inside == (not val))
+
+        return
+
+
 class Test_Midpoints(object):
 
     @classmethod

@@ -25,8 +25,11 @@
             - `ppf()`  [new-function]
                 - "Percent point function" the inverse of the CDF (returns quantiles given cumulative-probabilities).
     - `utils.py`
+        - `bound_indices()`
+            - BUG: error in boolean logic.
         - `cumtrapz()`  [new-function]
             - Cumulative summation using the trapezoid-rule.  Light wrapper around  the `trapz_dens_to_mass()` function.
+
 
 
 ## v0.2.1 - 2019/06/09
