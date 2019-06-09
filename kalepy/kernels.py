@@ -293,26 +293,33 @@ class Kernel(object):
         return data, weights, bounds
 
     def _truncate_reflections(self, data, weights, bounds):
+        # Determine the bounds outside of which we should truncate
         trunc = self._get_truncation_bounds(bounds)
-
+        # Find the data-points outside of those bounds
+        idx = utils.bound_indices(data, trunc)
+        # Select only points within truncation bounds
+        data = data[:, idx]
+        weights = weights[idx]
+        weights /= np.sum(weights)
         return data, weights
 
-    # def _get_truncation_bounds(self, bounds):
-    #     trunc = np.zeros_like(bounds)
-    #     ndim = len(bounds)
-    #
-    #     if self.FINITE:
-    #         trunc[:, 0] = bounds[:, 0] - self.bandwidth.diagonal()
-    #         trunc[:, 1] = bounds[:, 1] + self.bandwidth.diagonal()
-    #     else:
-    #         tol = _TRUNCATE_INFINITE_KERNELS
-    #
-    #
-    #
-    #     for ii, jj in np.ndindex(ndim, 2):
-    #
-    #
-    #     return trunc
+    def _get_truncation_bounds(self, bounds):
+        trunc = np.zeros_like(bounds)
+
+        bw = self.bandwidth.diagonal()
+        # If this kernel has finite-support, we only need to go out to 'bandwidth' on each side
+        if self.FINITE:
+            bw = bw * (1 + _NUM_PAD)
+            qnts = np.array([-bw, bw]).T
+        # If kernel has infinite-support, go to the quantile reaching the desired precision
+        else:
+            tol = _TRUNCATE_INFINITE_KERNELS
+            qnts = self.distribution.ppf([tol, 1-tol])
+            qnts = qnts[np.newaxis, :] * bw[:, np.newaxis]
+
+        # Expand the reflection bounds based on the bandwidth interval
+        trunc = bounds + qnts
+        return trunc
 
     def _check_reflect(self, reflect, ndim, data, weights):
         if reflect is None:
@@ -524,6 +531,7 @@ class Distribution(object):
         x0, y0 = self.cdf_grid
         # Symmetry can be utilized to get better accuracy of results, see 'note' above
         if self._SYMMETRIC:
+            cd = np.atleast_1d(cd)
             idx = (cd > 0.5)
             cd = np.copy(cd)
             cd[idx] = 1 - cd[idx]
