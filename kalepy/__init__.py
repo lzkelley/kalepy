@@ -13,8 +13,9 @@ __copyright__ = "Copyright 2019 - Luke Zoltan Kelley and contributors"
 __contributors__ = []
 __bibtex__ = """"""
 
-_QUIET = True
 _NUM_PAD = 1e-8
+# Zero-out the PDF of kernels with infinite-support beyond this probability
+_TRUNCATE_INFINITE_KERNELS = 1e-6
 
 from kalepy import kernels   # noqa
 from kalepy.kernels import *  # noqa

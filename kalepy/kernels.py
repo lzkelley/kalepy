@@ -9,7 +9,7 @@ import scipy as sp   # noqa
 import scipy.stats   # noqa
 
 from kalepy import utils
-from kalepy import _QUIET, _NUM_PAD
+from kalepy import _NUM_PAD, _TRUNCATE_INFINITE_KERNELS
 
 __all__ = ['Kernel', 'Distribution',
            'Gaussian', 'Box_Asym', 'Parabola', 'Triweight',
@@ -60,7 +60,7 @@ class Kernel(object):
             matrix = self.matrix
             data, matrix, norm = self._params_subset(data, matrix, params)
             # matrix_inv = np.linalg.pinv(matrix)
-            matrix_inv = utils.matrix_invert(matrix, quiet=_QUIET)
+            matrix_inv = utils.matrix_invert(matrix, helper=self._helper)
 
         ndim, num_points = np.shape(pnts)
 
@@ -396,7 +396,7 @@ class Kernel(object):
             if self._matrix_inv is None:
                 raise AttributeError
         except AttributeError:
-            self._matrix_inv = utils.matrix_invert(self.matrix, quiet=_QUIET)
+            self._matrix_inv = utils.matrix_invert(self.matrix, helper=self._helper)
         return self._matrix_inv
 
     @property

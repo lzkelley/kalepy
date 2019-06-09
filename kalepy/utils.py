@@ -142,11 +142,11 @@ def cov_from_var_cor(var, corr):
     return cov
 
 
-def matrix_invert(matrix, quiet=True):
+def matrix_invert(matrix, helper=True):
     try:
         matrix_inv = np.linalg.inv(matrix)
     except np.linalg.LinAlgError:
-        if quiet:
+        if helper:
             logging.warning("singular `matrix`, trying SVD...")
         matrix_inv = np.linalg.pinv(matrix)
 
