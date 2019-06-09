@@ -18,6 +18,10 @@
 
 
 ## Current
+- 
+
+
+## v0.2.1 - 2019/06/09
 - `kalepy/`
     - `__init__.py`
         - Import desired API methods into module namespace.  Use `__all__` in both `kernels.py` and `utils.py`.
@@ -57,7 +61,7 @@
 
 
 
-## v0.1 – 2019/06/03
+## v0.2 – 2019/06/03
 - Module renamed from `kdes` to `kalepy`.
 - Notebooks are now included in travis unit testing. 
 - Added skeleton for sphinx documentation; not written yet.
