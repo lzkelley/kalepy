@@ -316,13 +316,13 @@ class Kernel(object):
 
                 # Warn if bandwidth is comparable to area in-bounds
                 if np.all(np.array(reflect[ii]) != None):   # noqa
-                    width = np.diff(reflect[ii])
+                    width = np.diff(reflect[ii])[0]
                     bw = np.sqrt(self.matrix[ii, ii])
                     rat = width / bw
-                    thresh = 1.0 if self.FINITE else 5.0
+                    thresh = 1.0 if self.FINITE else 2.0
                     if rat < thresh:
                         msg = (
-                            "The bandwidth[{}] = {:.2e} is comparable ".format(bw) +
+                            "The bandwidth[{}] = {:.2e} is comparable ".format(ii, bw) +
                             "to the area within reflect = {:.2e}!".format(width)
                         )
                         logging.warning(msg)
