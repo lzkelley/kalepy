@@ -127,7 +127,7 @@ class KDE(object):
     """
 
     def __init__(self, dataset, bandwidth='scott', weights=None, kernel=None,
-                 neff=None, diagonal=False, helper=True, bw_rescale=None):
+                 neff=None, diagonal=False, helper=True, bw_rescale=None, **kwargs):
         """Initialize the `KDE` class with the given dataset and optional specifications.
 
         Arguments
@@ -192,7 +192,8 @@ class KDE(object):
 
         # Convert from string, class, etc to a kernel
         dist = kernels.get_distribution_class(kernel)
-        self._kernel = kernels.Kernel(distribution=dist, matrix=self.matrix, helper=helper)
+        self._kernel = kernels.Kernel(
+            distribution=dist, matrix=self.matrix, helper=helper, **kwargs)
 
         self._finalize()
         return
