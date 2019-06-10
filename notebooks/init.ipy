@@ -1,16 +1,18 @@
 %reload_ext autoreload
 %autoreload 2
 
-import os, sys, logging
+import os, sys, logging, datetime
 from importlib import reload
 
 import numpy as np
 import scipy as sp
 import scipy.stats
-import corner
-from nose import tools
-
 import matplotlib as mpl
 import matplotlib.pyplot as plt
+from nose import tools
+
+import corner
+import tqdm
+import memory_profiler as mpro
 
 import kalepy as kale
