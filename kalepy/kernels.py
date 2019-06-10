@@ -21,10 +21,11 @@ _INTERP_NUM_PER_STD = int(1e4)
 
 class Kernel(object):
 
-    def __init__(self, distribution=None, matrix=None, bandwidth=None, helper=False):
+    def __init__(self, distribution=None, matrix=None, bandwidth=None, helper=False, chunk=1e5):
         self._helper = helper
         distribution = get_distribution_class(distribution)
         self._distribution = distribution()
+        self._chunk = int(chunk)
 
         if matrix is None:
             if bandwidth is not None:
@@ -179,13 +180,14 @@ class Kernel(object):
     def _resample_clear(self, data, weights, size, matrix=None, keep=None):
         if matrix is None:
             matrix = self.matrix
-            # matrix = self._cov_keep_vars(matrix, keep)
+
+        if (self._chunk is not None) and (self._chunk < size):
+            logging.warning("Chunk size: {:.2e}, requested size: {:.2e}".format(self._chunk, size))
+            logging.warning("Chunking is not setup in `_resample_clear`!")
 
         ndim, nvals = np.shape(data)
         # Draw from the smoothing kernel, here the `bw_matrix` includes the bandwidth
         norm = self.distribution.sample(size, ndim=ndim, squeeze=False)
-        # norm_cov = np.cov(*norm)
-        # norm = utils.rem_cov(norm, norm_cov)
         norm = utils.add_cov(norm, matrix)
 
         if keep is not None:
@@ -217,17 +219,29 @@ class Kernel(object):
         # Remove data points outside of kernels (or truncated region)
         data, weights = self._truncate_reflections(data, weights, bounds)
 
+        if (self._chunk is not None) and (self._chunk < size):
+            num_chunks = int(np.ceil(size/self._chunk))
+            chunk_size = int(np.ceil(size/num_chunks))
+        else:
+            chunk_size = size
+            num_chunks = 1
+
+        # print("size = {}".format(size))
+        # print("chunk_size = {}, num_chunks = {}".format(chunk_size, num_chunks))
+
         # Draw randomly from the given data points, proportionally to their weights
         samps = np.zeros((size, ndim))
         num_good = 0
         cnt = 0
         MAX = 10
-        draw = size
+        draw = chunk_size
         fracs = []
-        while num_good < size and cnt < MAX:
+        while (num_good < size) and (cnt < MAX * num_chunks):
+            # print(cnt, "draw = {}".format(draw))
             # Draw candidate resample points
             #    set `keep` to None, `matrix` is already modified to account for it
             trial = self._resample_clear(data, weights, draw, matrix=matrix, keep=None)
+            # print(trial)
             # Find the (boolean) indices of values within target boundaries
             idx = utils.bound_indices(trial, bounds)
 
@@ -245,7 +259,9 @@ class Kernel(object):
             num_good += ngd
             cnt += 1
             # Next time, draw twice as many as we need
-            draw = (2**ndim) * (size - num_good)
+            draw = np.minimum(size - num_good, chunk_size)
+            draw = (2**ndim) * draw
+            draw = np.minimum(draw, int(self._chunk))
 
         if num_good < size:
             err = "Failed to draw '{}' samples in {} iterations!".format(size, cnt)
@@ -340,8 +356,13 @@ class Kernel(object):
             raise ValueError("each row of `reflect` must be `None` or shape (2,)!")
 
         # Perform additional diagnostics
-        if self._helper:
-            for ii in range(ndim):
+        for ii in range(ndim):
+            if np.all(np.array(reflect[ii]) != None) and (reflect[ii][0] >= reflect[ii][1]): # noqa
+                err = "Reflect has inverted order:  `reflect`[{}] = {}  !".format(ii, reflect[ii])
+                raise ValueError(err)
+
+            if self._helper:
+
                 # Warn if any datapoints are outside of reflection bounds
                 bads = utils.bound_indices(data[ii, :], reflect[ii], outside=True)
                 if np.any(bads):
@@ -353,8 +374,8 @@ class Kernel(object):
                         "`reflect[{}]` = {}; ".format(ii, reflect[ii]) +
                         "`data[{}]` = {}".format(ii, utils.stats_str(data[ii], weights=weights))
                     )
-                    logging.info(msg)
-                    logging.info("I hope you know what you're doing.")
+                    logging.warning(msg)
+                    logging.warning("I hope you know what you're doing.")
 
                 # Warn if bandwidth is comparable to area in-bounds
                 if np.all(np.array(reflect[ii]) != None):   # noqa
@@ -372,7 +393,7 @@ class Kernel(object):
                         if not self.FINITE:
                             msg += "consider using a kernel with finite-support, or "
                         msg += "consider setting `keep={}`".format(ii)
-                        logging.info(msg.capitalize())
+                        logging.warning(msg.capitalize())
 
         return reflect
 

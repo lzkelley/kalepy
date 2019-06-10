@@ -19,7 +19,13 @@
 
 ## Current
 - `kalepy/`
+    - `kde_base.py`
+        - `class KDE`
+            - Addition (uncaught) keyword-arguments are passed from `KDE` initialization to `Kernel` initialization, so that additional arguments (e.g. `chunk`) can be passed along.
     - `kernels.py`
+        - `class Kernel`
+            - Implemented 'chunking' for resampling calculation.  Currently only reflection.
+                - This produces an *extreme* memory and time performance increase.  For certain parameters, empirically a chunk size of ~ 1e5 seems to work best.
         - `class Distribution`
             - Significant improvements to the way CDFs are handled.
             - `ppf()`  [new-function]
@@ -29,7 +35,9 @@
             - BUG: error in boolean logic.
         - `cumtrapz()`  [new-function]
             - Cumulative summation using the trapezoid-rule.  Light wrapper around  the `trapz_dens_to_mass()` function.
-
+- `notebooks/`
+    - `performance.ipynb`  [new-file]
+        - New notebook for performance checks, comparisons and diagnostics.
 
 
 ## v0.2.1 - 2019/06/09
