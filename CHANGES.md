@@ -40,6 +40,12 @@
         - New notebook for performance checks, comparisons and diagnostics.
 
 
+
+## v0.2.2 - 2019/06/11
+- Significant improvement in memory and speed while resampling with reflecting boundaries by implementing chunking.
+
+
+
 ## v0.2.1 - 2019/06/09
 - `kalepy/`
     - `__init__.py`
