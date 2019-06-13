@@ -5,6 +5,9 @@
 
 dev: [![Build Status](https://travis-ci.org/lzkelley/kalepy.svg?branch=dev)](https://travis-ci.org/lzkelley/kalepy)
 
+
+![kalepy animated logo](https://raw.githubusercontent.com/lzkelley/kalepy/dev/docs/media/logo_anim_small.gif)
+
 This package performs KDE operations on multidimensional data to: **1) calculate estimated PDFs** (probability distribution functions), and **2) to resample new data** from those PDFs.
 
 ## Installation
