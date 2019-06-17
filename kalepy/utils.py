@@ -122,8 +122,8 @@ def bound_indices(data, bounds, outside=False):
     return idx
 
 
-''' NOTE: this is SLOWER
-def bound_indices(data, bounds, outside=False):
+# NOTE: this is SLOWER
+def _bound_indices(data, bounds, outside=False):
     """Find the indices of the `data` array that are bounded by the given `bounds`.
 
     If `outside` is True, then indices for values *outside* of the bounds are returned.
@@ -155,7 +155,6 @@ def bound_indices(data, bounds, outside=False):
     idx = np.product(idx, axis=0).astype(bool)
 
     return idx
-'''
 
 
 def cov_from_var_cor(var, corr):
