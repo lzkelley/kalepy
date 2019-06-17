@@ -18,6 +18,8 @@
 
 
 ## Current
+- Created a logo using the `kalepy` package to smooth over rendered letters.  New notebook `logo.ipynb` and data files.  Logo media files added to 'docs' and to the `README`.
+
 - `kalepy/`
     - `kde_base.py`
         - `class KDE`
@@ -33,8 +35,17 @@
     - `utils.py`
         - `bound_indices()`
             - BUG: error in boolean logic.
+        - `check_path()`  [new-function]
+            - Create the given path if it does not already exist.
         - `cumtrapz()`  [new-function]
             - Cumulative summation using the trapezoid-rule.  Light wrapper around  the `trapz_dens_to_mass()` function.
+        - `modify_exists()`  [new-function]
+            - Modify the given filename if it already exists.
+        - `save_fig()`  [new-function]
+            - Save a `matplotlib` figure adding convenience features.
+- `docs/`
+    - `logo/`
+        - Logo associated data files.
 - `notebooks/`
     - `performance.ipynb`  [new-file]
         - New notebook for performance checks, comparisons and diagnostics.

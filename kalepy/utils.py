@@ -1,14 +1,16 @@
 """Simple utility methods.
 """
 import logging
+import os
+import re
 
 import numpy as np
 import scipy as sp
 import scipy.linalg  # noqa
 
 __all__ = [
-    'add_cov', 'array_str', 'ave_std', 'bins', 'cumtrapz', 'midpoints',
-    'minmax', 'percentiles', 'rem_cov', 'spacing', 'stats_str',
+    'add_cov', 'array_str', 'ave_std', 'bins', 'check_path', 'cumtrapz', 'midpoints',
+    'minmax', 'modify_exists', 'percentiles', 'rem_cov', 'save_fig', 'spacing', 'stats_str',
     'trapz_nd', 'trapz_dens_to_mass'
 ]
 
@@ -157,6 +159,15 @@ def _bound_indices(data, bounds, outside=False):
     return idx
 
 
+def check_path(fname):
+    """Make sure the given path exists. Create directories as needed.
+    """
+    path, fname = os.path.split(fname)
+    if len(path) > 0 and not os.path.exists(path):
+        os.makedirs(path)
+    return
+
+
 def cov_from_var_cor(var, corr):
     var = np.atleast_1d(var)
     assert np.ndim(var) == 1, "`var` should be 1D!"
@@ -284,6 +295,19 @@ def minmax(data, prev=None, stretch=None, log_stretch=None, limit=None):
     return minmax
 
 
+def modify_exists(path_fname):
+    """Modify the given filename if it already exists.
+    """
+    path_fname = os.path.abspath(path_fname)
+    if not os.path.exists(path_fname):
+        return path_fname
+
+    fname, vers = _fname_match_vers(path_fname)
+    vers = 0 if (vers is None) else vers + 1
+    fname = fname.format(vers)
+    return fname
+
+
 def percentiles(values, percs=None, sigmas=None, weights=None, axis=None, values_sorted=False):
     """Compute weighted percentiles.
 
@@ -347,6 +371,21 @@ def rem_cov(data, cov=None):
     uncolor_mat = np.linalg.inv(color_mat)
     white_data = np.dot(uncolor_mat.T, data)
     return white_data
+
+
+def save_fig(fig, fname, path=None, quiet=False, rename=True, **kwargs):
+    """Save the given figure to the given filename, with some added niceties.
+    """
+    if path is None:
+        path = os.path.abspath(os.path.curdir)
+    fname = os.path.join(path, fname)
+    check_path(fname)
+    if rename:
+        fname = modify_exists(fname)
+    fig.savefig(fname, **kwargs)
+    if not quiet:
+        print("Saved to '{}'".format(fname))
+    return fname
 
 
 def spacing(data, scale='log', num=None, dex=10, **kwargs):
@@ -584,6 +623,34 @@ def trapz_dens_to_mass(pdf, edges, axis=None):
     # mass = np.sum(mass, axis=0) / (2**ndim)
 
     return mass
+
+
+def _fname_match_vers(path_fname, digits=2):
+    path, fname = os.path.split(path_fname)
+    match = re.search('_[0-9]{1,}', fname)
+    if match is None:
+        fname_comps = fname.split('.')
+        idx = 0 if (len(fname_comps) == 1) else -2
+        fname_comps[idx] = fname_comps[idx] + '_{{:0{:}d}}'.format(digits)
+        fname = ".".join(fname_comps)
+        fname = os.path.join(path, fname)
+        fname, num = _fname_match_vers(fname.format(0), digits=digits)
+        num = num if os.path.exists(fname.format(0)) else None
+        return fname, num
+
+    match_str = match.group()
+    match_str = match_str.strip('_')
+    num_digits = len(match_str)
+    num = int(match_str)
+
+    form = "_{{:0{:}d}}".format(num_digits)
+    fname = fname.replace('_' + match_str, form)
+    fname = os.path.join(path, fname)
+    num_max = 10**num_digits - 1
+    while os.path.exists(fname.format(num+1)) and (num < num_max - 1):
+        num += 1
+
+    return fname, num
 
 
 def _guess_str_format_from_range(arr, prec=2, log_limit=2, allow_int=True):
