@@ -6,6 +6,7 @@ import six
 import numpy as np
 
 from kalepy import kernels, utils
+from kalepy import _BANDWIDTH_DEFAULT
 
 __all__ = ['KDE']
 
@@ -126,7 +127,7 @@ class KDE(object):
 
     """
 
-    def __init__(self, dataset, bandwidth='scott', weights=None, kernel=None,
+    def __init__(self, dataset, bandwidth=None, weights=None, kernel=None,
                  neff=None, diagonal=False, helper=True, bw_rescale=None, **kwargs):
         """Initialize the `KDE` class with the given dataset and optional specifications.
 
@@ -167,6 +168,17 @@ class KDE(object):
         ndim, ndata = self.dataset.shape
         if weights is None:
             weights = np.ones(ndata)/ndata
+        bw_method = kwargs.pop('bw_method', None)
+        if bw_method is not None:
+            logging.info("Use `bandwidth` argument instead of `bw_method`")
+            if bandwidth is not None:
+                err = "Use only the `bandwidth` argument, not `bw_method` also!"
+                raise ValueError(err)
+            bandwidth = bw_method
+            del bw_method
+
+        if bandwidth is None:
+            bandwidth = _BANDWIDTH_DEFAULT
 
         self._diagonal = diagonal
         self._ndim = ndim

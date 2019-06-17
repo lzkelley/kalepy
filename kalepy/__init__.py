@@ -17,6 +17,9 @@ __bibtex__ = """"""
 _NUM_PAD = 1e-8
 # Zero-out the PDF of kernels with infinite-support beyond this probability
 _TRUNCATE_INFINITE_KERNELS = 1e-6
+# Default bandwidth calculation method
+_BANDWIDTH_DEFAULT = 'scott'
+
 
 from kalepy import kernels   # noqa
 from kalepy.kernels import *  # noqa
