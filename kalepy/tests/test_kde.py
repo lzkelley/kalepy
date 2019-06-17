@@ -430,21 +430,24 @@ class Test_KDE_Resample(object):
 
         extr = [0.0, 2.0]
         data = np.random.uniform(*extr, NUM)
-
-        edges = kale.utils.spacing(extr, 'lin', 30)
-        edges = np.concatenate([
-            edges[0] - np.arange(1, 5)[::-1]*np.diff(edges)[0],
-            edges,
-            edges[-1] + np.arange(1, 5)*np.diff(edges)[-1],
-        ])
+        # fig, axes = plt.subplots(figsize=[10, 5], ncols=2)
+        # edges = np.linspace(-0.2, 2.2, 25)
+        # for ax in axes:
+        #     ax.scatter(data, -0.05*np.ones_like(data), alpha=0.1, marker='|')
+        #     ax.hist(data, bins=edges, density=True, edgecolor='k', alpha=0.5)
 
         kde = kale.KDE(data)
 
         reflections = [None, extr]
         for ii, reflect in enumerate(reflections):
             samp = kde.resample(NUM, reflect=reflect)
+            # axes[ii].scatter(samp, -0.07*np.ones_like(samp),
+            #     alpha=0.1, color='r', marker='|')
+            # axes[ii].hist(samp, bins=edges,
+            #     density=True, edgecolor='k', alpha=0.4, color='r', rwidth=0.5)
 
             some_outside = np.any((samp < extr[0]) + (extr[1] < samp))
+            print("reflect = '{}', outside = '{}'".format(reflect, some_outside))
             if reflect is None:
                 # There should be some samples outside
                 assert_true(some_outside)
@@ -452,8 +455,9 @@ class Test_KDE_Resample(object):
                 # There should not be any samples outside
                 assert_false(some_outside)
                 ks, pv = sp.stats.ks_2samp(data, samp)
+                print("ks = '{}', pv = '{}'".format(ks, pv))
                 # Check new sample is consistent
-                assert_true(pv > 0.4)
+                assert_true(pv > 0.1)
 
         return
 
