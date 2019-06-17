@@ -1,12 +1,14 @@
 # jupyter nbconvert --ExecutePreprocessor.kernel_name=python --ExecutePreprocessor.timeout=600 --to notebook --execute notebooks/kde.ipynb
 
 import os
+import sys
 import shutil
 import glob
 import subprocess
 import logging
 
-logging.getLogger().setLevel(0)
+if '-v' in sys.argv:
+    logging.getLogger().setLevel(0)
 
 TEST_NOTEBOOK_NAMES = ["demo", "kde", "kernels", "performance", "theory", "utils"]
 
@@ -14,9 +16,11 @@ PATH = os.path.dirname(os.path.abspath(__file__))
 PATH_NOTEBOOKS = os.path.join(PATH, 'notebooks')
 PATH_TESTS = os.path.join(PATH, 'kalepy', 'tests')
 NOTEBOOK_SUFFIX = ".ipynb"
+PYTHON_SUFFIC = ".py"
+TEST_PREFIX = "test_"
 
 # This is the temporary directory to place converted notebooks for testing
-PATH_NOTEBOOK_TESTS = os.path.join(PATH_TESTS, 'tests_nb')
+PATH_NOTEBOOK_TESTS = os.path.join(PATH_TESTS, 'notebooks')
 
 
 def main():
@@ -47,10 +51,12 @@ def convert_notebooks():
     names = TEST_NOTEBOOK_NAMES
 
     for nn in names:
+        logging.warning("Converting '{}'".format(nn))
         src = os.path.join(path_input, nn)
         src_nb = src + NOTEBOOK_SUFFIX
-        src_py = src + '.py'
-        dst_py = os.path.join(path_output, "test_" + nn + '.py')
+        src_py = src + PYTHON_SUFFIC
+        temp = TEST_PREFIX + nn + PYTHON_SUFFIC
+        dst_py = os.path.join(path_output, temp)
 
         logging.info("'{}'".format(src_nb))
         logging.info("\t'{}'".format(src_py))
@@ -58,7 +64,7 @@ def convert_notebooks():
 
         args = ['jupyter', 'nbconvert', '--to', 'python', src_nb]
         logging.info(str(args))
-        subprocess.run(args, timeout=5000, check=True)
+        subprocess.run(args, timeout=500, check=True, capture_output=True)
         shutil.move(src_py, dst_py)
 
     return
