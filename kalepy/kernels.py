@@ -160,6 +160,12 @@ class Kernel(object):
         if size is None:
             size = nval
 
+        # Check if the number of samples being drawn is near the limit imposed by truncation
+        trunc_num = int(1/_TRUNCATE_INFINITE_KERNELS)
+        if (size/10 > trunc_num) and (not self.FINITE):
+            err = "kernel is being truncated, not accurate near {} samples!".format(trunc_num)
+            logging.warning(err)
+
         # Make sure `reflect` matches
         if reflect is not None:
             # This is now either (D,) [and contains `None` values] or (D,2)

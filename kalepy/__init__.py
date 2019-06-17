@@ -16,7 +16,7 @@ __bibtex__ = """"""
 # Numerical padding parameter (e.g. to avoid edge issues, etc)
 _NUM_PAD = 1e-8
 # Zero-out the PDF of kernels with infinite-support beyond this probability
-_TRUNCATE_INFINITE_KERNELS = 1e-6
+_TRUNCATE_INFINITE_KERNELS = 1e-8
 # Default bandwidth calculation method
 _BANDWIDTH_DEFAULT = 'scott'
 
