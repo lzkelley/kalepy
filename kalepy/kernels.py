@@ -557,7 +557,8 @@ class Distribution(object):
         """
         if self._ppf_func is None:
             x0, y0 = self.cdf_grid
-            self._ppf_func = sp.interpolate.interp1d(y0, x0, **self._INTERP_KWARGS)
+            self._ppf_func = sp.interpolate.interp1d(
+                y0, x0, kind='cubic', fill_value='extrapolate')  # **self._INTERP_KWARGS)
 
         # Symmetry can be utilized to get better accuracy of results, see 'note' above
         if self._SYMMETRIC:
@@ -566,7 +567,17 @@ class Distribution(object):
             cd = np.copy(cd)
             cd[idx] = 1 - cd[idx]
 
-        xx = self._ppf_func(cd)
+        try:
+            xx = self._ppf_func(cd)
+        except ValueError:
+            logging.error("`_ppf_func` failed!")
+            logging.error("input `cd` = {}  <===  {}".format(
+                utils.stats_str(cd), utils.array_str(cd)))
+            for vv in self.cdf_grid:
+                logging.error("\tcdf_grid: {} <== {}".format(
+                    utils.stats_str(vv), utils.array_str(vv)))
+            raise
+
         if self._SYMMETRIC:
             xx[idx] = -xx[idx]
 
@@ -584,11 +595,9 @@ class Distribution(object):
             num = np.diff(args)[0] * _INTERP_NUM_PER_STD
             args = args + [num, ]
 
-            # xe, xc, dx = utils.bins(*args)
             xc = np.linspace(*args)
             if self._CDF_INTERP:
                 yy = self.evaluate(xc)
-                # csum = np.cumsum(yy*dx)
                 csum = utils.cumtrapz(yy, xc)
             else:
                 csum = self.cdf(xc)
