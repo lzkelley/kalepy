@@ -52,9 +52,13 @@
 
 
 
+## v0.2.3 - 2019/06/17
+- Added code producing a `kalepy` logo, which is added to the attached media and README file.
+- Updated notebooks to fix a few minor errors.
+
+
 ## v0.2.2 - 2019/06/11
 - Significant improvement in memory and speed while resampling with reflecting boundaries by implementing chunking.
-
 
 
 ## v0.2.1 - 2019/06/09
