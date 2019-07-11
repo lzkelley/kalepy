@@ -12,15 +12,19 @@ if '-v' in sys.argv:
 
 TEST_NOTEBOOK_NAMES = ["demo", "kde", "kernels", "performance", "theory", "utils"]
 
+# Path of this file and the overall package (top-level) directory
 PATH = os.path.dirname(os.path.abspath(__file__))
+# Path in the package in which the notebooks are stored
 PATH_NOTEBOOKS = os.path.join(PATH, 'notebooks')
+# Path in the package in which tests are stored
 PATH_TESTS = os.path.join(PATH, 'kalepy', 'tests')
+
 NOTEBOOK_SUFFIX = ".ipynb"
 PYTHON_SUFFIC = ".py"
 TEST_PREFIX = "test_"
 
 # This is the temporary directory to place converted notebooks for testing
-PATH_NOTEBOOK_TESTS = os.path.join(PATH_TESTS, 'notebooks')
+PATH_NOTEBOOK_TESTS = os.path.join(PATH_TESTS, 'test_notebooks')
 
 
 def main():
