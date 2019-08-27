@@ -2,7 +2,7 @@
 """
 import os
 
-_path = os.path.dirname(__file__)
+_path = os.path.dirname(os.path.abspath(__file__))
 _vers_path = os.path.join(_path, "VERSION.txt")
 with open(_vers_path) as inn:
     _version = inn.read().strip()
@@ -19,6 +19,8 @@ _NUM_PAD = 1e-8
 _TRUNCATE_INFINITE_KERNELS = 1e-8
 # Default bandwidth calculation method
 _BANDWIDTH_DEFAULT = 'scott'
+
+_PATH_NB_OUT = os.path.join(_path, 'notebooks', 'output')
 
 
 from kalepy import kernels   # noqa

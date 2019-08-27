@@ -41,6 +41,8 @@
             - Cumulative summation using the trapezoid-rule.  Light wrapper around  the `trapz_dens_to_mass()` function.
         - `modify_exists()`  [new-function]
             - Modify the given filename if it already exists.
+        - `run_if()`  [new-function]
+            - New functions for running passed methods if the current environment is the target environment.
         - `save_fig()`  [new-function]
             - Save a `matplotlib` figure adding convenience features.
 - `docs/`

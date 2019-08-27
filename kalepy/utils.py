@@ -7,10 +7,12 @@ import re
 import numpy as np
 import scipy as sp
 import scipy.linalg  # noqa
+import matplotlib.pyplot as plt
 
 __all__ = [
     'add_cov', 'array_str', 'ave_std', 'bins', 'check_path', 'cumtrapz', 'midpoints',
-    'minmax', 'modify_exists', 'percentiles', 'rem_cov', 'save_fig', 'spacing', 'stats_str',
+    'minmax', 'modify_exists', 'percentiles', 'rem_cov',
+    'save_fig', 'spacing', 'stats_str',
     'trapz_nd', 'trapz_dens_to_mass'
 ]
 
@@ -625,6 +627,32 @@ def trapz_dens_to_mass(pdf, edges, axis=None):
     return mass
 
 
+def run_if(func, target, *args, **kwargs):
+    env = _python_environment()
+    if env.startswith(target):
+        return func(*args, **kwargs)
+
+    return None
+
+
+def run_if_notebook(func, *args, **kwargs):
+    target = 'notebook'
+    return run_if(func, target, *args, **kwargs)
+
+
+def run_if_script(func, *args, **kwargs):
+    target = 'script'
+    return run_if(func, target, *args, **kwargs)
+
+
+def _is_notebook():
+    return _python_environment().startswith('notebook')
+
+
+def _is_script():
+    return _python_environment().startswith('script')
+
+
 def _fname_match_vers(path_fname, digits=2):
     path, fname = os.path.split(path_fname)
     match = re.search('_[0-9]{1,}', fname)
@@ -689,6 +717,24 @@ def _prep_msg(msg=None):
     return msg_succ, msg_fail
 
 
+def _python_environment():
+    """Tries to determine the current python environment, one of: 'jupyter', 'ipython', 'terminal'.
+    """
+    try:
+        # NOTE: `get_ipython` should not be explicitly imported from anything
+        ipy_str = str(type(get_ipython())).lower()  # noqa
+        if 'zmqshell' in ipy_str:
+            return 'notebook'
+        if 'terminal' in ipy_str:
+            return 'ipython'
+    except NameError:
+        return 'script'
+
+
+class _DummyError(Exception):
+    pass
+
+
 class Test_Base(object):
 
     DEF_SEED = 1234
@@ -710,3 +756,31 @@ class Test_Base(object):
 
         np.random.seed(object.__getattribute__(self, "DEF_SEED"))
         return value
+
+
+class plot_control:
+
+    def __init__(self, fname, *args, **kwargs):
+        self.fname = fname
+        self.args = args
+        self.kwargs = kwargs
+        return
+
+    def __enter__(self):
+        # if not _is_notebook():
+        #     raise _DummyError
+
+        plt.close('all')
+        return self
+
+    def __exit__(self, type, value, traceback):
+        # if isinstance(value, _DummyError):
+        #     return True
+
+        plt.savefig(self.fname, *self.args, **self.kwargs)
+        if _is_notebook():
+            plt.show()
+        else:
+            plt.close('all')
+
+        return
