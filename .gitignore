@@ -107,3 +107,4 @@ notebooks/*.png
 *.pdf
 .pypirc
 *.png
+test_notebooks/
