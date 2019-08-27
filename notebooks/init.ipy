@@ -13,6 +13,8 @@ import tqdm
 import memory_profiler as mpro
 
 import kalepy as kale
+from kalepy.utils import plot_control
+from kalepy import _PATH_NB_OUT
 
 # NOTE: This is for when the notebook is converted to a python script
 def get_ipython():
