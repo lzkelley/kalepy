@@ -418,15 +418,6 @@ def spacing(data, scale='log', num=None, dex=10, **kwargs):
     return spaced
 
 
-'''
-def stats_str(data, percs=[0.0, 5.0, 25.0, 50.0, 75.0, 95.0, 100.0]):
-    vals = np.percentile(data, percs)
-    rv = ", ".join(["{:.2e}".format(xx) for xx in vals])
-    rv = "[" + rv + "]"
-    return rv
-'''
-
-
 def stats_str(data, percs=[0.0, 0.16, 0.50, 0.84, 1.00], ave=False, std=False, weights=None,
               format=None, log=False, label_log=True):
     """Return a string with the statistics of the given array.

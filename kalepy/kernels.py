@@ -478,6 +478,12 @@ class Kernel(object):
 
 
 class Distribution(object):
+    """
+
+    `Distribution` positional arguments (`xx` or `yy`) must be shaped as `(D, N)`
+    for 'D' dimensions and 'N' data-points.
+
+    """
 
     _FINITE = None
     _SYMMETRIC = True
@@ -542,8 +548,6 @@ class Distribution(object):
         grid, cdf = self.cdf_grid
         samps = np.random.uniform(0.0, 1.0, ndim*size)
         samps = sp.interpolate.interp1d(cdf, grid, kind='quadratic')(samps).reshape(ndim, size)
-        # samps = utils.rem_cov(samps)
-        # samps = utils.add_cov(samps, cov)
         return samps
 
     def cdf(self, xx):
@@ -567,7 +571,7 @@ class Distribution(object):
                 y0, x0, kind='cubic', fill_value='extrapolate')  # **self._INTERP_KWARGS)
 
         # Symmetry can be utilized to get better accuracy of results, see 'note' above
-        if self._SYMMETRIC:
+        if self.SYMMETRIC:
             cd = np.atleast_1d(cd)
             idx = (cd > 0.5)
             cd = np.copy(cd)
@@ -584,7 +588,7 @@ class Distribution(object):
                     utils.stats_str(vv), utils.array_str(vv)))
             raise
 
-        if self._SYMMETRIC:
+        if self.SYMMETRIC:
             xx[idx] = -xx[idx]
 
         return xx
@@ -623,6 +627,10 @@ class Distribution(object):
     @property
     def FINITE(self):
         return self._FINITE
+
+    @property
+    def SYMMETRIC(self):
+        return self._SYMMETRIC
 
     @classmethod
     def inside(cls, pnts):
@@ -727,6 +735,7 @@ class Triweight(Distribution):
     def _evaluate(self, yy, ndim):
         norm = (32.0 / 35.0) * _nball_vol(ndim) / (ndim + 1)
         dist = np.sum(yy**2, axis=0)
+        # dist = np.linalg.norm(yy, 2, axis=0) ** 2
         zz = np.maximum((1 - dist)**3, 0.0)
         # zz = np.product(np.maximum((1 - yy*yy)**3, 0.0), axis=0)
         zz = zz / norm
@@ -751,8 +760,8 @@ _index_list = [
     ['triweight', Triweight],
 ]
 
-_all_skip = [Triweight]
-# _all_skip = []
+_all_skip = []
+# _all_skip = [Triweight]
 
 _index = OrderedDict([(nam, val) for nam, val in _index_list])
 
