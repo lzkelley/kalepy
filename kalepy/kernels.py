@@ -160,6 +160,8 @@ class Kernel(object):
         if size is None:
             size = nval
 
+        size = int(np.floor(size))
+            
         # Check if the number of samples being drawn is near the limit imposed by truncation
         trunc_num = int(1/_TRUNCATE_INFINITE_KERNELS)
         if (size/10 > trunc_num) and (not self.FINITE):

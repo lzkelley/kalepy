@@ -28,6 +28,8 @@
         - `class Kernel`
             - Implemented 'chunking' for resampling calculation.  Currently only reflection.
                 - This produces an *extreme* memory and time performance increase.  For certain parameters, empirically a chunk size of ~ 1e5 seems to work best.
+            - `resample()`
+                - BUG: non-integer values of `size` would result in an error.
         - `class Distribution`
             - Significant improvements to the way CDFs are handled.
             - `ppf()`  [new-function]
