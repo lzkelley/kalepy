@@ -605,7 +605,7 @@ class Distribution(object):
                 args = [-6, 6]
 
             num = np.diff(args)[0] * _INTERP_NUM_PER_STD
-            args = args + [num, ]
+            args = args + [int(num), ]
 
             xc = np.linspace(*args)
             if self._CDF_INTERP:
