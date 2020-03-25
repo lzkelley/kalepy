@@ -1,6 +1,10 @@
-## To-Do
+## To-Do / Known-Issues
 - **Optimization desperately needed**.  Things are done in (generally) the simplest ways, currently, need to be optimized for performance (both speed and memory [e.g. with reflections]).  Especially in the case of finite-support kernels, the calculations can be drastically sped up.  Can also use an approximation for infinite-support kernels, truncating at some threshold value of sigma (or percentile; etc).
-- Use `sp.stats.rv_continuous` as base-class for 'Distribution' to provide functionality like 'ppf' etc.
+- Try using `sp.stats.rv_continuous` as base-class for 'Distribution' to provide functionality like 'ppf' etc.
+- `Triweight` kernel is currently NOT-WORKING
+  - The distribution is non-unitary for 2D distributions.  This might be a normalization issue when constructing the PDF (i.e. in `Triweight._evaluate()`) --- is this scaling for the nball correct??
+- Differences between covariance-matrix elements of numerous orders of magnitude can cause spurious results, in particular in the PDF marginalized over parameters.  See "KDE::Dynamic Range" docstrings.  Currently this is checked for in the `KDE._finalize()` method, at the end of initialization, and a warning is given if the dynamic range seems too large. 
+
 - `kalepy/`
     - Allow for calculating PDF and resampling in only particular dimensions/parameters.
         - FIX: Doesn't work quite right for non-fixed bandwidth, bandwidth needs to be re-calculated for different number of dimensions
@@ -12,10 +16,6 @@
         - Use meta-classes to register subclasses of `Distribution`.
 
 
-## Known-Issues
-- Differences between covariance-matrix elements of numerous orders of magnitude can cause spurious results, in particular in the PDF marginalized over parameters.  See "KDE::Dynamic Range" docstrings.  Currently this is checked for in the `KDE._finalize()` method, at the end of initialization, and a warning is given if the dynamic range seems too large. 
-
-
 
 ## Current
 - Created a logo using the `kalepy` package to smooth over rendered letters.  New notebook `logo.ipynb` and data files.  Logo media files added to 'docs' and to the `README`.
@@ -25,6 +25,7 @@
         - `class KDE`
             - Addition (uncaught) keyword-arguments are passed from `KDE` initialization to `Kernel` initialization, so that additional arguments (e.g. `chunk`) can be passed along.
     - `kernels.py`
+        - BUG: `Triweight` kernel is not working --> disabled kernel.
         - `class Kernel`
             - Implemented 'chunking' for resampling calculation.  Currently only reflection.
                 - This produces an *extreme* memory and time performance increase.  For certain parameters, empirically a chunk size of ~ 1e5 seems to work best.

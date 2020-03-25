@@ -12,7 +12,7 @@ from kalepy import utils
 from kalepy import _NUM_PAD, _TRUNCATE_INFINITE_KERNELS
 
 __all__ = ['Kernel', 'Distribution',
-           'Gaussian', 'Box_Asym', 'Parabola', 'Triweight',
+           'Gaussian', 'Box_Asym', 'Parabola',  # 'Triweight',
            'get_distribution_class', 'get_all_distribution_classes']
 
 
@@ -161,7 +161,7 @@ class Kernel(object):
             size = nval
 
         size = int(np.floor(size))
-            
+
         # Check if the number of samples being drawn is near the limit imposed by truncation
         trunc_num = int(1/_TRUNCATE_INFINITE_KERNELS)
         if (size/10 > trunc_num) and (not self.FINITE):
@@ -728,6 +728,8 @@ class Parabola(Distribution):
         return zz
 
 
+'''
+NOTE: THIS ISN"T WORKING!  NON-UNITARY for ND > 1.  Something wrong with normalization?  NBall?
 class Triweight(Distribution):
 
     _FINITE = True
@@ -750,6 +752,7 @@ class Triweight(Distribution):
         powers = [1, 3, 5, 7]
         zz = 0.5 + np.sum([aa*np.power(yy, pp) for aa, pp in zip(coeffs, powers)], axis=0)
         return zz
+'''
 
 
 _DEFAULT_DISTRIBUTION = Gaussian
@@ -759,7 +762,7 @@ _index_list = [
     ['box', Box_Asym],
     ['parabola', Parabola],
     ['epanechnikov', Parabola],
-    ['triweight', Triweight],
+    # ['triweight', Triweight],
 ]
 
 _all_skip = []
