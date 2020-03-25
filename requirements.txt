@@ -8,6 +8,7 @@ nose
 tqdm
 sphinx
 coverage
+memory_profiler
 
 jupyter
 nbconvert
