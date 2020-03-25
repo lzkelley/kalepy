@@ -4,7 +4,6 @@ python:
   - "3.5-dev"
   - "3.6"
   - "3.6-dev"
-  # - "3.7"   # 3.7 not currently available on travis?!
   - "3.7-dev"
 
 # Enable 3.7 without globally enabling sudo and dist: xenial for other build jobs
@@ -14,7 +13,7 @@ matrix:
     - python: 3.7
       dist: xenial
       sudo: true
-      
+
 # command to install dependencies
 install:
   - pip install -r requirements.txt
@@ -23,7 +22,7 @@ install:
 
 # command to run tests
 script:
-  - python -c "import numpy; print(numpy.__version__); import scipy; print(scipy.__version__)"
+  - python -c "import numpy; print(numpy.__version__); import scipy; print(scipy.__version__); import matplotlib; print(matplotlib.__version__)"
   - python -c "import kalepy; print(kalepy.__file__)"
   - python build_notebook_tests.py
   - nosetests --with-coverage --cover-inclusive --with-doctest --cover-package=kalepy

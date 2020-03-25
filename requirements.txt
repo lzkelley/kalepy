@@ -13,4 +13,4 @@ memory_profiler
 jupyter
 nbconvert
 corner
-matplotlib
+matplotlib>=3
