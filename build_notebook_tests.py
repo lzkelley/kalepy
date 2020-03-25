@@ -68,7 +68,10 @@ def convert_notebooks():
 
         args = ['jupyter', 'nbconvert', '--to', 'python', src_nb]
         logging.info(str(args))
-        subprocess.run(args, timeout=500, check=True, capture_output=True)
+        # `capture_output` only works in python3.7; but should be the same as passing to PIPE
+        # subprocess.run(args, timeout=500, check=True, capture_output=True)
+        subprocess.run(args, timeout=500, check=True,
+                       stderr=subprocess.PIPE, stdout=subprocess.PIPE)
         shutil.move(src_py, dst_py)
 
     return
