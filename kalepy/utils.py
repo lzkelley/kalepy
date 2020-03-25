@@ -11,7 +11,7 @@ import matplotlib.pyplot as plt
 
 __all__ = [
     'add_cov', 'array_str', 'ave_std', 'bins', 'check_path', 'cumtrapz', 'midpoints',
-    'minmax', 'modify_exists', 'percentiles', 'rem_cov',
+    'minmax', 'modify_exists', 'nbshow', 'percentiles', 'rem_cov',
     'save_fig', 'spacing', 'stats_str',
     'trapz_nd', 'trapz_dens_to_mass'
 ]
@@ -308,6 +308,10 @@ def modify_exists(path_fname):
     vers = 0 if (vers is None) else vers + 1
     fname = fname.format(vers)
     return fname
+
+
+def nbshow():
+    return run_if_notebook(plt.show)
 
 
 def percentiles(values, percs=None, sigmas=None, weights=None, axis=None, values_sorted=False):
@@ -712,7 +716,7 @@ def _python_environment():
     """Tries to determine the current python environment, one of: 'jupyter', 'ipython', 'terminal'.
     """
     try:
-        # NOTE: `get_ipython` should not be explicitly imported from anything
+        # NOTE: `get_ipython` is builtin (i.e. should not be explicitly imported from anything)
         ipy_str = str(type(get_ipython())).lower()  # noqa
         if 'zmqshell' in ipy_str:
             return 'notebook'
