@@ -18,7 +18,10 @@
 
 
 ## Current
-- Created a logo using the `kalepy` package to smooth over rendered letters.  New notebook `logo.ipynb` and data files.  Logo media files added to 'docs' and to the `README`.
+
+
+## v0.2.4 - 2020/03/25
+- `Triweight` kernel temporarily disabled as it's having normalization problems in ND > 1.
 
 - `kalepy/`
     - `kde_base.py`

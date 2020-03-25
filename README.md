@@ -8,7 +8,7 @@ dev: [![Build Status](https://travis-ci.org/lzkelley/kalepy.svg?branch=dev)](htt
 
 ![kalepy animated logo](https://raw.githubusercontent.com/lzkelley/kalepy/dev/docs/media/logo_anim_small.gif)
 
-This package performs KDE operations on multidimensional data to: **1) calculate estimated PDFs** (probability distribution functions), and **2) to resample new data** from those PDFs.
+This package performs KDE operations on multidimensional data to: **1) calculate estimated PDFs** (probability distribution functions), and **2) resample new data** from those PDFs.
 
 ## Installation
 
@@ -25,7 +25,7 @@ git clone https://github.com/lzkelley/kalepy.git
 pip install -e kalepy/
 ```
 
-In this case the package can easily be updated be changing into the source directory, pulling, and rebuilding:
+In this case the package can easily be updated by changing into the source directory, pulling, and rebuilding:
 
 ```bash
 cd kalepy
