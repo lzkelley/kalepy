@@ -7,6 +7,7 @@ future
 nose
 tqdm
 sphinx
+coverage
 
 jupyter
 nbconvert
