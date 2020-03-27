@@ -1,8 +1,13 @@
+# NOTE: This is for when the notebook is converted to a python script
+# NOTE: this MUST precede the magic functions
+def get_ipython():
+    return type('Dummy', (object,), dict(run_line_magic=lambda *args, **kwargs: None))
+    
 %reload_ext autoreload
 %autoreload 2
 
 # %load init.ipy
-import os, sys, logging, datetime
+import os, sys, logging, datetime, warnings
 from importlib import reload
 
 import numpy as np
@@ -22,10 +27,6 @@ import kalepy.plot
 from kalepy.plot import nbshow   # NOTE: this should be upgraded to `plot_control`
 from kalepy.plot import plot_control
 
-# NOTE: This is for when the notebook is converted to a python script
-def get_ipython():
-    return type('Dummy', (object,), dict(run_line_magic=lambda *args, **kwargs: None))
-    
 def save_fig(fig, fname, **kwargs):
     kwargs.setdefault('path', kale._PATH_NB_OUT)
     kwargs.setdefault('rename', True)
