@@ -2,6 +2,7 @@
 """
 
 import os
+import numpy as np
 
 _path = os.path.dirname(os.path.abspath(__file__))
 _vers_path = os.path.join(_path, "VERSION.txt")
@@ -61,5 +62,8 @@ def pdf(data, edges=None, **kwargs):
     kde = KDE(data, **kwargs)
     if edges is None:
         edges = kde._guess_edges()
+        if len(edges) == 1:
+            edges = np.array(edges).squeeze()
+
     vals = kde.pdf(edges)
     return edges, vals
