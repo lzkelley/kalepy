@@ -14,7 +14,9 @@
         - Make sure tests check both cases of `num_points > num_data` and visa-versa (e.g. in PDF calculation).
     - `kernels.py`
         - Use meta-classes to register subclasses of `Distribution`.
-
+    - `kde_base.py`
+      - `KDE`
+        - Create a method or attribute to construct default `edges` values, like the current `_guess_edges()` method.  Check literature on guessing histogram spacing.
 
 
 ## Current
