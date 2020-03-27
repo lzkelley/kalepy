@@ -34,3 +34,32 @@ from kalepy.kde_base import KDE  # noqa
 __all__ = []
 __all__.extend(kernels.__all__)
 __all__.extend(utils.__all__)
+
+
+# High Level API Functions
+# -----------------------------------
+
+def pdf(data, edges=None, **kwargs):
+    """Use a KDE to calculate a PDF of the given data.
+
+    Arguments
+    ---------
+    edges : array_like of scalar or None
+        Locations at which to evaluate the PDF.
+        If `None`: edges are constructed using the `KDE._guess_edges()` method.
+    kwargs : dict
+        Additional key-value pair arguments passed to the `KDE.__init__` constructor.
+
+    Returns
+    -------
+    edges : (N,) array_like of scalar
+        Locations at which the PDF is evaluated.
+    vals : (N,) array_like of scalar
+        PDF evaluated at the given points
+
+    """
+    kde = KDE(data, **kwargs)
+    if edges is None:
+        edges = kde._guess_edges()
+    vals = kde.pdf(edges)
+    return edges, vals

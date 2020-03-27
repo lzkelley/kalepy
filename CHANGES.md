@@ -22,6 +22,11 @@
 ## Current
 
 - `kalepy/`
+  - Started working on cleaning up the API (i.e. outward visible functions and structures).
+    - API Functions: `kalepy.pdf()`
+  - `__init__.py`
+    - `pdf()`  [NEW-METHOD]
+      - Convenience / API Method for constructing a quick PDF based on the given data.
   - `plot.py` [NEW-FILE]
     - Plotting related functionality; not imported by default - primarily for internal usage.
     - `align_axes_loc()`  [NEW-METHOD]
