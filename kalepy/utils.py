@@ -215,6 +215,19 @@ def cumsum(vals, axis=None):
     """Perform a cumulative sum without flattening the input array.
 
     See: https://stackoverflow.com/a/60647166/230468
+
+    Arguments
+    ---------
+    vals : array_like of scalar
+        Input values to sum over.
+    axis : None or int
+        Axis over which to perform the cumulative sum.
+
+    Returns
+    -------
+    res : ndarray of scalar
+        Same shape as input `vals`
+
     """
 
     vals = np.asarray(vals)
@@ -229,12 +242,37 @@ def cumsum(vals, axis=None):
     return res
 
 
-def cumtrapz(pdf, edges, prepend=False, **kwargs):
-    pmf = trapz_dens_to_mass(pdf, edges, **kwargs)
-    # cdf = np.cumsum(pmf)
-    axis = kwargs.pop('axis', None)
+def cumtrapz(pdf, edges, prepend=True, axis=None):
+    """Perform a cumulative integration using the trapezoid rule.
+
+    Arguments
+    ---------
+    pdf : array_like of scalar
+        Input values (e.g. a PDF) to be integrated.
+    edges : [D,] list of (array_like of scalar)
+        Edges defining bins along each dimension.
+        This should be an array/list of edges for each of `D` dimensions.
+    prepend : bool
+        Whether or not to prepend zero values along the integrated dimensions.
+    axis : None or int
+        Axis/Dimension over which to integrate.
+
+    Returns
+    -------
+    cdf : ndarray of scalar
+        Values integrated over the desired axes.
+        Shape:
+            If `prepend` is False, the shape of `cdf` will be one smaller than the input `pdf`
+            in all dimensions integrated over.
+            If `prepend` is True, the shape of `cdf` will match that of the input `pdf`.
+
+    """
+    # Convert from density to mass using trapezoid rule in each bin
+    pmf = trapz_dens_to_mass(pdf, edges, axis=axis)
+    # Perform cumulative sumation
     cdf = cumsum(pmf, axis=axis)
 
+    # Prepend zeros to output array
     if prepend:
         cdf = _pre_pad_zero(cdf, axis=axis)
 

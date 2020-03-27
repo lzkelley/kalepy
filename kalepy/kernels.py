@@ -610,7 +610,7 @@ class Distribution(object):
             xc = np.linspace(*args)
             if self._CDF_INTERP:
                 yy = self.evaluate(xc)
-                csum = utils.cumtrapz(yy, xc)
+                csum = utils.cumtrapz(yy, xc, prepend=False)
             else:
                 csum = self.cdf(xc)
 
