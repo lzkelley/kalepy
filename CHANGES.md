@@ -22,6 +22,13 @@
 - `kalepy/`
   - `plot.py` [NEW-FILE]
     - Plotting related functionality; not imported by default - primarily for internal usage.
+    - `align_axes_loc()`  [NEW-METHOD]
+      - Align a twin axes to a particular location of the base axes.
+    - `draw_carpet_fuzz()`  [NEW-METHOD]
+      - Draw a fuzz-style carpet plot
+    - `nbshow()`  [moved from `utils.py`]
+    - `save_fig()`  [moved from `utils.py`]
+    - `Plot_Control`  [moved from `utils.py`]
   - `util.py`
     - Moved plotted related methods to `plot.py`
     - `assert_true()`  [NEW-METHOD]
@@ -30,6 +37,8 @@
       - Added some docstrings
     - `cumsum()` [NEW-METHOD]
       - Calculate cumulative sums along either a single axis, or all axes (unlike `numpy.cumsum`)
+    - `cumtrapz()`
+      - Added docstrings
   - `tests/`
     - `test_utils.py`
       - Added tests for `cumsum()`

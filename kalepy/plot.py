@@ -9,7 +9,7 @@ from matplotlib import pyplot as plt
 
 from kalepy import utils
 
-__all__ = ["align_axes_loc", "nbshow"]
+# __all__ = ["align_axes_loc", "nbshow"]
 
 
 def align_axes_loc(tw, ax, ymax=None, ymin=None, loc=0.0):
@@ -36,6 +36,66 @@ def align_axes_loc(tw, ax, ymax=None, ymin=None, loc=0.0):
 
     tw.set_ylim(new_ylim)
     return new_ylim
+
+
+def draw_carpet_fuzz(xx, ax=None, ystd=None, yave=None, fancy=False, random='normal', **kwargs):
+    """Draw a carpet plot on the given axis in the 'fuzz' style.
+
+    Arguments
+    ---------
+    xx : values to plot
+    ax : matplotlib.axis.Axis
+    kwargs : key-value pairs
+        Passed to `matplotlib.axes.Axes.scatter()`
+
+    """
+    if ax is None:
+        ax = plt.gca()
+        if ystd is None:
+            ystd = 0.02
+
+    # Dispersion (yaxis) of the fuzz values
+    if ystd is None:
+        if yave is None:
+            ystd = ax.get_ylim()[1] * 0.02
+        else:
+            ystd = np.fabs(yave) / 5.0
+
+    # Baseline on the yaxis at which the fuzz is plotted
+    if yave is None:
+        yave = -5.0 * ystd
+
+    # General random y-values for the fuzz
+    if random.lower() == 'normal':
+        yy = np.random.normal(yave, ystd, size=xx.size)
+    elif random.lower() == 'uniform':
+        yy = np.random.uniform(yave-ystd, yave+ystd, size=xx.size)
+    else:
+        raise ValueError("Unrecognized `random` = '{}'!".format(random))
+
+    # Choose an appropriate opacity
+    alpha = np.clip(10 / np.sqrt(xx.size), 1e-4, 3e-1)
+
+    # Choose sizes proportional to their deviation (to make outliers more visible)
+    size = np.clip(300 / np.sqrt(xx.size), 5, 100)
+
+    if fancy:
+        # Estimate the deviation of each point from the median
+        dev = np.fabs(xx - np.median(xx)) / np.std(xx)
+        # Rescale the y-values based on their deviation from median
+        yy = (yy - yave) / (np.sqrt(dev) + 1) + yave
+        # Choose sizes proportional to their deviation (to make outliers more visible)
+        size = (size / 1.5) * (1.5 + dev)
+
+    # Set parameters
+    color = kwargs.pop('color', 'red')
+    kwargs.setdefault('facecolor', color)
+    kwargs.setdefault('edgecolor', 'none')
+    kwargs.setdefault('marker', '.')
+    kwargs.setdefault('alpha', alpha)
+    kwargs.setdefault('s', size)
+
+    return ax.scatter(xx, yy, **kwargs)
 
 
 def nbshow():
