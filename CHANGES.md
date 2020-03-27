@@ -19,6 +19,22 @@
 
 ## Current
 
+- `kalepy/`
+  - `plot.py` [NEW-FILE]
+    - Plotting related functionality; not imported by default - primarily for internal usage.
+  - `util.py`
+    - Moved plotted related methods to `plot.py`
+    - `assert_true()`  [NEW-METHOD]
+      - Internal testing method.
+    - `bins()`
+      - Added some docstrings
+    - `cumsum()` [NEW-METHOD]
+      - Calculate cumulative sums along either a single axis, or all axes (unlike `numpy.cumsum`)
+  - `tests/`
+    - `test_utils.py`
+      - Added tests for `cumsum()`
+
+
 
 ## v0.2.4 - 2020/03/25
 - `Triweight` kernel temporarily disabled as it's having normalization problems in ND > 1.
@@ -65,8 +81,10 @@
 - Updated notebooks to fix a few minor errors.
 
 
+
 ## v0.2.2 - 2019/06/11
 - Significant improvement in memory and speed while resampling with reflecting boundaries by implementing chunking.
+
 
 
 ## v0.2.1 - 2019/06/09
@@ -105,7 +123,6 @@
         - Convenience script for setting up the imports in each notebook file
     - `utils.ipynb`  [new-file]
         - New notebook for testing/exploring the `utils.py` submodule.
-
 
 
 
@@ -182,14 +199,11 @@
         - `test_utils.py`
             - Test the utility functions.
 
-
 - `notebooks/`
     - `kernels.ipynb`  [new-file]
         - Examining / testing the behavior of different kernels specifically.
     - `demo.ipynb`     [new-file]
         - Currently includes the material used in the `README.rst`, should be expanded as a quick demonstration / tutorial of the package.
-
-
 
 
 

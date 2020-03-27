@@ -415,6 +415,167 @@ class Test_Trapz_Dens_To_Mass(utils.Test_Base):
         return
 
 
+class Test_Cumsum(utils.Test_Base):
+
+    def _brute_force_cumsum(self, vals):
+        """Brute-force cumulative sum calculation as comparison
+        """
+        # Make sure input is array to allow tuple-slicing
+        vals = np.asarray(vals)
+        # Output values
+        res = np.zeros_like(vals)
+        # Iterate over each input element
+        for ii in np.ndindex(np.shape(vals)):
+            # Sum all input elements with lower indices
+            #   Add one to the current index so that we count them inclusively
+            kk = np.array(ii) + 1
+            for jj in np.ndindex(tuple(kk)):
+                res[ii] += vals[jj]
+
+        return res
+
+    def _test_no_axis_ndim(self, ndim):
+        """Test cumsum over all axes (i.e. "no" axis given) for a `ndim` array
+        """
+        # Construct a random shape in `ndim` dimensions
+        shape = np.random.randint(2, 7, ndim)
+        # Fill with random values
+        vals = np.random.uniform(-20.0, 20.0, shape)
+
+        # Get the `cumsum` result
+        res = utils.cumsum(vals)
+        # Get the brute-force result for comparison
+        chk = self._brute_force_cumsum(vals)
+        # Make sure they match
+        print("input = \n", vals)
+        print("output = \n", res)
+        print("brute-force truth = \n", chk)
+        msg = "cumsum ndim={} does {{fail:}}match brute-force values.".format(ndim)
+        utils.allclose(res, chk, rtol=1e-10, msg=msg)
+        return
+
+    def _test_axis_ndim(self, ndim, axis):
+        """Test cumsum over particular axis for a `ndim` array
+        """
+        # Construct a random shape in `ndim` dimensions
+        shape = np.random.randint(2, 7, ndim)
+        # Fill with random values
+        vals = np.random.uniform(-20.0, 20.0, shape)
+
+        # Get the `cumsum` result
+        res = utils.cumsum(vals, axis=axis)
+        # Get the brute-force result for comparison
+        # chk = self._brute_force_cumsum(vals)
+        chk = np.cumsum(vals, axis=axis)
+        # Make sure they match
+        print("input = \n", vals)
+        print("output = \n", res)
+        print("numpy truth = \n", chk)
+        msg = "cumsum ndim={}, axis={} does {{fail:}}match brute-force values.".format(ndim, axis)
+        utils.allclose(res, chk, rtol=1e-10, msg=msg)
+        return
+
+    def test_no_axis(self):
+        # Start with a known input and output
+        test = [[1, 2, 3, 4],
+                [0, 2, 1, 2],
+                [3, 1, 0, 0]]
+        check = [[1, 3, 6, 10],
+                 [1, 5, 9, 15],
+                 [4, 9, 13, 19]]
+        res = utils.cumsum(test)
+        print("input = \n", test)
+        print("output = \n", res)
+        print("brute-force truth = \n", check)
+        utils.allclose(res, check, rtol=1e-10, msg="`cumsum` does {fail:}match known result")
+
+        for nd in range(1, 5):
+            self._test_no_axis_ndim(nd)
+
+        return
+
+    def test_axis(self):
+        """With axis given, this just needs to match `numpy.cumsum` results.
+        """
+        # Start with a known input and output
+        test = [[1, 2, 3, 4],
+                [0, 2, 1, 2],
+                [3, 1, 0, 0]]
+        chk_a1 = [[1, 3, 6, 10],
+                  [0, 2, 3, 5],
+                  [3, 4, 4, 4]]
+        chk_a0 = [[1, 2, 3, 4],
+                  [1, 4, 4, 6],
+                  [4, 5, 4, 6]]
+
+        checks = [chk_a0, chk_a1]
+        print("input = \n", test)
+        for aa, chk in enumerate(checks):
+            print("---- axis=", aa)
+            res = utils.cumsum(test, axis=aa)
+            chk_np = np.cumsum(test, axis=aa)
+            print("output = \n", res)
+            print("numpy truth = \n", chk_np)
+            msg = "`cumsum` does {{fail:}}match numpy result along axis={}".format(aa)
+            utils.allclose(res, chk_np, rtol=1e-10, msg=msg)
+
+            print("output = \n", res)
+            print("brute-force truth = \n", chk)
+            msg = "`cumsum` does {{fail:}}match known result along axis={}".format(aa)
+            utils.allclose(res, chk, rtol=1e-10, msg=msg)
+
+        for nd in range(1, 5):
+            for ax in range(nd):
+                self._test_axis_ndim(nd, ax)
+
+        return
+
+
+class Test_Pre_Pad_Zero(utils.Test_Base):
+
+    def _compare_io(self, inn, out, axis):
+        innsh = np.shape(inn)
+        outsh = np.shape(out)
+        ndim = len(innsh)
+        if axis is None:
+            axis = np.arange(ndim)
+        axis = np.atleast_1d(axis)
+        cut_base = [slice(None) for ii in range(ndim)]
+        for aa in axis:
+            si = innsh[aa]
+            so = outsh[aa]
+            msg = "Output along axis={} is {{fail:}}the correct shape".format(aa)
+            utils.assert_true(so == si+1, msg=msg)
+            cut = [0 if ii == aa else cb for ii, cb in enumerate(cut_base)]
+            msg = "Padding for axis={} is {{fail:}}all zero".format(aa)
+            utils.alltrue(out[tuple(cut)] == 0.0, msg)
+
+        return
+
+    def _test_ndim_axis(self, ndim, axis):
+
+        # Construct a random shape in `ndim` dimensions
+        shape = np.random.randint(2, 7, ndim)
+        # Fill with random values
+        vals = np.random.uniform(-20.0, 20.0, shape)
+
+        res = utils._pre_pad_zero(vals, axis=axis)
+        if axis is None:
+            chk = np.pad(vals, [1, 0])
+            msg = "Output ndim={} without axis does {{fail:}}match numpy result".format(ndim)
+            utils.allclose(res, chk, msg=msg)
+
+        self._compare_io(vals, res, axis)
+        return
+
+    def test(self):
+        for nd in range(1, 5):
+            for ax in [None] + list(range(nd)):
+                self._test_ndim_axis(nd, ax)
+
+        return
+
+
 # Run all methods as if with `nosetests ...`
 if __name__ == "__main__":
     run_module_suite()

@@ -7,12 +7,12 @@ import re
 import numpy as np
 import scipy as sp
 import scipy.linalg  # noqa
-import matplotlib.pyplot as plt
+
 
 __all__ = [
-    'add_cov', 'array_str', 'ave_std', 'bins', 'check_path', 'cumtrapz', 'midpoints',
-    'minmax', 'modify_exists', 'nbshow', 'percentiles', 'rem_cov',
-    'save_fig', 'spacing', 'stats_str',
+    'add_cov', 'array_str', 'ave_std', 'bins', 'check_path', 'cumsum', 'cumtrapz', 'midpoints',
+    'minmax', 'modify_exists', 'percentiles', 'rem_cov',
+    'spacing', 'stats_str',
     'trapz_nd', 'trapz_dens_to_mass'
 ]
 
@@ -44,6 +44,17 @@ def array_str(data, num=3, format=':.2e'):
 
     rv = '[' + rv + ']'
     return rv
+
+
+def assert_true(val, msg=None):
+    msg_succ, msg_fail = _prep_msg(msg)
+    if not val:
+        raise AssertionError(msg_fail)
+
+    if msg_succ is not None:
+        print(msg_succ)
+
+    return
 
 
 def allclose(xx, yy, msg=None, **kwargs):
@@ -93,8 +104,17 @@ def ave_std(values, weights=None, **kwargs):
     return average, np.sqrt(variance)
 
 
-def bins(*args):
-    xe = np.linspace(*args)
+def bins(*args, **kwargs):
+    """Calculate `np.linspace(*args)` and return also centers and widths.
+
+    Returns
+    -------
+    xe : (N,) bin edges
+    xc : (N-1,) bin centers
+    dx : (N-1,) bin widths
+
+    """
+    xe = np.linspace(*args, **kwargs)
     xc = midpoints(xe)
     dx = np.diff(xe)
     return xe, xc, dx
@@ -189,6 +209,36 @@ def cov_from_var_cor(var, corr):
         cov[ii, jj] = np.sqrt(var[ii]) * np.sqrt(var[jj]) * corr[ii, jj]
 
     return cov
+
+
+def cumsum(vals, axis=None):
+    """Perform a cumulative sum without flattening the input array.
+
+    See: https://stackoverflow.com/a/60647166/230468
+    """
+
+    vals = np.asarray(vals)
+    nd = np.ndim(vals)
+    if (axis is not None) or (nd == 1):
+        return np.cumsum(vals, axis=axis)
+
+    res = vals.cumsum(-1)
+    for ii in range(2, nd+1):
+        np.cumsum(res, axis=-ii, out=res)
+
+    return res
+
+
+def cumtrapz(pdf, edges, prepend=False, **kwargs):
+    pmf = trapz_dens_to_mass(pdf, edges, **kwargs)
+    # cdf = np.cumsum(pmf)
+    axis = kwargs.pop('axis', None)
+    cdf = cumsum(pmf, axis=axis)
+
+    if prepend:
+        cdf = _pre_pad_zero(cdf, axis=axis)
+
+    return cdf
 
 
 def matrix_invert(matrix, helper=True):
@@ -310,10 +360,6 @@ def modify_exists(path_fname):
     return fname
 
 
-def nbshow():
-    return run_if_notebook(plt.show)
-
-
 def percentiles(values, percs=None, sigmas=None, weights=None, axis=None, values_sorted=False):
     """Compute weighted percentiles.
 
@@ -377,21 +423,6 @@ def rem_cov(data, cov=None):
     uncolor_mat = np.linalg.inv(color_mat)
     white_data = np.dot(uncolor_mat.T, data)
     return white_data
-
-
-def save_fig(fig, fname, path=None, quiet=False, rename=True, **kwargs):
-    """Save the given figure to the given filename, with some added niceties.
-    """
-    if path is None:
-        path = os.path.abspath(os.path.curdir)
-    fname = os.path.join(path, fname)
-    check_path(fname)
-    if rename:
-        fname = modify_exists(fname)
-    fig.savefig(fname, **kwargs)
-    if not quiet:
-        print("Saved to '{}'".format(fname))
-    return fname
 
 
 def spacing(data, scale='log', num=None, dex=10, **kwargs):
@@ -517,12 +548,6 @@ def trapz_nd(data, edges, axis=None):
         tot = np.trapz(tot, x=xx, axis=ii)
 
     return tot
-
-
-def cumtrapz(pdf, edges, **kwargs):
-    pmf = trapz_dens_to_mass(pdf, edges, **kwargs)
-    cdf = np.cumsum(pmf)
-    return cdf
 
 
 def trapz_dens_to_mass(pdf, edges, axis=None):
@@ -698,6 +723,16 @@ def _guess_str_format_from_range(arr, prec=2, log_limit=2, allow_int=True):
     return form
 
 
+def _pre_pad_zero(aa, axis=None):
+    if axis is None:
+        return np.pad(aa, [1, 0])
+
+    aa = np.moveaxis(aa, axis, 0)
+    aa = np.concatenate([[np.zeros_like(aa[0])], aa], axis=0)
+    aa = np.moveaxis(aa, 0, axis)
+    return aa
+
+
 def _prep_msg(msg=None):
     if (msg is None) or (msg is True):
         msg_fail = "FAILURE:: arrays do not match!"
@@ -751,31 +786,3 @@ class Test_Base(object):
 
         np.random.seed(object.__getattribute__(self, "DEF_SEED"))
         return value
-
-
-class plot_control:
-
-    def __init__(self, fname, *args, **kwargs):
-        self.fname = fname
-        self.args = args
-        self.kwargs = kwargs
-        return
-
-    def __enter__(self):
-        # if not _is_notebook():
-        #     raise _DummyError
-
-        plt.close('all')
-        return self
-
-    def __exit__(self, type, value, traceback):
-        # if isinstance(value, _DummyError):
-        #     return True
-
-        plt.savefig(self.fname, *self.args, **self.kwargs)
-        if _is_notebook():
-            plt.show()
-        else:
-            plt.close('all')
-
-        return
