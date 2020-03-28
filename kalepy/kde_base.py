@@ -4,8 +4,9 @@ import logging
 import six
 
 import numpy as np
+import scipy as sp
 
-from kalepy import kernels, utils
+from kalepy import kernels, utils, _NUM_PAD
 from kalepy import _BANDWIDTH_DEFAULT
 
 __all__ = ['KDE']
@@ -208,6 +209,8 @@ class KDE(object):
             distribution=dist, matrix=self.matrix, helper=helper, **kwargs)
 
         self._finalize()
+        self._cdf_grid = None
+        self._cdf_func = None
         return
 
     def pdf(self, pnts, **kwargs):
@@ -282,6 +285,76 @@ class KDE(object):
         pdf = pdf.reshape(shp)
         return pdf
 
+    def _guess_edges(self, nmin=100, nmax=1e4, tot_max=1e8, reflect=None):
+        """Guess good grid edges to resolve the KDE's PDF.
+
+        To-Do: this doesn't need to be done on a grid, do something smarter!
+        To-Do: implement reflect (set boundaries to reflect values when given)
+
+        """
+        data = self.dataset
+        neff = self.neff
+        ndim = self.ndim
+        bandwidth = self.kernel.bandwidth.diagonal()
+        finite = self.kernel.FINITE
+        if reflect is not None:
+            raise ValueError("`reflect` is not supported in calculing grid edges!")
+
+        # Number of grid points in each dimension
+        max_per_dim = np.power(tot_max, 1.0/ndim)
+        if max_per_dim < nmin:
+            err = (
+                "Cannot resolve ndim={} dimensions ".format(ndim) +
+                "with at least nmin={:.2e} ".format(nmin) +
+                "points and stay below maximum = {:.3e}!".format(tot_max)
+            )
+            raise ValueError(err)
+
+        npd = np.power(neff, 1.0/ndim)
+        npd = np.clip(npd, nmin, nmax)
+        npd = np.clip(npd, 0.0, max_per_dim)
+        npd = int(npd)
+        msg = "KDE._guess_edges:: Using {} bins per dimension".format(npd)
+        # print(msg)
+        if self._helper:
+            logging.info(msg)
+
+        # If the Kernel is finite, then there is only support out to `bandwidth` beyond extrema
+        if finite:
+            out = (1.0 + _NUM_PAD)
+        # If infinite, how many standard-deviations can we expect data points to lie at
+        else:
+            out = sp.stats.norm.ppf(1 - 1/neff)
+            # 2x to be double sure...
+            out *= 2
+
+        # Find the extrema in each dimension
+        extr = [[np.min(dd) - bw*out, np.max(dd) + bw*out] for bw, dd in zip(bandwidth, data)]
+        edges = [np.linspace(*ex, npd) for ex in extr]
+        msg = "KDE._guess_edges:: extrema = {}".format(
+            ", ".join(["[{:.2e}, {:.2e}]".format(*ex) for ex in extr]))
+        # print(msg)
+
+        return edges
+
+    def cdf(self, pnts):
+        if self._cdf_func is None:
+            edges = self._guess_edges()
+
+            # Calculate PDF at grid locations
+            pdf = self.pdf(edges)
+            # Convert to CDF using trapezoid rule
+            cdf = utils.cumtrapz(pdf, edges)
+            # Normalize to the maximum value
+            cdf /= cdf.max()
+
+            self._cdf_grid = (edges, cdf)
+            self._cdf_func = sp.interpolate.RegularGridInterpolator(
+                *self._cdf_grid, bounds_error=False, fill_value=None)
+
+        zz = self._cdf_func(pnts)
+        return zz
+
     def resample(self, size=None, keep=None, reflect=None, squeeze=True):
         """Draw new values from the kernel-density-estimate calculated PDF.
 
@@ -320,6 +393,9 @@ class KDE(object):
             self.dataset, self.weights,
             size=size, keep=keep, reflect=reflect, squeeze=squeeze)
         return samples
+
+    # def ppf(self, cfrac):
+    #     return self.kernel.ppf(cfrac)
 
     def _finalize(self, log_ratio_tol=5.0):
 

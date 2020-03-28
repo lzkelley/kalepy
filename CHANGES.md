@@ -17,6 +17,7 @@
     - `kde_base.py`
       - `KDE`
         - Create a method or attribute to construct default `edges` values, like the current `_guess_edges()` method.  Check literature on guessing histogram spacing.
+        - Explore more efficient ways of calculating the CDF using the underlying kernels instead of integrating the PDF.
 
 
 ## Current
@@ -29,6 +30,10 @@
       - Convenience / API Method for constructing a quick PDF based on the given data.
     - `cdf()`  [NEW-METHOD]
       - Convenience / API Method for constructing a quick CDF based on the given data.
+  - `kde_base.py`
+    - `KDE`
+      - `cdf()`  [NEW-METHOD]
+        - Calculate the CDF by integrating the KDE-derived CDF.  This could be done much better.
   - `plot.py` [NEW-FILE]
     - Plotting related functionality; not imported by default - primarily for internal usage.
     - `align_axes_loc()`  [NEW-METHOD]
