@@ -53,6 +53,9 @@
       - Calculate cumulative sums along either a single axis, or all axes (unlike `numpy.cumsum`)
     - `cumtrapz()`
       - Added docstrings
+    - `run_if()`
+      - Add `otherwise` argument for functions to run when negation
+      - Applies to all `run_if_*` methods.
   - `tests/`
     - `test_utils.py`
       - Added tests for `cumsum()`

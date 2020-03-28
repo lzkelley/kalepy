@@ -685,22 +685,24 @@ def trapz_dens_to_mass(pdf, edges, axis=None):
     return mass
 
 
-def run_if(func, target, *args, **kwargs):
+def run_if(func, target, *args, otherwise=None, **kwargs):
     env = _python_environment()
     if env.startswith(target):
         return func(*args, **kwargs)
+    elif otherwise is not None:
+        return otherwise(*args, **kwargs)
 
     return None
 
 
-def run_if_notebook(func, *args, **kwargs):
+def run_if_notebook(func, *args, otherwise=None, **kwargs):
     target = 'notebook'
-    return run_if(func, target, *args, **kwargs)
+    return run_if(func, target, *args, otherwise=otherwise, **kwargs)
 
 
-def run_if_script(func, *args, **kwargs):
+def run_if_script(func, *args, otherwise=None, **kwargs):
     target = 'script'
-    return run_if(func, target, *args, **kwargs)
+    return run_if(func, target, *args, otherwise=otherwise, **kwargs)
 
 
 def _is_notebook():
