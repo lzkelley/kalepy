@@ -99,7 +99,7 @@ def draw_carpet_fuzz(xx, ax=None, ystd=None, yave=None, fancy=False, random='nor
 
 
 def nbshow():
-    return utils.run_if_notebook(plt.show)
+    return utils.run_if_notebook(plt.show, otherwise=lambda: plt.close('all'))
 
 
 def save_fig(fig, fname, path=None, quiet=False, rename=True, **kwargs):
