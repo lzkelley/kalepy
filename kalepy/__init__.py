@@ -67,3 +67,33 @@ def pdf(data, edges=None, **kwargs):
 
     vals = kde.pdf(edges)
     return edges, vals
+
+
+def cdf(data, edges=None, **kwargs):
+    """Use a KDE to calculate a CDF of the given data.
+
+    Arguments
+    ---------
+    edges : array_like of scalar or None
+        Locations at which to evaluate the CDF.
+        If `None`: edges are constructed using the `KDE._guess_edges()` method.
+    kwargs : dict
+        Additional key-value pair arguments passed to the `KDE.__init__` constructor.
+
+    Returns
+    -------
+    edges : (N,) array_like of scalar
+        Locations at which the CDF is evaluated.
+    vals : (N,) array_like of scalar
+        CDF evaluated at the given points
+
+    """
+    kde = KDE(data, **kwargs)
+    # NOTE/FIX: dont need to interpolate to `_guess_edges` as they are the interpolation points!
+    if edges is None:
+        edges = kde._guess_edges()
+        if len(edges) == 1:
+            edges = np.array(edges).squeeze()
+
+    vals = kde.cdf(edges)
+    return edges, vals
