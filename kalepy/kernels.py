@@ -11,10 +11,11 @@ import scipy.stats   # noqa
 from kalepy import utils
 from kalepy import _NUM_PAD, _TRUNCATE_INFINITE_KERNELS
 
+'''
 __all__ = ['Kernel', 'Distribution',
            'Gaussian', 'Box_Asym', 'Parabola',  # 'Triweight',
            'get_distribution_class', 'get_all_distribution_classes']
-
+'''
 
 _INTERP_NUM_PER_STD = int(1e4)
 

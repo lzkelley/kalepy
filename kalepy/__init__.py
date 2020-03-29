@@ -13,7 +13,7 @@ __version__ = _version
 __author__ = "Luke Zoltan Kelley <lzkelley@northwestern.edu>"
 __copyright__ = "Copyright 2019 - Luke Zoltan Kelley and contributors"
 __contributors__ = []
-__bibtex__ = """"""
+__bibtex__ = ""
 
 # Numerical padding parameter (e.g. to avoid edge issues, etc)
 _NUM_PAD = 1e-8
@@ -26,15 +26,15 @@ _PATH_NB_OUT = os.path.join(_path, 'notebooks', 'output')
 
 
 from kalepy import kernels   # noqa
-from kalepy.kernels import *  # noqa
+# from kalepy.kernels import *  # noqa
 from kalepy import utils   # noqa
-from kalepy.utils import *  # noqa
+# from kalepy.utils import *  # noqa
 
 from kalepy.kde_base import KDE  # noqa
 
-__all__ = []
-__all__.extend(kernels.__all__)
-__all__.extend(utils.__all__)
+# __all__ = []
+# __all__.extend(kernels.__all__)
+# __all__.extend(utils.__all__)
 
 
 # High Level API Functions
