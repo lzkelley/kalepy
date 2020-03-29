@@ -42,6 +42,8 @@
       - Draw a fuzz-style carpet plot
     - `nbshow()`  [moved from `utils.py`]
     - `save_fig()`  [moved from `utils.py`]
+    - `smap()`  [NEW-METHOD]
+      - Construct a ScalarMappable object (with colormap and normalization) for plotting.
     - `Plot_Control`  [moved from `utils.py`]
   - `util.py`
     - Moved plotted related methods to `plot.py`

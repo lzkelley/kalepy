@@ -2,6 +2,7 @@
 """
 
 import os
+import six
 
 import numpy as np
 import matplotlib as mpl  # noqa
@@ -96,6 +97,35 @@ def draw_carpet_fuzz(xx, ax=None, ystd=None, yave=None, fancy=False, random='nor
     kwargs.setdefault('s', size)
 
     return ax.scatter(xx, yy, **kwargs)
+
+
+def smap(args=[0.0, 1.0], cmap=None, norm=None,
+         under='0.8', over='0.8', left=None, right=None):
+    args = np.asarray(args)
+
+    if not isinstance(cmap, mpl.colors.Colormap):
+        if cmap is None:
+            cmap = 'viridis'
+        if isinstance(cmap, six.string_types):
+            cmap = plt.get_cmap(cmap)
+
+    if under is not None:
+        cmap.set_under(under)
+    if over is not None:
+        cmap.set_over(over)
+
+    vmin, vmax = utils.minmax(args)
+    # norm = mpl.colors.LogNorm(vmin=min, vmax=max)
+    # norm = MidpointLogNormalize(vmin=min, vmax=max, midpoint=midpoint)
+    # norm = MidpointNormalize(vmin=min, vmax=max, midpoint=midpoint)
+    norm = mpl.colors.Normalize(vmin=vmin, vmax=vmax)
+
+    # Create scalar-mappable
+    smap = mpl.cm.ScalarMappable(norm=norm, cmap=cmap)
+    # Bug-Fix something something
+    smap._A = []
+
+    return smap
 
 
 def nbshow():
