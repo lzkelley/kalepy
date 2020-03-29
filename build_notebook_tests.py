@@ -12,6 +12,14 @@ if '-v' in sys.argv:
 
 TEST_NOTEBOOK_NAMES = ["demo", "kde", "kernels", "performance", "theory", "utils"]
 
+args = sys.argv[1:]
+notebook_names = []
+if len(args) > 0:
+    notebook_names = [aa.split('.')[0] for aa in args if not aa.startswith('-')]
+
+if len(notebook_names) == 0:
+    notebook_names = [nb for nb in TEST_NOTEBOOK_NAMES]
+
 # Path of this file and the overall package (top-level) directory
 PATH = os.path.dirname(os.path.abspath(__file__))
 # Path in the package in which the notebooks are stored
@@ -52,9 +60,9 @@ def main():
 def convert_notebooks():
     path_input = PATH_NOTEBOOKS
     path_output = PATH_NOTEBOOK_TESTS
-    names = TEST_NOTEBOOK_NAMES
+    # names = TEST_NOTEBOOK_NAMES
 
-    for nn in names:
+    for nn in notebook_names:
         logging.warning("Converting '{}'".format(nn))
         src = os.path.join(path_input, nn)
         src_nb = src + NOTEBOOK_SUFFIX
