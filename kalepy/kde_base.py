@@ -338,11 +338,24 @@ class KDE(object):
         return edges
 
     def cdf(self, pnts):
+        """Cumulative Distribution Function based on KDE smoothed data.
+
+        Arguments
+        ---------
+        pnts : ([D,]N,) array_like of scalar
+            Target evaluation points
+
+        Returns
+        -------
+        cdf : (N,) ndarray of scalar
+            CDF Values at the target points
+
+        """
         if self._cdf_func is None:
             edges = self._guess_edges()
 
             # Calculate PDF at grid locations
-            pdf = self.pdf(edges)
+            pdf = self.pdf_grid(edges)
             # Convert to CDF using trapezoid rule
             cdf = utils.cumtrapz(pdf, edges)
             # Normalize to the maximum value
@@ -352,8 +365,24 @@ class KDE(object):
             self._cdf_func = sp.interpolate.RegularGridInterpolator(
                 *self._cdf_grid, bounds_error=False, fill_value=None)
 
-        zz = self._cdf_func(pnts)
-        return zz
+        # `scipy.interplate.RegularGridInterpolator` expects shape (N,D,) -- so transpose
+        pnts = np.asarray(pnts).T
+        cdf = self._cdf_func(pnts)
+        return cdf
+
+    def cdf_grid(self, edges, **kwargs):
+        ndim = self.ndim
+        if len(edges) != ndim:
+            err = "`edges` must be (D,)=({},): an arraylike of edges for each dim/param!"
+            err = err.format(ndim)
+            raise ValueError(err)
+
+        coords = np.meshgrid(*edges, indexing='ij')
+        shp = np.shape(coords)[1:]
+        coords = np.vstack([xx.ravel() for xx in coords])
+        cdf = self.cdf(coords, **kwargs)
+        cdf = cdf.reshape(shp)
+        return cdf
 
     def resample(self, size=None, keep=None, reflect=None, squeeze=True):
         """Draw new values from the kernel-density-estimate calculated PDF.

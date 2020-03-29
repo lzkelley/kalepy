@@ -34,6 +34,7 @@
     - `KDE`
       - `cdf()`  [NEW-METHOD]
         - Calculate the CDF by integrating the KDE-derived CDF.  This could be done much better.
+        - Seems to be working based on simple tests in 1D and 2D.
   - `plot.py` [NEW-FILE]
     - Plotting related functionality; not imported by default - primarily for internal usage.
     - `align_axes_loc()`  [NEW-METHOD]
