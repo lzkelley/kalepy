@@ -10,7 +10,8 @@ import logging
 if '-v' in sys.argv:
     logging.getLogger().setLevel(0)
 
-TEST_NOTEBOOK_NAMES = ["demo", "kde", "kernels", "performance", "theory", "utils"]
+TEST_NOTEBOOK_NAMES = ["demo", "kde", "kernels", "theory", "utils"]
+# "performance", "logo"
 
 args = sys.argv[1:]
 notebook_names = []
@@ -51,6 +52,12 @@ def main():
     logging.info("`PATH_NOTEBOOKS_TESTS` = '{}'".format(PATH_NOTEBOOK_TESTS))
     if not os.path.exists(PATH_NOTEBOOK_TESTS):
         os.makedirs(PATH_NOTEBOOK_TESTS)
+
+    # Remove old files
+    for root, dirs, files in os.walk(PATH_NOTEBOOK_TESTS):
+        for file in files:
+            logging.info("removing '{}'".format(file))
+            os.remove(os.path.join(root, file))
 
     convert_notebooks()
 
