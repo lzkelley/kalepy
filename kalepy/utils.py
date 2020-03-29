@@ -9,12 +9,14 @@ import scipy as sp
 import scipy.linalg  # noqa
 
 
+'''
 __all__ = [
     'add_cov', 'array_str', 'ave_std', 'bins', 'check_path', 'cumsum', 'cumtrapz', 'midpoints',
     'minmax', 'modify_exists', 'percentiles', 'rem_cov',
     'spacing', 'stats_str',
     'trapz_nd', 'trapz_dens_to_mass'
 ]
+'''
 
 
 def add_cov(data, cov):
@@ -483,6 +485,7 @@ def spacing(data, scale='log', num=None, dex=10, **kwargs):
         else:
             num = DEF_NUM_LIN
 
+    num = int(num)
     if log_flag:
         spaced = np.logspace(*np.log10(span), num=num)
     else:

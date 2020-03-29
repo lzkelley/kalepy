@@ -59,6 +59,8 @@
     - `run_if()`
       - Add `otherwise` argument for functions to run when negation
       - Applies to all `run_if_*` methods.
+    - `spacing()`
+      - BUG: convert `num` to integer before usage.
   - `tests/`
     - `test_utils.py`
       - Added tests for `cumsum()`
