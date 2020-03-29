@@ -3,7 +3,7 @@
 [![Build Status](https://travis-ci.org/lzkelley/kalepy.svg?branch=master)](https://travis-ci.org/lzkelley/kalepy)
 [![codecov](https://codecov.io/gh/lzkelley/kalepy/branch/master/graph/badge.svg)](https://codecov.io/gh/lzkelley/kalepy)
 
-dev: [![Build Status](https://travis-ci.org/lzkelley/kalepy.svg?branch=dev)](https://travis-ci.org/lzkelley/kalepy)
+<!-- dev: [![Build Status](https://travis-ci.org/lzkelley/kalepy.svg?branch=dev)](https://travis-ci.org/lzkelley/kalepy) -->
 
 
 ![kalepy animated logo](https://raw.githubusercontent.com/lzkelley/kalepy/dev/docs/media/logo_anim_small.gif)
