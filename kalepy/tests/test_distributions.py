@@ -146,7 +146,7 @@ class Test_Distribution_Generic(utils.Test_Base):
         return
 
     @classmethod
-    def _test_grid_at_ndim(cls, kern, ndim, num=1e6):
+    def _test_grid_at_ndim(cls, kern, ndim, num=1e5):
         if ndim > 4:
             raise ValueError("`ndim` = {} is too memory intensive!")
 
@@ -180,7 +180,7 @@ class Test_Distribution_Generic(utils.Test_Base):
     def _test_evaluate_nd(cls, kernel):
         kernels = kale.kernels.get_all_distribution_classes()
         for kern in kernels:
-            for ndim in range(1, 5):
+            for ndim in range(1, 4):
                 cls._test_grid_at_ndim(kern, ndim)
         return
 
@@ -219,7 +219,7 @@ class Test_Distribution_Generic(utils.Test_Base):
         return
 
     @classmethod
-    def _test_sample_at_ndim(self, kernel, ndim, num=1e7, conf=0.99):
+    def _test_sample_at_ndim(self, kernel, ndim, num=1e6, conf=0.99):
         kern = kernel()
         np.random.seed(9876)
         print("\nkernel: {}, dim: {}".format(kern.name(), ndim))

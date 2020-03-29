@@ -86,7 +86,9 @@ class Test_Kernels_Generic(object):
         dpow = -4 + ndim
         delta = 2*np.power(10.0, np.minimum(dpow, -1))
 
-        tools.assert_almost_equal(tot, 1.0, delta=delta)
+        err = "kernel_at_dim({}, {}, {})\t".format(kern, ndim, num)
+        err += "Integrated PDF {:.4e} is not within {:.2e} -- not unitary!".format(tot, delta)
+        tools.assert_almost_equal(tot, 1.0, delta=delta, msg=err)
 
         return
 
