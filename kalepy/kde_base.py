@@ -165,7 +165,7 @@ class KDE(object):
 
         """
         self._helper = helper
-        self.dataset = np.atleast_2d(dataset)
+        self._dataset = np.atleast_2d(dataset)
         ndim, ndata = self.dataset.shape
         if weights is None:
             weights = np.ones(ndata)/ndata
@@ -201,17 +201,69 @@ class KDE(object):
 
         data_cov = np.cov(dataset, rowvar=True, bias=False, aweights=weights)
         self._data_cov = np.atleast_2d(data_cov)
-        self.set_bandwidth(bandwidth, bw_rescale)
+        self._set_bandwidth(bandwidth, bw_rescale)
 
         # Convert from string, class, etc to a kernel
         dist = kernels.get_distribution_class(kernel)
         self._kernel = kernels.Kernel(
-            distribution=dist, matrix=self.matrix, helper=helper, **kwargs)
+            distribution=dist, matrix=self._bw_matrix, helper=helper, **kwargs)
 
         self._finalize()
         self._cdf_grid = None
         self._cdf_func = None
         return
+
+    def _guess_edges(self, nmin=100, nmax=1e4, tot_max=1e8, reflect=None):
+        """Guess good grid edges to resolve the KDE's PDF.
+
+        To-Do: this doesn't need to be done on a grid, do something smarter!
+        To-Do: implement reflect (set boundaries to reflect values when given)
+
+        """
+        data = self.dataset
+        neff = self.neff
+        ndim = self.ndim
+        bandwidth = self.kernel.bandwidth.diagonal()
+        finite = self.kernel.FINITE
+        if reflect is not None:
+            raise ValueError("`reflect` is not supported in calculing grid edges!")
+
+        # Number of grid points in each dimension
+        max_per_dim = np.power(tot_max, 1.0/ndim)
+        if max_per_dim < nmin:
+            err = (
+                "Cannot resolve ndim={} dimensions ".format(ndim) +
+                "with at least nmin={:.2e} ".format(nmin) +
+                "points and stay below maximum = {:.3e}!".format(tot_max)
+            )
+            raise ValueError(err)
+
+        npd = np.power(neff, 1.0/ndim)
+        npd = np.clip(npd, nmin, nmax)
+        npd = np.clip(npd, 0.0, max_per_dim)
+        npd = int(npd)
+        msg = "KDE._guess_edges:: Using {} bins per dimension".format(npd)
+        # print(msg)
+        if self._helper:
+            logging.info(msg)
+
+        # If the Kernel is finite, then there is only support out to `bandwidth` beyond extrema
+        if finite:
+            out = (1.0 + _NUM_PAD)
+        # If infinite, how many standard-deviations can we expect data points to lie at
+        else:
+            out = sp.stats.norm.ppf(1 - 1/neff)
+            # Extra to be double sure...
+            out *= 1.5
+
+        # Find the extrema in each dimension
+        extr = [[np.min(dd) - bw*out, np.max(dd) + bw*out] for bw, dd in zip(bandwidth, data)]
+        edges = [np.linspace(*ex, npd) for ex in extr]
+        msg = "KDE._guess_edges:: extrema = {}".format(
+            ", ".join(["[{:.2e}, {:.2e}]".format(*ex) for ex in extr]))
+        # print(msg)
+
+        return edges
 
     def pdf(self, pnts, **kwargs):
         """Evaluate the kernel-density-estimate PDF at the given data-points.
@@ -284,58 +336,6 @@ class KDE(object):
         pdf = self.pdf(coords, **kwargs)
         pdf = pdf.reshape(shp)
         return pdf
-
-    def _guess_edges(self, nmin=100, nmax=1e4, tot_max=1e8, reflect=None):
-        """Guess good grid edges to resolve the KDE's PDF.
-
-        To-Do: this doesn't need to be done on a grid, do something smarter!
-        To-Do: implement reflect (set boundaries to reflect values when given)
-
-        """
-        data = self.dataset
-        neff = self.neff
-        ndim = self.ndim
-        bandwidth = self.kernel.bandwidth.diagonal()
-        finite = self.kernel.FINITE
-        if reflect is not None:
-            raise ValueError("`reflect` is not supported in calculing grid edges!")
-
-        # Number of grid points in each dimension
-        max_per_dim = np.power(tot_max, 1.0/ndim)
-        if max_per_dim < nmin:
-            err = (
-                "Cannot resolve ndim={} dimensions ".format(ndim) +
-                "with at least nmin={:.2e} ".format(nmin) +
-                "points and stay below maximum = {:.3e}!".format(tot_max)
-            )
-            raise ValueError(err)
-
-        npd = np.power(neff, 1.0/ndim)
-        npd = np.clip(npd, nmin, nmax)
-        npd = np.clip(npd, 0.0, max_per_dim)
-        npd = int(npd)
-        msg = "KDE._guess_edges:: Using {} bins per dimension".format(npd)
-        # print(msg)
-        if self._helper:
-            logging.info(msg)
-
-        # If the Kernel is finite, then there is only support out to `bandwidth` beyond extrema
-        if finite:
-            out = (1.0 + _NUM_PAD)
-        # If infinite, how many standard-deviations can we expect data points to lie at
-        else:
-            out = sp.stats.norm.ppf(1 - 1/neff)
-            # 2x to be double sure...
-            out *= 2
-
-        # Find the extrema in each dimension
-        extr = [[np.min(dd) - bw*out, np.max(dd) + bw*out] for bw, dd in zip(bandwidth, data)]
-        edges = [np.linspace(*ex, npd) for ex in extr]
-        msg = "KDE._guess_edges:: extrema = {}".format(
-            ", ".join(["[{:.2e}, {:.2e}]".format(*ex) for ex in extr]))
-        # print(msg)
-
-        return edges
 
     def cdf(self, pnts):
         """Cumulative Distribution Function based on KDE smoothed data.
@@ -428,8 +428,8 @@ class KDE(object):
 
     def _finalize(self, log_ratio_tol=5.0):
 
-        mat = self.matrix
-        ndim = self.ndim
+        mat = self._bw_matrix
+        ndim = self._ndim
         # Diagonal elements of the matrix
         diag = mat.diagonal()
 
@@ -455,6 +455,10 @@ class KDE(object):
     # ==== Properties ====
 
     @property
+    def dataset(self):
+        return self._dataset
+
+    @property
     def weights(self):
         return self._weights
 
@@ -474,9 +478,19 @@ class KDE(object):
     def kernel(self):
         return self._kernel
 
+    '''
+    @property
+    def matrix(self):
+        return self._matrix
+
+    @property
+    def data_cov(self):
+        return self._data_cov
+    '''
+
     # ==== BANDWIDTH ====
 
-    def set_bandwidth(self, bandwidth, bw_rescale):
+    def _set_bandwidth(self, bandwidth, bw_rescale):
         ndim = self.ndim
         _input = bandwidth
         bw_white_matrix = np.zeros((ndim, ndim))
@@ -516,22 +530,22 @@ class KDE(object):
                 logging.info("Rescaling `bw_white_matrix` by '{}'".format(
                     bwr.squeeze().flatten()))
 
-        matrix = self.data_cov * (bw_white_matrix ** 2)
+        bw_matrix = self._data_cov * (bw_white_matrix ** 2)
 
         # prev: bw_white
         self._bw_white_matrix = bw_white_matrix
         self._method = method
         self._input = _input
         # prev: bw_cov
-        self._matrix = matrix
+        self._bw_matrix = bw_matrix
         return
 
     def _compute_bandwidth(self, bandwidth, param=None):
         if isinstance(bandwidth, six.string_types):
             if bandwidth == 'scott':
-                bw = self.scott_factor(param=param)
+                bw = self._scott_factor(param=param)
             elif bandwidth == 'silverman':
-                bw = self.silverman_factor(param=param)
+                bw = self._silverman_factor(param=param)
             else:
                 msg = "Unrecognized bandwidth str specification '{}'!".format(bandwidth)
                 raise ValueError(msg)
@@ -551,16 +565,8 @@ class KDE(object):
 
         return bw, method
 
-    def scott_factor(self, *args, **kwargs):
+    def _scott_factor(self, *args, **kwargs):
         return np.power(self.neff, -1./(self.ndim+4))
 
-    def silverman_factor(self, *args, **kwargs):
+    def _silverman_factor(self, *args, **kwargs):
         return np.power(self.neff*(self.ndim+2.0)/4.0, -1./(self.ndim+4))
-
-    @property
-    def matrix(self):
-        return self._matrix
-
-    @property
-    def data_cov(self):
-        return self._data_cov

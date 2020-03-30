@@ -2,7 +2,6 @@
 """
 
 import os
-import numpy as np
 
 _path = os.path.dirname(os.path.abspath(__file__))
 _vers_path = os.path.join(_path, "VERSION.txt")
@@ -12,8 +11,8 @@ with open(_vers_path) as inn:
 __version__ = _version
 __author__ = "Luke Zoltan Kelley <lzkelley@northwestern.edu>"
 __copyright__ = "Copyright 2019 - Luke Zoltan Kelley and contributors"
-__contributors__ = []
-__bibtex__ = ""
+# __contributors__ = []
+# __bibtex__ = ""
 
 # Numerical padding parameter (e.g. to avoid edge issues, etc)
 _NUM_PAD = 1e-8
@@ -35,6 +34,12 @@ from kalepy.kde_base import KDE  # noqa
 # __all__ = []
 # __all__.extend(kernels.__all__)
 # __all__.extend(utils.__all__)
+
+del os
+del inn
+del _version
+del _vers_path
+del _path
 
 
 # High Level API Functions
@@ -63,6 +68,7 @@ def pdf(data, edges=None, **kwargs):
     if edges is None:
         edges = kde._guess_edges()
         if len(edges) == 1:
+            import numpy as np
             edges = np.array(edges).squeeze()
 
     vals = kde.pdf(edges)
@@ -93,6 +99,7 @@ def cdf(data, edges=None, **kwargs):
     if edges is None:
         edges = kde._guess_edges()
         if len(edges) == 1:
+            import numpy as np
             edges = np.array(edges).squeeze()
 
     vals = kde.cdf(edges)
