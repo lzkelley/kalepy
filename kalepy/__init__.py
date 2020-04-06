@@ -45,7 +45,7 @@ del _path
 # High Level API Functions
 # -----------------------------------
 
-def pdf(data, edges=None, **kwargs):
+def pdf(data, edges=None, reflect=None, **kwargs):
     """Use a KDE to calculate a PDF of the given data.
 
     Arguments
@@ -71,7 +71,7 @@ def pdf(data, edges=None, **kwargs):
             import numpy as np
             edges = np.array(edges).squeeze()
 
-    vals = kde.pdf(edges)
+    vals = kde.pdf(edges, reflect=reflect)
     return edges, vals
 
 
