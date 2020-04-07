@@ -436,6 +436,8 @@ class KDE(object):
     #     return self.kernel.ppf(cfrac)
 
     def _finalize(self, log_ratio_tol=5.0):
+        WARN_ALL_BELOW = -10
+        EXTR_ABOVE = -20
 
         mat = self.kernel.matrix
         ndim = self._ndim
@@ -447,17 +449,30 @@ class KDE(object):
         li = np.tril_indices(ndim, -1)
         offd = np.append(mat[ui], mat[li])
 
+        warn = False
+
         if np.any(offd != 0.0):
-            d_extr = utils.minmax(np.log10(np.fabs(diag)))
-            o_extr = utils.minmax(np.log10(np.fabs(offd)))
+            d_vals = np.log10(np.fabs(diag))
+            o_vals = np.log10(np.fabs(offd))
+            if np.all(d_vals <= WARN_ALL_BELOW) and np.all(o_vals <= WARN_ALL_BELOW):
+                logging.warning("Covariance matrix:\n" + str(mat))
+                logging.warning("All matrix elements are less than 1e{}!".format(WARN_ALL_BELOW))
+                warn = True
+
+            d_extr = utils.minmax(d_vals[d_vals > EXTR_ABOVE])
+            o_extr = utils.minmax(o_vals[o_vals > EXTR_ABOVE])
+
             ratio = np.fabs(d_extr[:, np.newaxis] - o_extr[np.newaxis, :])
             if np.any(ratio >= log_ratio_tol):
                 logging.warning("Covariance matrix:\n" + str(mat))
                 msg = "(log) Ratio of covariance elements ({}) exceeds tolerance ({})!".format(
                     ratio, log_ratio_tol)
                 logging.warning(msg)
-                msg = "Recommend rescaling input data, or using a diagonal covariance matrix"
-                logging.warning(msg)
+                warn = True
+
+        if warn:
+            msg = "Recommend rescaling input data, or using a diagonal covariance matrix"
+            logging.warning(msg)
 
         return
 
