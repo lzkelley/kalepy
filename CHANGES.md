@@ -21,6 +21,10 @@
 
 
 ## Current
+
+
+## v0.3.0 - 2020/04/07
+
 - Started working on cleaning up the API (i.e. outward visible functions and structures).
   - New API Functions: `kalepy.pdf()`, `kalepy.cdf()`
 - Cleanup variable naming conventions in KDE and Kernels.
