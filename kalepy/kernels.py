@@ -22,68 +22,109 @@ _INTERP_NUM_PER_STD = int(1e4)
 
 class Kernel(object):
 
-    def __init__(self, distribution=None, matrix=None, bandwidth=None, helper=False, chunk=1e5):
+    def __init__(self, distribution=None, bandwidth=None, covariance=None,
+                 helper=False, chunk=1e5):
         self._helper = helper
         distribution = get_distribution_class(distribution)
         self._distribution = distribution()
         self._chunk = int(chunk)
 
-        if matrix is None:
-            if bandwidth is not None:
-                matrix = np.square(bandwidth)
-            else:
-                matrix = 1.0
-                logging.warning("No `matrix` of `bandwidth` provided, setting to [[1.0]]!")
+        if bandwidth is None:
+            bandwidth = 1.0
+            logging.warning("No `bandwidth` provided, setting to 1.0!")
 
-        matrix = np.atleast_2d(matrix)
+        if covariance is None:
+            covariance = 1.0
+            logging.warning("No `covariance` provided, setting to 1.0!")
+
+        bandwidth = np.atleast_2d(bandwidth)
+        covariance = np.atleast_2d(covariance)
+        matrix = covariance * np.square(bandwidth)
         self._ndim = np.shape(matrix)[0]
         self._matrix = matrix
-
+        self._bandwidth = bandwidth
+        self._covariance = covariance
         self._matrix_inv = None
         self._norm = None
         return
 
-    def pdf(self, points, data, weights, reflect=None, **kwargs):
+    def pdf(self, points, data, weights, reflect=None, params=None):
         pnts = np.atleast_2d(points)
         ndim, nval = np.shape(data)
+        # print("pnts.shape = {}, len(pnts) = {}".format(np.shape(pnts), len(pnts)))
+
+        # Check shape if unput `edges`
+        if (params is None):
+            # Should be edges for all parameters
+            if len(pnts) != ndim:
+                err = ("`points` has length {}, but data has {} parameters. "
+                       "Provide an arraylike of edges for each dim/param!")
+                err = err.format(len(pnts), ndim)
+                raise ValueError(err)
+        else:
+            params = np.atleast_1d(params)
+            # Should only be as many edges as target parameters
+            if len(params) != len(pnts):
+                err = "length of `params` = '{}', but nparams in `points` = {}!".format(
+                    len(params), len(pnts))
+                raise ValueError(err)
 
         # Make sure shape/values of reflect look okay
         reflect = self._check_reflect(reflect, ndim, data, weights)
 
         if reflect is None:
-            result = self._pdf_clear(pnts, data, weights, **kwargs)
+            result = self._pdf_clear(pnts, data, weights, params=params)
         else:
-            result = self._pdf_reflect(pnts, data, weights, reflect, **kwargs)
+            result = self._pdf_reflect(pnts, data, weights, reflect)
 
+        # print("Kernel.pdf(): result.shape = {}".format(result.shape))
         return result
 
     def _pdf_clear(self, pnts, data, weights, params=None):
+        """
+
+        If parameters are being selected (i.e. `params` is not None):
+          - `pnts` should reflect only the *target* parameters.
+
+        """
+        # print("Kernel._pdf_clear()::")
         matrix_inv = self.matrix_inv
         norm = self.norm
 
+        # Select subset of parameters
         if params is not None:
             matrix = self.matrix
-            data, matrix, norm = self._params_subset(data, matrix, params)
-            # matrix_inv = np.linalg.pinv(matrix)
+            params, data, matrix, norm = self._params_subset(data, matrix, params)
             matrix_inv = utils.matrix_invert(matrix, helper=self._helper)
 
-        ndim, num_points = np.shape(pnts)
+        npar_pnts, num_points = np.shape(pnts)
+        npar_data, num_data = np.shape(data)
+        if npar_pnts != npar_data:
+            err = "`data` nparams ({}) does not match `pnts` ({})!  `params` = '{}'".format(
+                npar_data, npar_pnts, params)
+            raise ValueError(err)
 
         whitening = sp.linalg.cholesky(matrix_inv)
+        # print("pnts: ndim = {}, npnts = {}, whitening = {}, weights = {}".format(
+        #     npar_pnts, num_points, np.shape(whitening), np.shape(weights)))
+
         # Construct the whitened sampling points
         white_points = np.dot(whitening, pnts)
 
         result = np.zeros((num_points,), dtype=float)
-        ndim, num_data = np.shape(data)
         # Construct the 'whitened' (independent) dataset
         white_dataset = np.dot(whitening, data)
+        # print("data: ndim = {}, npnts = {}, white_dataset = {}, white_points = {}".format(
+        #     npar_data, num_data, np.shape(white_dataset), np.shape(white_points)))
 
         for ii in range(num_data):
             yy = white_points - white_dataset[:, ii, np.newaxis]
+            # print(ii, np.shape(yy), yy)
             temp = weights[ii] * self.distribution.evaluate(yy)
             result += temp.squeeze()
 
         result = result / norm
+        # print(params, "result = ", np.shape(result))
         return result
 
     def _pdf_reflect(self, pnts, data, weights, reflect):
@@ -138,21 +179,6 @@ class Kernel(object):
 
         result = result / norm
         return result
-
-    '''
-    def pdf_grid(self, edges, *args, **kwargs):
-        ndim = self._ndim
-        if len(edges) != ndim:
-            err = "`edges` must be (D,): an array of edges for each dimension!"
-            raise ValueError(err)
-
-        coords = np.meshgrid(*edges, indexing='ij')
-        shp = np.shape(coords)[1:]
-        coords = np.vstack([xx.ravel() for xx in coords])
-        pdf = self.pdf(coords, *args, **kwargs)
-        pdf = pdf.reshape(shp)
-        return pdf
-    '''
 
     def resample(self, data, weights, size=None, keep=None, reflect=None, squeeze=True):
         """
@@ -429,24 +455,48 @@ class Kernel(object):
     @classmethod
     def _params_subset(cls, data, matrix, params):
         if params is None:
-            norm = np.sqrt(np.linalg.det(matrix))
-            return data, matrix, norm
+            raise ValueError("Why is this method being called if `params` are 'None'?")
+            # norm = np.sqrt(np.linalg.det(matrix))
+            # return data, matrix, norm
 
         params = np.atleast_1d(params)
-        params = sorted(params)
+        # NOTE/WARNING: don't sort parameters (Changed 2020-04-07)
+        # params = sorted(params)
         # Get rows corresponding to these parameters
+        # sub_pnts = pnts[params, :]
         sub_data = data[params, :]
         # Get rows & cols corresponding to these parameters
         sub_mat = matrix[np.ix_(params, params)]
         # Recalculate norm
         norm = np.sqrt(np.linalg.det(sub_mat))
-        return sub_data, sub_mat, norm
+        return params, sub_data, sub_mat, norm
 
     # ==== Properties ====
 
     @property
+    def bandwidth(self):
+        return self._bandwidth
+
+    @property
+    def covariance(self):
+        return self._covariance
+
+    @property
     def distribution(self):
         return self._distribution
+
+    @property
+    def matrix(self):
+        return self._matrix
+
+    @property
+    def matrix_inv(self):
+        try:
+            if self._matrix_inv is None:
+                raise AttributeError
+        except AttributeError:
+            self._matrix_inv = utils.matrix_invert(self.matrix, helper=self._helper)
+        return self._matrix_inv
 
     @property
     def norm(self):
@@ -457,23 +507,6 @@ class Kernel(object):
             self._norm = np.sqrt(np.fabs(np.linalg.det(self.matrix)))
 
         return self._norm
-
-    @property
-    def matrix(self):
-        return self._matrix
-
-    @property
-    def bandwidth(self):
-        return np.sqrt(self.matrix)
-
-    @property
-    def matrix_inv(self):
-        try:
-            if self._matrix_inv is None:
-                raise AttributeError
-        except AttributeError:
-            self._matrix_inv = utils.matrix_invert(self.matrix, helper=self._helper)
-        return self._matrix_inv
 
     @property
     def FINITE(self):
@@ -731,6 +764,7 @@ class Parabola(Distribution):
 
 '''
 NOTE: THIS ISN"T WORKING!  NON-UNITARY for ND > 1.  Something wrong with normalization?  NBall?
+
 class Triweight(Distribution):
 
     _FINITE = True

@@ -23,6 +23,9 @@
 ## Current
 - Started working on cleaning up the API (i.e. outward visible functions and structures).
   - New API Functions: `kalepy.pdf()`, `kalepy.cdf()`
+- Cleanup variable naming conventions in KDE and Kernels.
+
+- BUG: calculating PDF with `params` given would often result in an error from bad checking of edges/grid shapes.
 
 - `kalepy/`
   - `__init__.py`
@@ -32,6 +35,7 @@
       - Convenience / API Method for constructing a quick CDF based on the given data.
   - `kde_base.py`
     - `KDE`
+      - BUG: when providing a scalar value for bandwidth, it was still being multiplied by the data covariance (as is needed for Scott and Silverman rules).  If scalar value(s) are provided do not rescale by covariance.
       - `cdf()`  [NEW-METHOD]
         - Calculate the CDF by integrating the KDE-derived CDF.  This could be done much better.
         - Seems to be working based on simple tests in 1D and 2D.

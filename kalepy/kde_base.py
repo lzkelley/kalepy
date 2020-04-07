@@ -199,14 +199,15 @@ class KDE(object):
 
         self._neff = neff
 
-        data_cov = np.cov(dataset, rowvar=True, bias=False, aweights=weights)
-        self._data_cov = np.atleast_2d(data_cov)
+        covariance = np.cov(dataset, rowvar=True, bias=False, aweights=weights)
+        self._covariance = np.atleast_2d(covariance)
         self._set_bandwidth(bandwidth, bw_rescale)
 
         # Convert from string, class, etc to a kernel
         dist = kernels.get_distribution_class(kernel)
         self._kernel = kernels.Kernel(
-            distribution=dist, matrix=self._bw_matrix, helper=helper, **kwargs)
+            distribution=dist, bandwidth=self._bandwidth, covariance=self._covariance,
+            helper=helper, **kwargs)
 
         self._finalize()
         self._cdf_grid = None
@@ -265,7 +266,7 @@ class KDE(object):
 
         return edges
 
-    def pdf(self, pnts, **kwargs):
+    def pdf(self, pnts, reflect=None, params=None):
         """Evaluate the kernel-density-estimate PDF at the given data-points.
 
         This method acts as an API to the `Kernel.pdf` method of this instance's `kernel`.
@@ -278,24 +279,21 @@ class KDE(object):
             NOTE: If the `params` kwarg (see below) is given, then only those dimensions of the
             target parameters should be specified in `pnts`.
 
-        kwargs ::
-            Additional, optional keyword arguments passed to `Kernel.pdf`.  Accepted arguments:
-
-            reflect : (D,) array_like, None (default)
-                Locations at which reflecting boundary conditions should be imposed.
-                For each dimension `D`, a pair of boundary locations (for: lower, upper) must be
-                specified, or `None`.  `None` can also be given to specify no boundary at that
-                location.  See class docstrings:`Reflection` for more information.
-
-            params : int, array_like of int, None (default)
-                Only calculate the PDF for certain parameters (dimensions).
-                See class docstrings:`Projection` for more information.
+        reflect : (D,) array_like, None (default)
+            Locations at which reflecting boundary conditions should be imposed.
+            For each dimension `D`, a pair of boundary locations (for: lower, upper) must be
+            specified, or `None`.  `None` can also be given to specify no boundary at that
+            location.  See class docstrings:`Reflection` for more information.
+        params : int, array_like of int, None (default)
+            Only calculate the PDF for certain parameters (dimensions).
+            See class docstrings:`Projection` for more information.
 
         """
-        result = self.kernel.pdf(pnts, self.dataset, self.weights, **kwargs)
+        result = self.kernel.pdf(pnts, self.dataset, self.weights, reflect=reflect, params=params)
+        # print("KDE.pdf(): result.shape = {}".format(result.shape))
         return result
 
-    def pdf_grid(self, edges, **kwargs):
+    def pdf_grid(self, edges, reflect=None, params=None):
         """Convenience method to compute the PDF given the edges of a grid in each dimension.
 
         Arguments
@@ -310,31 +308,42 @@ class KDE(object):
             parameter.  Define the lengths of each array as: A, B, C; then the grid and the
             returned PDF will have a shape (A, B, C).
 
-        kwargs ::
-            Additional, optional keyword arguments passed to `Kernel.pdf`.  Accepted arguments:
+        reflect : (D,) array_like, None (default)
+            Locations at which reflecting boundary conditions should be imposed.
+            For each dimension `D`, a pair of boundary locations (for: lower, upper) must be
+            specified, or `None`.  `None` can also be given to specify no boundary at that
+            location.  See class docstrings:`Reflection` for more information.
 
-            reflect : (D,) array_like, None (default)
-                Locations at which reflecting boundary conditions should be imposed.
-                For each dimension `D`, a pair of boundary locations (for: lower, upper) must be
-                specified, or `None`.  `None` can also be given to specify no boundary at that
-                location.  See class docstrings:`Reflection` for more information.
-
-            params : int, array_like of int, None (default)
-                Only calculate the PDF for certain parameters (dimensions).
-                See class docstrings:`Projection` for more information.
+        params : int, array_like of int, None (default)
+            Only calculate the PDF for certain parameters (dimensions).
+            See class docstrings:`Projection` for more information.
 
         """
         ndim = self.ndim
-        if len(edges) != ndim:
-            err = "`edges` must be (D,)=({},): an arraylike of edges for each dim/param!"
-            err = err.format(ndim)
-            raise ValueError(err)
+        # If `edges` is 1D (and not "jagged") then expand to 2D
+        if utils.really1d(edges):
+            edges = np.atleast_2d(edges)
+
+        # Check shape if unput `edges`
+        if (params is None):
+            # Should be edges for all parameters
+            if len(edges) != ndim:
+                err = "`edges` must be (D,)=({},): an arraylike of edges for each dim/param!"
+                err = err.format(ndim)
+                raise ValueError(err)
+        else:
+            # Should only be as many edges as target parameters
+            if np.size(params) != len(edges):
+                err = "`params` = '{}' (length {}), but length of `edges` = {}!".format(
+                    params, len(params), len(edges))
+                raise ValueError(err)
 
         coords = np.meshgrid(*edges, indexing='ij')
         shp = np.shape(coords)[1:]
         coords = np.vstack([xx.ravel() for xx in coords])
-        pdf = self.pdf(coords, **kwargs)
+        pdf = self.pdf(coords, reflect=reflect, params=params)
         pdf = pdf.reshape(shp)
+        # print("KDE.pdf_grid(): result.shape = {}".format(pdf.shape))
         return pdf
 
     def cdf(self, pnts):
@@ -428,7 +437,7 @@ class KDE(object):
 
     def _finalize(self, log_ratio_tol=5.0):
 
-        mat = self._bw_matrix
+        mat = self.kernel.matrix
         ndim = self._ndim
         # Diagonal elements of the matrix
         diag = mat.diagonal()
@@ -455,89 +464,88 @@ class KDE(object):
     # ==== Properties ====
 
     @property
+    def bandwidth(self):
+        return self._bandwidth
+
+    @property
+    def covariance(self):
+        return self._covariance
+
+    @property
     def dataset(self):
         return self._dataset
 
     @property
-    def weights(self):
-        return self._weights
-
-    @property
-    def neff(self):
-        return self._neff
-
-    @property
-    def ndim(self):
-        return self._ndim
+    def kernel(self):
+        return self._kernel
 
     @property
     def ndata(self):
         return self._ndata
 
     @property
-    def kernel(self):
-        return self._kernel
-
-    '''
-    @property
-    def matrix(self):
-        return self._matrix
+    def ndim(self):
+        return self._ndim
 
     @property
-    def data_cov(self):
-        return self._data_cov
-    '''
+    def neff(self):
+        return self._neff
+
+    @property
+    def weights(self):
+        return self._weights
 
     # ==== BANDWIDTH ====
 
-    def _set_bandwidth(self, bandwidth, bw_rescale):
+    def _set_bandwidth(self, bw_input, bw_rescale):
         ndim = self.ndim
-        _input = bandwidth
-        bw_white_matrix = np.zeros((ndim, ndim))
+        bandwidth = np.zeros((ndim, ndim))
 
-        if len(np.atleast_1d(bandwidth)) == 1:
-            _bw, method = self._compute_bandwidth(bandwidth)
+        if len(np.atleast_1d(bw_input)) == 1:
+            _bw, method = self._compute_bandwidth(bw_input)
             if not self._diagonal:
-                bw_white_matrix[...] = _bw
+                bandwidth[...] = _bw
             else:
                 idx = np.arange(ndim)
-                bw_white_matrix[idx, idx] = _bw
+                bandwidth[idx, idx] = _bw
         else:
-            if np.shape(bandwidth) == (ndim,):
+            if np.shape(bw_input) == (ndim,):
                 # bw_method = 'diagonal'
                 for ii in range(ndim):
-                    bw_white_matrix[ii, ii] = self._compute_bandwidth(
-                        bandwidth[ii], param=(ii, ii))[0]
+                    bandwidth[ii, ii], *_ = self._compute_bandwidth(
+                        bw_input[ii], param=(ii, ii))
                 method = 'diagonal'
-            elif np.shape(bandwidth) == (ndim, ndim):
+            elif np.shape(bw_input) == (ndim, ndim):
                 for ii, jj in np.ndindex(ndim, ndim):
-                    bw_white_matrix[ii, jj] = self._compute_bandwidth(
-                        bandwidth[ii, jj], param=(ii, jj))[0]
+                    bandwidth[ii, jj], *_ = self._compute_bandwidth(
+                        bw_input[ii, jj], param=(ii, jj))
                 method = 'matrix'
             else:
-                raise ValueError("`bandwidth` have shape (1,), (N,) or (N,) for `N` dimensions!")
+                err = "`bandwidth` must have shape (1,), (N,) or (N,N,) for `N` dimensions!"
+                raise ValueError(err)
 
-        if self._helper and np.any(np.isclose(bw_white_matrix.diagonal(), 0.0)):
-            ii = np.where(np.isclose(bw_white_matrix.diagonal(), 0.0))[0]
+        if self._helper and np.any(np.isclose(bandwidth.diagonal(), 0.0)):
+            ii = np.where(np.isclose(bandwidth.diagonal(), 0.0))[0]
             msg = "WARNING: diagonal '{}' of bandwidth is near zero!".format(ii)
             logging.warning(msg)
 
         # Rescale the bandwidth matrix
         if bw_rescale is not None:
             bwr = np.atleast_2d(bw_rescale)
-            bw_white_matrix = bwr * bw_white_matrix
+            bandwidth = bwr * bandwidth
             if self._helper:
                 logging.info("Rescaling `bw_white_matrix` by '{}'".format(
                     bwr.squeeze().flatten()))
 
-        bw_matrix = self._data_cov * (bw_white_matrix ** 2)
+        # bw_matrix = self._data_cov * (bw_white_matrix ** 2)
+        self._bandwidth = bandwidth
 
         # prev: bw_white
-        self._bw_white_matrix = bw_white_matrix
+        # self._bw_white_matrix = bw_white_matrix
         self._method = method
-        self._input = _input
+        # self._bw_input = bw_input
         # prev: bw_cov
-        self._bw_matrix = bw_matrix
+        # self._bw_matrix = bw_matrix
         return
 
     def _compute_bandwidth(self, bandwidth, param=None):
@@ -556,12 +564,15 @@ class KDE(object):
             bw = bandwidth
             method = 'constant scalar'
 
+        else:
+            raise ValueError("Unrecognized `bandwidth` '{}'!".format(bandwidth))
+
+        '''
         elif callable(bandwidth):
             bw = bandwidth(self, param=param)
             method = 'function'
-
-        else:
-            raise ValueError("Unrecognized `bandwidth` '{}'!".format(bandwidth))
+            bw_cov = 1.0
+        '''
 
         return bw, method
 
