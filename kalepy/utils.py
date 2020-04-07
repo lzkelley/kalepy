@@ -456,6 +456,33 @@ def percentiles(values, percs=None, sigmas=None, weights=None, axis=None, values
     return percs
 
 
+def really1d(arr):
+    """Test whether an array_like is really 1D (i.e. not a jagged ND array).
+
+    Test whether the input array is uniformly one-dimensional, as apposed to (e.g.) a ``ndim == 1``
+    list or array of irregularly shaped sub-lists/sub-arrays.  True for an empty list `[]`.
+
+    Arguments
+    ---------
+    arr : array_like
+        Array to be tested.
+
+    Returns
+    -------
+    bool
+        Whether `arr` is purely 1D.
+
+    """
+    if np.ndim(arr) != 1:
+        return False
+    # Empty list or array
+    if len(arr) == 0:
+        return True
+    if np.any(np.vectorize(np.ndim)(arr)):
+        return False
+    return True
+
+
 def rem_cov(data, cov=None):
     if cov is None:
         cov = np.cov(*data)

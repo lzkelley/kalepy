@@ -46,7 +46,7 @@
     - `smap()`  [NEW-METHOD]
       - Construct a ScalarMappable object (with colormap and normalization) for plotting.
     - `Plot_Control`  [moved from `utils.py`]
-  - `util.py`
+  - `utils.py`
     - Moved plotted related methods to `plot.py`
     - `assert_true()`  [NEW-METHOD]
       - Internal testing method.
@@ -56,6 +56,8 @@
       - Calculate cumulative sums along either a single axis, or all axes (unlike `numpy.cumsum`)
     - `cumtrapz()`
       - Added docstrings
+    - `really1d()`  [NEW-METHOD]
+      - Check if the given array is really one-dimensional (as opposed to a jagged array)
     - `run_if()`
       - Add `otherwise` argument for functions to run when negation
       - Applies to all `run_if_*` methods.

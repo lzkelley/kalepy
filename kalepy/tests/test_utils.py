@@ -576,6 +576,60 @@ class Test_Pre_Pad_Zero(utils.Test_Base):
         return
 
 
+class Test_Really1D(utils.Test_Base):
+
+    def _test_vals(self, vals, truth):
+        print("`vv` should be: {} :: shape = {} :: '{}'".format(truth, np.shape(vals), vals))
+        assert_true(utils.really1d(vals) == truth)
+        return
+
+    def test_1d_true(self):
+        vals = [
+            [],
+            [0],
+            [None],
+            [1, 2, 3],
+            np.arange(10),
+            np.array([]),
+            np.array([5]),
+        ]
+
+        for vv in vals:
+            self._test_vals(vv, True)
+
+        return
+
+    def test_0d_false(self):
+        vals = [
+            0,
+            None,
+            np.array(None),
+            np.array(-5),
+        ]
+
+        for vv in vals:
+            self._test_vals(vv, False)
+
+        return
+
+    def test_2d_false(self):
+        vals = [
+            np.arange(12).reshape(4, 3),
+            [[0, 1], [1, 2]],
+            [[1, 2, 3]],
+            [np.arange(10)],
+            # Jagged
+            [[1], [2, 3]],
+            [[], [1]],
+            [None, [1, 3]],
+        ]
+
+        for vv in vals:
+            self._test_vals(vv, False)
+
+        return
+
+
 # Run all methods as if with `nosetests ...`
 if __name__ == "__main__":
     run_module_suite()
