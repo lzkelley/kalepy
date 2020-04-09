@@ -333,7 +333,7 @@ def midpoints(data, scale='lin', frac=0.5, axis=-1, squeeze=True):
     return mids
 
 
-def minmax(data, prev=None, stretch=None, log_stretch=None, limit=None):
+def minmax(data, positive=False, prev=None, stretch=None, log_stretch=None, limit=None):
     if prev is not None:
         assert len(prev) == 2, "`prev` must have length 2."
     if limit is not None:
@@ -344,7 +344,8 @@ def minmax(data, prev=None, stretch=None, log_stretch=None, limit=None):
         return prev
 
     # Find extrema
-    minmax = np.array([np.min(data), np.max(data)])
+    idx = (data > 0.0) if positive else slice(None)
+    minmax = np.array([np.min(data[idx]), np.max(data[idx])])
 
     # Add stretch (relative to center point)
     if (stretch is not None) or (log_stretch is not None):

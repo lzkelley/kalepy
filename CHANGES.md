@@ -27,6 +27,8 @@
       - Add `rotate` argument to plot vertically instead of horizontally.
     - `smap()`
       - Add `log` argument to specify log-scaling.
+    - `utils()`
+      - Add `positive` argument to filter by positive definite values.
 
 
 ## v0.3.0 - 2020/04/07
