@@ -20,8 +20,16 @@
         - Explore more efficient ways of calculating the CDF using the underlying kernels instead of integrating the PDF.
 
 
+
 ## Current
+
 - `kalepy/`
+  - `corner.py`  [NEW-FILE]
+    - Methods for constructing "corner" plots (based strongly on Dan Foreman-Mackey's `corner` package).
+    - `Corner`
+      - Class for managing corner plots and plotting scatter data or KDE PDFs.
+    - `corner_data()`
+      - Higher-level function for constructing a full corner plot given scatter-data.
   - `plot.py`
     - `draw_carpet_fuzz()`
       - Add `rotate` argument to plot vertically instead of horizontally.
@@ -29,6 +37,10 @@
       - Add `log` argument to specify log-scaling.
     - `utils()`
       - Add `positive` argument to filter by positive definite values.
+
+- `notebooks/`
+  - `kde.ipynb`
+    - Add corner plots using the `corner.py` submodule.
 
 
 ## v0.3.0 - 2020/04/07
