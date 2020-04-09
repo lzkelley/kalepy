@@ -21,6 +21,12 @@
 
 
 ## Current
+- `kalepy/`
+  - `plot.py`
+    - `draw_carpet_fuzz()`
+      - Add `rotate` argument to plot vertically instead of horizontally.
+    - `smap()`
+      - Add `log` argument to specify log-scaling.
 
 
 ## v0.3.0 - 2020/04/07

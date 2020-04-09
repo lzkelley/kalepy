@@ -39,7 +39,8 @@ def align_axes_loc(tw, ax, ymax=None, ymin=None, loc=0.0):
     return new_ylim
 
 
-def draw_carpet_fuzz(xx, ax=None, ystd=None, yave=None, fancy=False, random='normal', **kwargs):
+def draw_carpet_fuzz(xx, ax=None, ystd=None, yave=None, rotate=False, fancy=False, random='normal',
+                     **kwargs):
     """Draw a carpet plot on the given axis in the 'fuzz' style.
 
     Arguments
@@ -96,11 +97,16 @@ def draw_carpet_fuzz(xx, ax=None, ystd=None, yave=None, fancy=False, random='nor
     kwargs.setdefault('alpha', alpha)
     kwargs.setdefault('s', size)
 
-    return ax.scatter(xx, yy, **kwargs)
+    extr = utils.minmax(yy)
+    if rotate:
+        temp = xx
+        xx = yy
+        yy = temp
+
+    return ax.scatter(xx, yy, **kwargs), extr
 
 
-def smap(args=[0.0, 1.0], cmap=None, norm=None,
-         under='0.8', over='0.8', left=None, right=None):
+def smap(args=[0.0, 1.0], cmap=None, log=False, norm=None, under='w', over='w'):
     args = np.asarray(args)
 
     if not isinstance(cmap, mpl.colors.Colormap):
@@ -114,16 +120,20 @@ def smap(args=[0.0, 1.0], cmap=None, norm=None,
     if over is not None:
         cmap.set_over(over)
 
-    vmin, vmax = utils.minmax(args)
-    # norm = mpl.colors.LogNorm(vmin=min, vmax=max)
-    # norm = MidpointLogNormalize(vmin=min, vmax=max, midpoint=midpoint)
-    # norm = MidpointNormalize(vmin=min, vmax=max, midpoint=midpoint)
-    norm = mpl.colors.Normalize(vmin=vmin, vmax=vmax)
+    vmin, vmax = utils.minmax(args, positive=log)
+    if vmin == vmax:
+        raise ValueError("`smap` extrema are identical: {}, {}!".format(vmin, vmax))
+
+    if log:
+        norm = mpl.colors.LogNorm(vmin=vmin, vmax=vmax)
+    else:
+        norm = mpl.colors.Normalize(vmin=vmin, vmax=vmax)
 
     # Create scalar-mappable
     smap = mpl.cm.ScalarMappable(norm=norm, cmap=cmap)
     # Bug-Fix something something
     smap._A = []
+    smap._log = log
 
     return smap
 
