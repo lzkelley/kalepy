@@ -39,6 +39,8 @@
       - Add `positive` argument to filter by positive definite values.
 
 - `notebooks/`
+  - `corner-plots.ipynb`  [NEW-FILE]
+    - For testing and demonstration of corner plots.
   - `kde.ipynb`
     - Add corner plots using the `corner.py` submodule.
 
