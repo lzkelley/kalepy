@@ -25,15 +25,8 @@ _PATH_NB_OUT = os.path.join(_path, 'notebooks', 'output')
 
 
 from kalepy import kernels   # noqa
-# from kalepy.kernels import *  # noqa
 from kalepy import utils   # noqa
-# from kalepy.utils import *  # noqa
-
-from kalepy.kde_base import KDE  # noqa
-
-# __all__ = []
-# __all__.extend(kernels.__all__)
-# __all__.extend(utils.__all__)
+from kalepy.kde import KDE  # noqa
 
 del os
 del inn

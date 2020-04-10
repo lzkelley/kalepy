@@ -9,8 +9,6 @@ import scipy as sp
 from kalepy import kernels, utils, _NUM_PAD
 from kalepy import _BANDWIDTH_DEFAULT
 
-__all__ = ['KDE']
-
 
 class KDE(object):
     """Core class and primary API for using `Kalepy`, by constructin a KDE based on given data.

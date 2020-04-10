@@ -30,6 +30,7 @@
       - Class for managing corner plots and plotting scatter data or KDE PDFs.
     - `corner_data()`
       - Higher-level function for constructing a full corner plot given scatter-data.
+  - `kde.py`  <==  `kde_base.py`  [RENAME]
   - `plot.py`
     - `draw_carpet_fuzz()`
       - Add `rotate` argument to plot vertically instead of horizontally.
