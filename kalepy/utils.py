@@ -9,16 +9,6 @@ import scipy as sp
 import scipy.linalg  # noqa
 
 
-'''
-__all__ = [
-    'add_cov', 'array_str', 'ave_std', 'bins', 'check_path', 'cumsum', 'cumtrapz', 'midpoints',
-    'minmax', 'modify_exists', 'percentiles', 'rem_cov',
-    'spacing', 'stats_str',
-    'trapz_nd', 'trapz_dens_to_mass'
-]
-'''
-
-
 def add_cov(data, cov):
     color_mat = sp.linalg.cholesky(cov)
     color_data = np.dot(color_mat.T, data)
@@ -399,6 +389,77 @@ def modify_exists(path_fname):
     vers = 0 if (vers is None) else vers + 1
     fname = fname.format(vers)
     return fname
+
+
+def parse_edges(edges, data):
+
+    if np.ndim(data) == 1:
+        edges = _get_edges_1d(edges, data, ndim=None)
+        return edges
+    elif np.ndim(data) != 2:
+        raise ValueError("`data` (shape: {}) must be 1D or 2D!".format(np.shape(data)))
+
+    npars = np.shape(data)[0]
+    # If `edges` provides a specification for each dimension, convert to npars*[edges]
+    if (np.ndim(edges) == 0) or (really1d(edges) and (np.size(edges) != npars)):
+        edges = [edges] * npars
+    elif len(edges) != npars:
+        err = "length of `edges` ({}) does not match number of data dimensions ({})!".format(
+            len(edges), npars)
+        raise ValueError(err)
+
+    edges = [_get_edges_1d(ee, dd, ndim=npars) for dd, ee in zip(data, edges)]
+    return edges
+
+
+def _get_edges_1d(edges, data, ndim=1):
+    """
+
+    Arguments
+    ---------
+    edges : None, int, or array or scalar
+        Specification for bin-edges.
+        `None` : number of bins is automatically calculated from `data`
+        int : used as number of bins, span is calculated from `data`
+        array : used as fixed bin edges, ignores `data`
+    data : 1D array of scalar
+        Data points from which to calculate bin-edges
+    ndim : `None` or int
+        Number of dimensions of the data-set, used to calculate an effective number of data-points.
+
+    """
+
+    if np.ndim(edges) == 0:
+        num_bins = edges
+    elif really1d(edges):
+        return edges
+    else:
+        err = "1D `edges` (shape: {}) must be `None`, an integer or a 1D array of edges!".format(
+            np.shape(edges))
+        raise ValueError(err)
+
+    num_eff = data.size
+    if (ndim is not None):
+        # num_eff = np.power(num_eff, 1.0 / ndim)
+        num_eff /= ndim**2
+
+    # span = np.fabs(data.max() - data.min())
+    span = [data.min(), data.max()]
+    span_width = np.diff(span)[0]
+
+    # Sturges histogram bin estimator.
+    w1 = span_width / (np.log2(num_eff) + 1.0)
+    # Freedman-Diaconis histogram bin estimator
+    iqr = np.subtract(*np.percentile(data, [75, 25]))
+    w2 = 2.0 * iqr * num_eff ** (-1.0 / 3.0)
+
+    bin_width = min(w1, w2)
+
+    if num_bins is None:
+        num_bins = int(np.ceil(span_width / bin_width))
+
+    edges = np.linspace(*span, num_bins + 1, endpoint=True)
+    return edges
 
 
 def percentiles(values, percs=None, sigmas=None, weights=None, axis=None, values_sorted=False):
