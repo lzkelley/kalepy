@@ -364,12 +364,16 @@ def dist2d_data(ax, edges, hist=None, data=None, sigmas=None, color='k', smap=No
     return
 
 
+# ===========================
+# ====  Drawing Methods  ====
+# ===========================
+
+
 def _draw_scatter(ax, xx, yy, color='k', alpha=0.1, s=4, **kwargs):
-    kwargs.setdefault('color', color)
-    # kwargs.setdefault('alpha', 0.03)
+    kwargs.setdefault('facecolor', color)
+    kwargs.setdefault('edgecolor', 'none')
     kwargs.setdefault('alpha', alpha)
     kwargs.setdefault('s', s)
-    # kwargs.setdefault('zorder', 10)
     return ax.scatter(xx, yy, **kwargs)
 
 
@@ -521,6 +525,11 @@ def _draw_hist1d(ax, edges, hist=None, data=None, joints=False, median=True, sig
         # ax.add_collection(pc)
 
     return line
+
+
+# ===========================
+# ====  Utility Methods  ====
+# ===========================
 
 
 def _parse_edges(edges, data, num=None):
