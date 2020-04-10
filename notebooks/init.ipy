@@ -7,7 +7,7 @@ def get_ipython():
 %autoreload 2
 
 # %load init.ipy
-import os, sys, logging, datetime, warnings
+import os, sys, logging, datetime, warnings, shutil
 from importlib import reload
 
 import numpy as np

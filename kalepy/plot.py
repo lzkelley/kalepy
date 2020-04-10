@@ -10,8 +10,6 @@ from matplotlib import pyplot as plt
 
 from kalepy import utils
 
-# __all__ = ["align_axes_loc", "nbshow"]
-
 
 def align_axes_loc(tw, ax, ymax=None, ymin=None, loc=0.0):
     if ((ymax is None) and (ymin is None)) or ((ymin is not None) and (ymax is not None)):
@@ -53,13 +51,12 @@ def draw_carpet_fuzz(xx, ax=None, ystd=None, yave=None, rotate=False, fancy=Fals
     """
     if ax is None:
         ax = plt.gca()
-        if ystd is None:
-            ystd = 0.02
 
     # Dispersion (yaxis) of the fuzz values
     if ystd is None:
         if yave is None:
-            ystd = ax.get_ylim()[1] * 0.02
+            get_lim_func = ax.get_xlim if rotate else ax.get_ylim
+            ystd = get_lim_func()[1] * 0.02
         else:
             ystd = np.fabs(yave) / 5.0
 
@@ -89,6 +86,9 @@ def draw_carpet_fuzz(xx, ax=None, ystd=None, yave=None, rotate=False, fancy=Fals
         # Choose sizes proportional to their deviation (to make outliers more visible)
         size = (size / 1.5) * (1.5 + dev)
 
+    # size = 10
+    # alpha = 1.0
+
     # Set parameters
     color = kwargs.pop('color', 'red')
     kwargs.setdefault('facecolor', color)
@@ -98,10 +98,15 @@ def draw_carpet_fuzz(xx, ax=None, ystd=None, yave=None, rotate=False, fancy=Fals
     kwargs.setdefault('s', size)
 
     extr = utils.minmax(yy)
+    trans = [ax.transData, ax.transAxes]
     if rotate:
         temp = xx
         xx = yy
         yy = temp
+        trans = trans[::-1]
+
+    # trans = mpl.transforms.blended_transform_factory(*trans)
+    # print("carpet yy = ", utils.stats_str(yy))
 
     return ax.scatter(xx, yy, **kwargs), extr
 
