@@ -26,7 +26,9 @@ import kalepy.plot
 from kalepy.plot import nbshow   # NOTE: this should be upgraded to `plot_control`
 from kalepy.plot import plot_control
 
-def save_fig(fig, fname, **kwargs):
+def _save_fig(fig, fname, **kwargs):
     kwargs.setdefault('path', kale._PATH_NB_OUT)
     kwargs.setdefault('rename', True)
     return kale.plot._save_fig(fig, fname, **kwargs)
+    
+save_fig = _save_fig
