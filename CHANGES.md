@@ -47,6 +47,9 @@
   - `kde.ipynb`
     - Add corner plots using the `corner.py` submodule.
 
+- `convert_notebook_tests.py`  <==  `build_notebook_tests.py`  [RENAME]
+
+
 
 ## v0.3.0 - 2020/04/07
 
