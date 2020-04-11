@@ -13,12 +13,16 @@ import matplotlib.patheffects  # noqa
 import matplotlib.pyplot as plt
 
 from kalepy import utils
+from kalepy import KDE
 
 _STRETCH = 0.2
 _COLOR_CMAP = {
     'k': 'Greys',
     'b': 'Blues',
     'r': 'Reds',
+    'g': 'Greens',
+    'o': 'Oranges',
+    'p': 'Purples',
 }
 _DEF_SIGMAS = np.arange(0.5, 2.1, 0.5)
 _MASK_CMAP = mpl.colors.LinearSegmentedColormap.from_list(
@@ -49,11 +53,14 @@ class plot_control:
 
 class Corner:
 
-    def __init__(self, size=None, data=None, kde=None, labels=None, **figax_kwargs):
-        if data is None:
-            data = kde.dataset
-        if size is None:
-            size = len(data)
+    def __init__(self, kde_data, labels=None, **figax_kwargs):
+        if isinstance(kde_data, KDE):
+            kde = kde_data
+        else:
+            kde = KDE(kde_data)
+
+        data = kde.dataset
+        size = len(data)
 
         last = size - 1
         figax_kwargs.setdefault('figsize', [6, 6])
@@ -117,6 +124,30 @@ class Corner:
 
         return corner_kde(axes, kde, **kwargs)
 
+    def plot(self, kde=None, data=None, **kwargs):
+        axes = self.axes
+        npar = self.size
+
+        rotate = kwargs.setdefault('rotate', npar == 2)
+
+        if kde is None:
+            kde = kwargs.copy()
+        if data is None:
+            data = kwargs.copy()
+
+        kde.setdefault('hist2d', False)
+        data.setdefault('contour', False)
+
+        corner_kde(axes, self._kde, **kde)
+        extrema, pdf = _get_corner_axes_extrema(axes, rotate)
+
+        corner_data(axes, self._data, **data)
+        extrema, pdf = _get_corner_axes_extrema(axes, rotate, extrema=extrema, pdf=pdf)
+
+        _set_corner_axes(axes, extrema, rotate, pdf=None)
+
+        return
+
 
 def figax(figsize=[12, 6], nrows=1, ncols=1, scale='linear',
           xlabel='', xlim=None, xscale=None,
@@ -177,13 +208,17 @@ def figax(figsize=[12, 6], nrows=1, ncols=1, scale='linear',
     return fig, axes
 
 
+# def corner(kde):
+
+
 # ======  API Data Methods  ======
 # ================================
 
 
 def corner_data(axes, data, edges=None, levels=None, hist=None, pad=True, rotate=True,
                 mask_dense=True, mask_sparse=True, median=True, sigmas=None, density=True,
-                hist1d=True, hist2d=True, scatter=True, carpet=True, contour=True,
+                hist1d=True, hist2d=True, scatter=True, carpet=True,
+                contour=None, contour1d=True, contour2d=True,
                 color='k', smap=None, cmap=None):
 
     shp = np.shape(axes)
@@ -200,6 +235,10 @@ def corner_data(axes, data, edges=None, levels=None, hist=None, pad=True, rotate
     if hist is not None:
         hist1d = hist
         hist2d = hist
+
+    if contour is not None:
+        contour1d = contour
+        contour2d = contour
 
     edges = utils.parse_edges(edges, data)
 
@@ -221,7 +260,6 @@ def corner_data(axes, data, edges=None, levels=None, hist=None, pad=True, rotate
     extr_hist2d = None
     for (ii, jj), ax in np.ndenumerate(axes):
         if jj > ii:
-            ax.set_visible(False)
             continue
 
         # Diagonals
@@ -229,9 +267,6 @@ def corner_data(axes, data, edges=None, levels=None, hist=None, pad=True, rotate
         xx = data[jj]
         if ii == jj:
             data_hist1d[jj], _ = np.histogram(xx, bins=edges[jj], density=density)
-            rot = (rotate and (jj == last))
-            set_lim_func = ax.set_ylim if rot else ax.set_xlim
-            set_lim_func(extr[jj])
 
         # Off-Diagonals
         # ----------------------
@@ -242,8 +277,7 @@ def corner_data(axes, data, edges=None, levels=None, hist=None, pad=True, rotate
             extr_hist2d = utils.minmax(
                 data_hist2d[jj, ii], prev=extr_hist2d, positive=smap_is_log)
 
-            ax.set_xlim(extr[jj])
-            ax.set_ylim(extr[ii])
+    _set_corner_axes(axes, extr, rotate)
 
     #
     # Draw / Plot Data
@@ -252,33 +286,32 @@ def corner_data(axes, data, edges=None, levels=None, hist=None, pad=True, rotate
 
     # Draw 1D Histograms & Carpets
     # -----------------------------------------
-    if hist1d is not None:
-        for jj, ax in enumerate(axes.diagonal()):
-            rot = (rotate and (jj == last))
+    for jj, ax in enumerate(axes.diagonal()):
+        rot = (rotate and (jj == last))
 
-            dist1d_data(ax, edges[jj], hist=data_hist1d[jj], data=data[jj],
-                        sigmas=sigmas, color=color, density=density, rotate=rot,
-                        median=median, hist1d=hist1d, carpet=carpet)
+        dist1d_data(ax, edges[jj], hist=data_hist1d[jj], data=data[jj],
+                    sigmas=sigmas, color=color, density=density, rotate=rot,
+                    median=median, hist1d=hist1d, carpet=carpet, contour=contour1d)
 
     # Draw 2D Histograms and Contours
     # -----------------------------------------
-    if (hist2d is not None) or (contour is not None):
-        smap = _get_smap(extr_hist2d, **smap)
+    smap = _get_smap(extr_hist2d, **smap)
 
-        for (ii, jj), ax in np.ndenumerate(axes):
-            if jj >= ii:
-                continue
+    for (ii, jj), ax in np.ndenumerate(axes):
+        if jj >= ii:
+            continue
 
-            dist2d_data(ax, [edges[jj], edges[ii]],
-                        hist=data_hist2d[jj, ii], data=[data[jj], data[ii]],
-                        sigmas=sigmas, color=color, smap=smap, cmap=cmap,
-                        median=median, hist2d=hist2d, contour=contour, scatter=scatter)
+        dist2d_data(ax, [edges[jj], edges[ii]],
+                    hist=data_hist2d[jj, ii], data=[data[jj], data[ii]],
+                    sigmas=sigmas, color=color, smap=smap, cmap=cmap,
+                    median=median, hist2d=hist2d, contour=contour2d, scatter=scatter)
 
     return
 
 
-def dist1d_data(ax, edges=None, hist=None, data=None, sigmas=None, color='k',
-                median=None, hist1d=True, carpet=None, density=True, rotate=False):
+def dist1d_data(ax, edges=None, hist=None, data=None,
+                sigmas=None, color='k', density=True, rotate=False,
+                contour=True, median=None, hist1d=True, carpet=None):
 
     if carpet is None:
         carpet = (data is not None)
@@ -300,12 +333,24 @@ def dist1d_data(ax, edges=None, hist=None, data=None, sigmas=None, color='k',
         raise ValueError("Shape of `hist` ({}) does not match edges ({})!".format(
             np.shape(hist), len(edges)))
 
-    if sigmas is None:
-        sigmas = _DEF_SIGMAS
-
     if hist1d is not None:
         _draw_hist1d(ax, edges, hist=hist, data=data,
                      rotate=rotate, **hist1d)
+
+    if contour or median:
+        sigmas = _get_def_sigmas(sigmas, contour=contour, median=median)
+
+        # Calculate Cumulative Distribution Function
+        data = np.sort(data)
+        cdf = np.arange(data.size) / (data.size - 1)
+        # Convert from standard-deviations to percentiles
+        percs = sp.stats.norm.cdf(sigmas)
+        # Get both the lower (left) and upper (right) values
+        percs = np.append(1 - percs, percs)
+        # Reshape to (sigmas, 2)
+        locs = np.interp(percs, cdf, data).reshape(2, len(sigmas)).T
+
+        _draw_contours_1d(ax, locs, color=color, rotate=rotate)
 
     if carpet is not None:
         _, _extr = draw_carpet(data, ax=ax,  rotate=rotate, **carpet)
@@ -313,7 +358,8 @@ def dist1d_data(ax, edges=None, hist=None, data=None, sigmas=None, color='k',
     return
 
 
-def dist2d_data(ax, edges=None, hist=None, data=None, sigmas=None, color='k', smap=None, cmap=None,
+def dist2d_data(ax, edges=None, hist=None, data=None, sigmas=None,
+                color='k', smap=None, cmap=None,
                 scatter=None, median=None, hist2d=True, contour=True, density=True,
                 pad=True, mask_dense=True, mask_sparse=True):
 
@@ -411,8 +457,8 @@ def dist2d_data(ax, edges=None, hist=None, data=None, sigmas=None, color='k', sm
 
 
 def corner_kde(axes, kde, edges=None, reflect=None, sigmas=None, levels=None, rotate=True,
-               median=True, hist2d=True, contour=True, cdf=False,
-               color='k', smap=None, cmap=None, verbose=False):
+               median=True, hist2d=True, contour=None, contour1d=True, contour2d=True,
+               color='k', smap=None, cmap=None):
 
     shp = np.shape(axes)
     if (np.ndim(axes) != 2) or (shp[0] != shp[1]):
@@ -424,8 +470,9 @@ def corner_kde(axes, kde, edges=None, reflect=None, sigmas=None, levels=None, ro
     if edges is None:
         edges = kde._guess_edges()
 
-    if verbose:
-        print("Constructing PDF")
+    if contour is not None:
+        contour1d = contour
+        contour2d = contour
 
     # pdf = kde.pdf_grid(edges, reflect=reflect)
     extr = [utils.minmax(ee) for ee in edges]
@@ -436,39 +483,25 @@ def corner_kde(axes, kde, edges=None, reflect=None, sigmas=None, levels=None, ro
     # ================================
     #
 
-    if verbose:
-        print("Calculating Distributions")
     pdf1d = np.full(size, None, dtype=object)
     pdf2d = np.full(shp, None, dtype=object)
     extr_hist2d = None
     for (ii, jj), ax in np.ndenumerate(axes):
-        if verbose:
-            print("\t", ii, jj)
-
         if jj > ii:
-            ax.set_visible(False)
             continue
 
         # Diagonals
         # ----------------------
         if ii == jj:
-            rot = (rotate and (jj == last))
-            set_lim_func = ax.set_ylim if rot else ax.set_xlim
-            set_lim_func(extr[jj])
             pdf1d[jj] = kde.pdf_grid(edges[jj], params=jj, reflect=reflect)
 
         # Off-Diagonals
         # ----------------------
         else:
-            # kk = (3-ii + 3-jj) % 3
-            # cdf = utils.cumtrapz(pdf, edges)
-            # pdf2d[jj, ii] = utils.trapz_nd(pdf, edges, axis=kk)
-
             pdf2d[jj, ii] = kde.pdf_grid([edges[jj], edges[ii]], params=[jj, ii], reflect=reflect)
             extr_hist2d = utils.minmax(pdf2d[jj, ii], prev=extr_hist2d, positive=smap_is_log)
 
-            ax.set_xlim(extr[jj])
-            ax.set_ylim(extr[ii])
+    _set_corner_axes(axes, extr, rotate)
 
     #
     # Draw / Plot Data
@@ -478,11 +511,9 @@ def corner_kde(axes, kde, edges=None, reflect=None, sigmas=None, levels=None, ro
     # Draw 1D Histograms & Carpets
     # -----------------------------------------
     for jj, ax in enumerate(axes.diagonal()):
-        if verbose:
-            print("Running dist1d_kde: ", jj)
         rot = (rotate and (jj == last))
         dist1d_kde(ax, kde, pdf=pdf1d[jj], param=jj, reflect=reflect, color=color, rotate=rot,
-                   sigmas=sigmas, median=median, cdf=cdf)
+                   sigmas=sigmas, median=median, contour=contour1d)
 
     # Draw 2D Histograms and Contours
     # -----------------------------------------
@@ -492,19 +523,16 @@ def corner_kde(axes, kde, edges=None, reflect=None, sigmas=None, levels=None, ro
         if jj >= ii:
             continue
 
-        if verbose:
-            print("Running dist2d_kde: ", jj, ii)
-
         _smap = _get_smap(pdf2d[jj, ii], **smap)
         dist2d_kde(ax, kde, params=(jj, ii), pdf=pdf2d[jj, ii], reflect=reflect,
                    sigmas=sigmas, color=color, smap=_smap, cmap=cmap,
-                   median=median, hist2d=hist2d, contour=contour)
+                   median=median, hist2d=hist2d, contour=contour2d)
 
     return
 
 
 def dist1d_kde(ax, kde, param=None, pdf=None, reflect=None, edges=None, sigmas=True, color='k',
-               cdf=False, median=True, rotate=False):
+               contour=True, median=True, rotate=False):
 
     if (param is None):
         if kde.ndim > 1:
@@ -521,39 +549,20 @@ def dist1d_kde(ax, kde, param=None, pdf=None, reflect=None, edges=None, sigmas=T
         vals = vals[::-1]
     ax.plot(*vals, color=color)
 
-    do_conts = ((sigmas is not None) and (sigmas is not False)) or median
-    plot_cdf = cdf
-    if do_conts or plot_cdf:
-        if sigmas is True:
-            sigmas = _DEF_SIGMAS
-        elif (sigmas is None) or (sigmas is False):
-            sigmas = []
-
-        if median:
-            sigmas = np.append([0.0], sigmas)
-
+    if contour or median:
+        sigmas = _get_def_sigmas(sigmas, contour=contour, median=median)
         # Convert from standard-deviations to percentiles
         percs = sp.stats.norm.cdf(sigmas)
-
         # NOTE: currently `kde.cdf` does not work with `params`... once it does, use that!
         cdf = utils.cumtrapz(pdf, edges)
         # Normalize to the maximum value
         cdf /= cdf.max()
+        # Get both the lower (left) and upper (right) values
+        percs = np.append(1 - percs, percs)
+        # Reshape to (sigmas, 2)
+        locs = np.interp(percs, cdf, edges).reshape(2, len(sigmas)).T
 
-        if do_conts:
-            # Get both the lower (left) and upper (right) values
-            percs = np.append(1 - percs, percs)
-            # Reshape to (sigmas, 2)
-            locs = np.interp(percs, cdf, edges).reshape(2, len(sigmas)).T
-
-            _draw_contours_1d(ax, locs, color=color, rotate=rotate)
-
-        if plot_cdf:
-            tw = ax.twiny() if rotate else ax.twinx()
-            vals = [edges, cdf]
-            if rotate:
-                vals = vals[::-1]
-            tw.plot(*vals, color=color, ls='--')
+        _draw_contours_1d(ax, locs, color=color, rotate=rotate)
 
     return
 
@@ -614,6 +623,18 @@ def dist2d_kde(ax, kde, params=None, pdf=None, reflect=None, color='k', smap=Non
         _draw_contours_2d(ax, xx, yy, pdf, smap, sigmas=sigmas, **contour)
 
     return
+
+
+def _get_def_sigmas(sigmas, contour=True, median=True):
+    if (sigmas is False) or (contour is False):
+        sigmas = []
+    elif (sigmas is True) or (sigmas is None):
+        sigmas = _DEF_SIGMAS
+
+    if median:
+        sigmas = np.append([0.0], sigmas)
+
+    return sigmas
 
 
 # ======  Drawing Methods  =====
@@ -786,15 +807,12 @@ def _draw_contours_2d(ax, xx, yy, hist, smap=None, color=None, cmap=None,
     return
 
 
-def _draw_hist1d(ax, edges, hist=None, data=None, joints=False, median=True, sigmas=True,
-                 nonzero=False, positive=False, extend=None, span=None,
+def _draw_hist1d(ax, edges, hist=None, data=None, joints=False,
+                 nonzero=False, positive=False, extend=None,
                  rotate=False, **kwargs):
 
     if hist is None:
         hist, _ = np.histogram(data, bins=edges, density=True)
-
-    # yerr_fmt = '+'
-    color = kwargs.setdefault('color', 'k')
 
     # Extend bin edges if needed
     if len(edges) != len(hist)+1:
@@ -836,28 +854,71 @@ def _draw_hist1d(ax, edges, hist=None, data=None, joints=False, median=True, sig
     # Plot Histogram
     line, = ax.plot(xval, yval, **kwargs)
 
-    if ((sigmas is not None) and (sigmas is not False)) or median:
-        if sigmas is True:
-            sigmas = _DEF_SIGMAS
-        elif (sigmas is None) or (sigmas is False):
-            sigmas = []
-
-        if median:
-            sigmas = np.append([0.0], sigmas)
-
-        # Calculate Cumulative Distribution Function
-        data = np.sort(data)
-        cdf = np.arange(data.size) / (data.size - 1)
-        # Convert from standard-deviations to percentiles
-        percs = sp.stats.norm.cdf(sigmas)
-        # Get both the lower (left) and upper (right) values
-        percs = np.append(1 - percs, percs)
-        # Reshape to (sigmas, 2)
-        locs = np.interp(percs, cdf, data).reshape(2, len(sigmas)).T
-
-        _draw_contours_1d(ax, locs, color=color, span=span, rotate=rotate)
-
     return line
+
+
+def _set_corner_axes(axes, extrema, rotate, pdf=None):
+    npar = len(axes)
+    last = npar - 1
+    if not np.all([sh == npar for sh in np.shape(axes)]):
+        raise ValueError("`axes` (shape: {}) must be square!".format(np.shape(axes)))
+
+    if len(extrema) == 2 and npar != 2:
+        extrema = [extrema] * npar
+
+    if len(extrema) != npar:
+        err = "Length of `extrema` (shape: {}) does not match axes shape ({}^2)!".format(
+            np.shape(extrema), npar)
+        raise ValueError(err)
+
+    if (pdf is not None) and (len(pdf) != 2 or not utils.really1d(pdf)):
+        raise ValueError("`pdf` (shape: {}) must be length 2!".format(np.shape(pdf)))
+
+    for (ii, jj), ax in np.ndenumerate(axes):
+        if jj > ii:
+            ax.set_visible(False)
+            continue
+
+        # Diagonals
+        # ----------------------
+        if ii == jj:
+            rot = (rotate and (jj == last))
+            set_lim_func = ax.set_ylim if rot else ax.set_xlim
+            set_lim_func(extrema[jj])
+
+        # Off-Diagonals
+        # ----------------------
+        else:
+            ax.set_xlim(extrema[jj])
+            ax.set_ylim(extrema[ii])
+
+    return extrema
+
+
+def _get_corner_axes_extrema(axes, rotate, extrema=None, pdf=None):
+    npar = len(axes)
+    last = npar - 1
+    if not np.all([sh == npar for sh in np.shape(axes)]):
+        raise ValueError("`axes` (shape: {}) must be square!".format(np.shape(axes)))
+
+    if extrema is None:
+        extrema = npar * [None]
+
+    for (ii, jj), ax in np.ndenumerate(axes):
+        if jj > ii:
+            continue
+
+        if ii == jj:
+            pdf_func = ax.get_xlim if (rotate and (ii == last)) else ax.get_ylim
+            oth_func = ax.get_ylim if (rotate and (ii == last)) else ax.get_xlim
+            pdf = utils.minmax(pdf_func(), prev=pdf)
+            extrema[jj] = utils.minmax(oth_func(), prev=extrema[jj])
+
+        else:
+            extrema[jj] = utils.minmax(ax.get_xlim(), prev=extrema[jj])
+            extrema[ii] = utils.minmax(ax.get_ylim(), prev=extrema[ii])
+
+    return extrema, pdf
 
 
 # ====  Utility Methods  ====
