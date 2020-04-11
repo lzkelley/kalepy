@@ -445,9 +445,10 @@ def _get_edges_1d(edges, data, ndim=1, num_max=100, pad=1):
         raise ValueError(err)
 
     num_eff = data.size
-    if (ndim is not None):
+    if (ndim is not None) and (num_eff > 100):
         # num_eff = np.power(num_eff, 1.0 / ndim)
-        num_eff /= ndim**2
+        _num_eff = num_eff / ndim**2
+        num_eff = np.clip(_num_eff, 100, None)
 
     # span = np.fabs(data.max() - data.min())
     span = [data.min(), data.max()]
@@ -460,6 +461,8 @@ def _get_edges_1d(edges, data, ndim=1, num_max=100, pad=1):
     w2 = 2.0 * iqr * num_eff ** (-1.0 / 3.0)
 
     bin_width = min(w1, w2)
+    if bin_width <= 0.0:
+        raise ValueError("`bin_width` is negative (w1 = {}, w2 = {})!".format(w1, w2))
 
     if num_bins is None:
         num_bins = int(np.ceil(span_width / bin_width))
@@ -595,6 +598,13 @@ def spacing(data, scale='log', num=None, dex=10, **kwargs):
         spaced = np.linspace(*span, num=num)
 
     return spaced
+
+
+def stats(data):
+    rv = str(np.shape(data))
+    rv += " - " + array_str(data)
+    rv += " - " + stats_str(data)
+    return rv
 
 
 def stats_str(data, percs=[0.0, 0.16, 0.50, 0.84, 1.00], ave=False, std=False, weights=None,

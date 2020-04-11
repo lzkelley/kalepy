@@ -45,6 +45,11 @@
       - Class for managing corner plots and plotting scatter data or KDE PDFs.
     - `corner_data()`
       - Higher-level function for constructing a full corner plot given scatter-data.
+  - `utils.py`
+    - `_get_edges_1d()`
+      - BUG: avoid negative bin-width for very small number of data points.
+    - `stats()`  [NEW-METHOD]
+      - Combines `array_str()` and `stats_str()` output.
 
 - `notebooks/`
   - `plotting.ipynb`  [NEW-FILE]
