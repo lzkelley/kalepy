@@ -212,7 +212,7 @@ class KDE(object):
         self._cdf_func = None
         return
 
-    def _guess_edges(self, extrema=None, nmin=100, nmax=1e4, tot_max=1e8, reflect=None):
+    def _guess_edges(self, nmin=100, nmax=1e4, tot_max=1e8, reflect=None):
         """Guess good grid edges to resolve the KDE's PDF.
 
         To-Do: this doesn't need to be done on a grid, do something smarter!
@@ -227,11 +227,6 @@ class KDE(object):
         finite = self.kernel.FINITE
         if reflect is not None:
             raise ValueError("`reflect` is not supported in calculing grid edges!")
-
-        if (extrema is not None) and (np.shape(extrema) != (ndim, 2)):
-            err = "`extrema` (shape: {}) must have shape ({}, 2)!".format(
-                np.shape(extrema), ndim, 2)
-            raise ValueError(err)
 
         # Number of grid points in each dimension
         max_per_dim = np.power(tot_max, 1.0/ndim)
@@ -248,28 +243,28 @@ class KDE(object):
         npd = np.clip(npd, 0.0, max_per_dim)
         npd = int(npd)
         msg = "KDE._guess_edges:: Using {} bins per dimension".format(npd)
+        # print(msg)
         if self._helper:
             logging.info(msg)
 
-        if extrema is None:
-            # If the Kernel is finite, then there is only support out to `bandwidth` beyond extrema
-            if finite:
-                out = (1.0 + _NUM_PAD)
-            # If infinite, how many standard-deviations can we expect data points to lie at
-            else:
-                out = sp.stats.norm.ppf(1 - 1/neff)
-                # Extra to be double sure...
-                out *= 1.5
+        # If the Kernel is finite, then there is only support out to `bandwidth` beyond extrema
+        if finite:
+            out = (1.0 + _NUM_PAD)
+        # If infinite, how many standard-deviations can we expect data points to lie at
+        else:
+            out = sp.stats.norm.ppf(1 - 1/neff)
+            # Extra to be double sure...
+            out *= 1.5
 
-            # Find the extrema in each dimension
-            extrema = [[np.min(dd) - bw*out, np.max(dd) + bw*out] for bw, dd in zip(bandwidth, data)]
-            # for bw, dd, ee in zip(bandwidth, data, extr):
-            #     print("b={:.2e}   |   d={:.2e}, {:.2e}  |   e={:.2e}, {:.2e}".format(
-            #         bw, *utils.minmax(dd), *utils.minmax(ee)))
+        # Find the extrema in each dimension
+        extr = [[np.min(dd) - bw*out, np.max(dd) + bw*out] for bw, dd in zip(bandwidth, data)]
+        # for bw, dd, ee in zip(bandwidth, data, extr):
+        #     print("b={:.2e}   |   d={:.2e}, {:.2e}  |   e={:.2e}, {:.2e}".format(
+        #         bw, *utils.minmax(dd), *utils.minmax(ee)))
 
-        edges = [np.linspace(*ex, npd) for ex in extrema]
-        # msg = "KDE._guess_edges:: extrema = {}".format(
-        #     ", ".join(["[{:.2e}, {:.2e}]".format(*ex) for ex in extrema]))
+        edges = [np.linspace(*ex, npd) for ex in extr]
+        msg = "KDE._guess_edges:: extrema = {}".format(
+            ", ".join(["[{:.2e}, {:.2e}]".format(*ex) for ex in extr]))
         # print(msg)
 
         return edges
