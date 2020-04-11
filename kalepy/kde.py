@@ -344,7 +344,7 @@ class KDE(object):
         # print("KDE.pdf_grid(): result.shape = {}".format(pdf.shape))
         return pdf
 
-    def cdf(self, pnts):
+    def cdf(self, pnts, params=None, reflect=None):
         """Cumulative Distribution Function based on KDE smoothed data.
 
         Arguments
@@ -358,6 +358,12 @@ class KDE(object):
             CDF Values at the target points
 
         """
+        if params is not None:
+            raise NotImplementedError("`params` is not yet implemented for CDF!")
+
+        if reflect is not None:
+            raise NotImplementedError("`reflect` is not yet implemented for CDF!")
+
         if self._cdf_func is None:
             edges = self._guess_edges()
 
