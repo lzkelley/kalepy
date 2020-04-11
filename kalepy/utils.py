@@ -412,7 +412,7 @@ def parse_edges(edges, data):
     return edges
 
 
-def _get_edges_1d(edges, data, ndim=1):
+def _get_edges_1d(edges, data, ndim=1, num_max=100):
     """
 
     Arguments
@@ -458,6 +458,7 @@ def _get_edges_1d(edges, data, ndim=1):
     if num_bins is None:
         num_bins = int(np.ceil(span_width / bin_width))
 
+    num_bins = np.clip(num_bins, 10, num_max)
     edges = np.linspace(*span, num_bins + 1, endpoint=True)
     return edges
 
