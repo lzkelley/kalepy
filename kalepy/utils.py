@@ -435,18 +435,10 @@ def _get_edges_1d(edges, data, ndim=1, num_max=100, pad=1):
 
     """
 
-    span = None
-    num_bins = None
     if np.ndim(edges) == 0:
         num_bins = edges
-
     elif really1d(edges):
-        if len(edges) > 2:
-            return edges
-        else:
-            span = edges
-            pad = None
-
+        return edges
     else:
         err = "1D `edges` (shape: {}) must be `None`, an integer or a 1D array of edges!".format(
             np.shape(edges))
@@ -457,10 +449,8 @@ def _get_edges_1d(edges, data, ndim=1, num_max=100, pad=1):
         # num_eff = np.power(num_eff, 1.0 / ndim)
         num_eff /= ndim**2
 
-    if span is None:
-        # span = np.fabs(data.max() - data.min())
-        span = [data.min(), data.max()]
-
+    # span = np.fabs(data.max() - data.min())
+    span = [data.min(), data.max()]
     span_width = np.diff(span)[0]
 
     # Sturges histogram bin estimator.
