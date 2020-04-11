@@ -266,7 +266,13 @@ def cumtrapz(pdf, edges, prepend=True, axis=None):
 
     # Prepend zeros to output array
     if prepend:
-        cdf = _pre_pad_zero(cdf, axis=axis)
+        ndim = np.ndim(cdf)
+        temp = [1, 0] if axis is None else [0, 0]
+        padding = [temp for ii in range(ndim)]
+        if axis is not None:
+            padding[axis][0] = 1
+        # cdf = _pre_pad_zero(cdf, axis=axis)
+        cdf = np.pad(cdf, padding, constant_values=0)
 
     return cdf
 
@@ -412,7 +418,7 @@ def parse_edges(edges, data):
     return edges
 
 
-def _get_edges_1d(edges, data, ndim=1, num_max=100):
+def _get_edges_1d(edges, data, ndim=1, num_max=100, pad=1):
     """
 
     Arguments
@@ -458,7 +464,14 @@ def _get_edges_1d(edges, data, ndim=1, num_max=100):
     if num_bins is None:
         num_bins = int(np.ceil(span_width / bin_width))
 
-    num_bins = np.clip(num_bins, 10, num_max)
+    if num_max is not None:
+        num_bins = np.clip(num_bins, 10, num_max)
+
+    if pad is not None:
+        pad_width = pad * bin_width
+        span[0] -= pad_width
+        span[1] += pad_width
+
     edges = np.linspace(*span, num_bins + 1, endpoint=True)
     return edges
 
@@ -854,16 +867,6 @@ def _guess_str_format_from_range(arr, prec=2, log_limit=2, allow_int=True):
     form = form.format(precision=prec)
 
     return form
-
-
-def _pre_pad_zero(aa, axis=None):
-    if axis is None:
-        return np.pad(aa, [1, 0])
-
-    aa = np.moveaxis(aa, axis, 0)
-    aa = np.concatenate([[np.zeros_like(aa[0])], aa], axis=0)
-    aa = np.moveaxis(aa, 0, axis)
-    return aa
 
 
 def _prep_msg(msg=None):

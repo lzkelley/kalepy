@@ -531,51 +531,6 @@ class Test_Cumsum(utils.Test_Base):
         return
 
 
-class Test_Pre_Pad_Zero(utils.Test_Base):
-
-    def _compare_io(self, inn, out, axis):
-        innsh = np.shape(inn)
-        outsh = np.shape(out)
-        ndim = len(innsh)
-        if axis is None:
-            axis = np.arange(ndim)
-        axis = np.atleast_1d(axis)
-        cut_base = [slice(None) for ii in range(ndim)]
-        for aa in axis:
-            si = innsh[aa]
-            so = outsh[aa]
-            msg = "Output along axis={} is {{fail:}}the correct shape".format(aa)
-            utils.assert_true(so == si+1, msg=msg)
-            cut = [0 if ii == aa else cb for ii, cb in enumerate(cut_base)]
-            msg = "Padding for axis={} is {{fail:}}all zero".format(aa)
-            utils.alltrue(out[tuple(cut)] == 0.0, msg)
-
-        return
-
-    def _test_ndim_axis(self, ndim, axis):
-
-        # Construct a random shape in `ndim` dimensions
-        shape = np.random.randint(2, 7, ndim)
-        # Fill with random values
-        vals = np.random.uniform(-20.0, 20.0, shape)
-
-        res = utils._pre_pad_zero(vals, axis=axis)
-        if axis is None:
-            chk = np.pad(vals, [1, 0])
-            msg = "Output ndim={} without axis does {{fail:}}match numpy result".format(ndim)
-            utils.allclose(res, chk, msg=msg)
-
-        self._compare_io(vals, res, axis)
-        return
-
-    def test(self):
-        for nd in range(1, 5):
-            for ax in [None] + list(range(nd)):
-                self._test_ndim_axis(nd, ax)
-
-        return
-
-
 class Test_Really1D(utils.Test_Base):
 
     def _test_vals(self, vals, truth):
