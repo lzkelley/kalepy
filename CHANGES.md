@@ -28,6 +28,8 @@
 
 - `kalepy/`
   - `kde.py`  <==  `kde_base.py`  [RENAME]
+    - `_guess_edges()`
+      - BUG: The "bandwidth" being used before wasn't being scaled by the covariance.
   - `plot.py`
     - Methods for constructing "corner" plots (based strongly on Dan Foreman-Mackey's `corner` package).
     - `draw_carpet()`  <==  `draw_carpet_fuzz()`  [RENAME]

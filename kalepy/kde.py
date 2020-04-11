@@ -222,7 +222,8 @@ class KDE(object):
         data = self.dataset
         neff = self.neff
         ndim = self.ndim
-        bandwidth = self.kernel.bandwidth.diagonal()
+        # bandwidth = self.kernel.bandwidth.diagonal()
+        bandwidth = np.sqrt(self.kernel.matrix.diagonal())
         finite = self.kernel.FINITE
         if reflect is not None:
             raise ValueError("`reflect` is not supported in calculing grid edges!")
@@ -257,6 +258,10 @@ class KDE(object):
 
         # Find the extrema in each dimension
         extr = [[np.min(dd) - bw*out, np.max(dd) + bw*out] for bw, dd in zip(bandwidth, data)]
+        # for bw, dd, ee in zip(bandwidth, data, extr):
+        #     print("b={:.2e}   |   d={:.2e}, {:.2e}  |   e={:.2e}, {:.2e}".format(
+        #         bw, *utils.minmax(dd), *utils.minmax(ee)))
+
         edges = [np.linspace(*ex, npd) for ex in extr]
         msg = "KDE._guess_edges:: extrema = {}".format(
             ", ".join(["[{:.2e}, {:.2e}]".format(*ex) for ex in extr]))
