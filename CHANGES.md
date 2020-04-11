@@ -27,6 +27,9 @@
 ## Current
 
 - `kalepy/`
+  - `__init__.py`
+    - `corner()`  [NEW-METHOD]
+      - New top-level API method for constructing corner plots using either a dataset or KDE instance.
   - `kde.py`  <==  `kde_base.py`  [RENAME]
     - `_guess_edges()`
       - BUG: The "bandwidth" being used before wasn't being scaled by the covariance.

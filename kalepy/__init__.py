@@ -27,6 +27,7 @@ _PATH_NB_OUT = os.path.join(_path, os.path.pardir, 'notebooks', 'output')
 from kalepy import kernels   # noqa
 from kalepy import utils   # noqa
 from kalepy.kde import KDE  # noqa
+from kalepy.plot import corner  # noqa
 
 del os
 del inn

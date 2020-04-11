@@ -61,9 +61,12 @@ class Corner:
 
         data = kde.dataset
         size = len(data)
+        # _def_figsize = [10, 10]
+        _def_figsize = np.clip(4 * size, 6, 20)
+        _def_figsize = [_def_figsize for ii in range(2)]
 
         last = size - 1
-        figax_kwargs.setdefault('figsize', [6, 6])
+        figax_kwargs.setdefault('figsize', _def_figsize)
         figax_kwargs.setdefault('hspace', 0.1)
         figax_kwargs.setdefault('wspace', 0.1)
         fig, axes = figax(nrows=size, ncols=size, **figax_kwargs)
@@ -148,6 +151,9 @@ class Corner:
 
         return
 
+    def savefig(self, fname, **kwargs):
+        return _save_fig(self.fig, fname, **kwargs)
+
 
 def figax(figsize=[12, 6], nrows=1, ncols=1, scale='linear',
           xlabel='', xlim=None, xscale=None,
@@ -208,7 +214,10 @@ def figax(figsize=[12, 6], nrows=1, ncols=1, scale='linear',
     return fig, axes
 
 
-# def corner(kde):
+def corner(kde_data, labels=None, **kwargs):
+    corner = Corner(kde_data, labels=labels)
+    corner.plot(**kwargs)
+    return corner
 
 
 # ======  API Data Methods  ======
