@@ -4,6 +4,10 @@
 - `Triweight` kernel is currently NOT-WORKING
   - The distribution is non-unitary for 2D distributions.  This might be a normalization issue when constructing the PDF (i.e. in `Triweight._evaluate()`) --- is this scaling for the nball correct??
 - Differences between covariance-matrix elements of numerous orders of magnitude can cause spurious results, in particular in the PDF marginalized over parameters.  See "KDE::Dynamic Range" docstrings.  Currently this is checked for in the `KDE._finalize()` method, at the end of initialization, and a warning is given if the dynamic range seems too large. 
+- Create better methods for constructing bin-edges, particularly within the KDEs for default spacings.
+
+- BUG: calculating marginalized PDF's by integrating over dimensions differs from calculating them directly!
+
 
 - `kalepy/`
     - Allow for calculating PDF and resampling in only particular dimensions/parameters.
@@ -14,9 +18,8 @@
         - Make sure tests check both cases of `num_points > num_data` and visa-versa (e.g. in PDF calculation).
     - `kernels.py`
         - Use meta-classes to register subclasses of `Distribution`.
-    - `kde_base.py`
+    - `kde.py`
       - `KDE`
-        - Create a method or attribute to construct default `edges` values, like the current `_guess_edges()` method.  Check literature on guessing histogram spacing.
         - Explore more efficient ways of calculating the CDF using the underlying kernels instead of integrating the PDF.
 
 
