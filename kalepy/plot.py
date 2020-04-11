@@ -1,7 +1,8 @@
 """
 """
 
-import warnings
+# import warnings
+import logging
 import os
 import six
 
@@ -54,13 +55,19 @@ class plot_control:
 class Corner:
 
     def __init__(self, kde_data, labels=None, **figax_kwargs):
+        kde = None
+        data = None
         if isinstance(kde_data, KDE):
             kde = kde_data
+            data = kde.dataset
+            size = len(data)
+        elif np.isscalar(kde_data):
+            size = kde_data
         else:
             kde = KDE(kde_data)
+            data = kde_data
+            size = len(data)
 
-        data = kde.dataset
-        size = len(data)
         # _def_figsize = [10, 10]
         _def_figsize = np.clip(4 * size, 6, 20)
         _def_figsize = [_def_figsize for ii in range(2)]
@@ -111,7 +118,7 @@ class Corner:
 
         return
 
-    def data(self, axes=None, data=None, **kwargs):
+    def plot_data(self, axes=None, data=None, **kwargs):
         if axes is None:
             axes = self.axes
         if data is None:
@@ -119,7 +126,7 @@ class Corner:
 
         return corner_data(axes, data, **kwargs)
 
-    def kde(self, axes=None, kde=None, **kwargs):
+    def plot_kde(self, axes=None, kde=None, **kwargs):
         if axes is None:
             axes = self.axes
         if kde is None:
@@ -127,24 +134,33 @@ class Corner:
 
         return corner_kde(axes, kde, **kwargs)
 
-    def plot(self, kde=None, data=None, **kwargs):
+    def plot(self, kde=None, data=None, kde_kwargs=None, data_kwargs=None, **kwargs):
         axes = self.axes
         npar = self.size
 
         rotate = kwargs.setdefault('rotate', npar == 2)
 
         if kde is None:
-            kde = kwargs.copy()
+            kde = self._kde
+
+        if kde is None:
+            raise ValueError("No `kde` given or stored!")
+
         if data is None:
-            data = kwargs.copy()
+            data = kde.dataset
 
-        kde.setdefault('hist2d', False)
-        data.setdefault('contour', False)
+        if kde_kwargs is None:
+            kde_kwargs = kwargs.copy()
+        if data_kwargs is None:
+            data_kwargs = kwargs.copy()
 
-        corner_kde(axes, self._kde, **kde)
+        kde_kwargs.setdefault('hist2d', False)
+        data_kwargs.setdefault('contour', False)
+
+        corner_kde(axes, kde, **kde_kwargs)
         extrema, pdf = _get_corner_axes_extrema(axes, rotate)
 
-        corner_data(axes, self._data, **data)
+        corner_data(axes, data, **data_kwargs)
         extrema, pdf = _get_corner_axes_extrema(axes, rotate, extrema=extrema, pdf=pdf)
 
         _set_corner_axes(axes, extrema, rotate, pdf=None)
@@ -214,8 +230,10 @@ def figax(figsize=[12, 6], nrows=1, ncols=1, scale='linear',
     return fig, axes
 
 
-def corner(kde_data, labels=None, **kwargs):
-    corner = Corner(kde_data, labels=labels)
+def corner(kde_data, labels=None, init={}, **kwargs):
+    if kwargs.pop('edges', None) is not None:
+        raise NotImplementedError("`edges` not yet implemented!")
+    corner = Corner(kde_data, labels=labels, **init)
     corner.plot(**kwargs)
     return corner
 
@@ -254,7 +272,7 @@ def corner_data(axes, data, edges=None, levels=None, hist=None, pad=True, rotate
     extr = [utils.minmax(dd) for dd in data]
 
     if carpet and not hist1d:
-        warnings.warn("Cannot `carpet` without `hist1d`!")
+        logging.warning("Cannot `carpet` without `hist1d`!")
         carpet = False
 
     smap, smap_is_log = _parse_smap(smap, color, cmap=cmap)
@@ -1069,7 +1087,7 @@ def _dfm_levels(hist, cdf_levels=None, sigmas=None):
     if np.any(bad):
         _levels = cdf_levels
         cdf_levels = np.array(cdf_levels)[~bad]
-        print("Removed bad levels: '{}' ==> '{}'".format(_levels, cdf_levels))
+        logging.warning("Removed bad levels: '{}' ==> '{}'".format(_levels, cdf_levels))
 
     # -- Adjust Bad Levels:
     # if np.any(bad) and not quiet:
