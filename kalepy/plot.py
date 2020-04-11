@@ -322,9 +322,9 @@ def dist2d_data(ax, edges=None, hist=None, data=None, sigmas=None, color='k', sm
     if median is None:
         median = scatter
 
-    hist2d = _none_dict(hist2d, 'hist2d', dict())
+    hist2d = _none_dict(hist2d, 'hist2d', dict(smap=smap, cmap=cmap, color=color))
     scatter = _none_dict(scatter, 'scatter', dict(color=color))
-    contour = _none_dict(contour, 'contour', dict())
+    contour = _none_dict(contour, 'contour', dict(smap=smap, cmap=cmap, color=color))
 
     edges = utils.parse_edges(edges, data)
     extr = [[ee.min(), ee.max()] for ee in edges]
@@ -344,9 +344,9 @@ def dist2d_data(ax, edges=None, hist=None, data=None, sigmas=None, color='k', sm
 
     pdf_levels, _levels = _dfm_levels(hist, sigmas=sigmas)
 
-    smap, smap_is_log = _parse_smap(smap, color, cmap=cmap)
-    if not isinstance(smap, mpl.cm.ScalarMappable):
-        smap = _get_smap(hist, **smap)
+    # smap, smap_is_log = _parse_smap(smap, color, cmap=cmap)
+    # if not isinstance(smap, mpl.cm.ScalarMappable):
+    #     smap = _get_smap(hist, **smap)
 
     # Draw Scatter Points
     # -------------------------------
@@ -389,8 +389,8 @@ def dist2d_data(ax, edges=None, hist=None, data=None, sigmas=None, color='k', sm
     # Draw 2D Histogram
     # -------------------------------
     if hist2d is not None:
-        hist2d.setdefault('cmap', smap.cmap)
-        hist2d.setdefault('norm', smap.norm)
+        # hist2d.setdefault('cmap', smap.cmap)
+        # hist2d.setdefault('norm', smap.norm)
         if mask_sparse is True:
             mask_sparse = pdf_levels.min()
         _draw_hist2d(ax, *edges, hist, mask_below=mask_sparse, **hist2d)
@@ -398,7 +398,7 @@ def dist2d_data(ax, edges=None, hist=None, data=None, sigmas=None, color='k', sm
     # Draw Contours
     # --------------------------------
     if contour is not None:
-        _draw_contours_2d(ax, xc, yc, hist, smap, **contour)
+        _draw_contours_2d(ax, xc, yc, hist, **contour)
 
     for ex, lim_func in zip(extr, [ax.set_xlim, ax.set_ylim]):
         lim_func(ex)
@@ -504,7 +504,7 @@ def corner_kde(axes, kde, edges=None, reflect=None, sigmas=None, levels=None, ro
 
 
 def dist1d_kde(ax, kde, param=None, pdf=None, reflect=None, edges=None, sigmas=True, color='k',
-               cdf=True, median=True, rotate=False):
+               cdf=False, median=True, rotate=False):
 
     if (param is None):
         if kde.ndim > 1:
@@ -700,7 +700,15 @@ def _draw_scatter(ax, xx, yy, color='k', alpha=0.1, s=4, **kwargs):
     return ax.scatter(xx, yy, **kwargs)
 
 
-def _draw_hist2d(ax, xx, yy, data, mask_below=None, **kwargs):
+def _draw_hist2d(ax, xx, yy, data, mask_below=None, color=None, smap=None, **kwargs):
+    cmap = kwargs.pop('cmap')
+    smap, smap_is_log = _parse_smap(smap, color, cmap=cmap)
+    if not isinstance(smap, mpl.cm.ScalarMappable):
+        smap = _get_smap(data, **smap)
+
+    kwargs.setdefault('cmap', smap.cmap)
+    kwargs.setdefault('norm', smap.norm)
+
     if (mask_below is not None) and (mask_below is not False):
         data = np.ma.masked_less_equal(data, mask_below)
     ax.pcolormesh(xx, yy, data.T, **kwargs)
@@ -731,10 +739,10 @@ def _draw_contours_1d(ax, locs, color='k', span=None, rotate=False, alpha=0.1):
     return
 
 
-def _draw_contours_2d(ax, xx, yy, hist_data, smap,
+def _draw_contours_2d(ax, xx, yy, hist, smap=None, color=None, cmap=None,
                       linewidths=1.0, alpha=0.8, colors=None, zorder=10,
                       background=True, sigmas=None, levels=None, **kwargs):
-    pdf_levels, levels = _dfm_levels(hist_data, cdf_levels=levels, sigmas=sigmas)
+    pdf_levels, levels = _dfm_levels(hist, cdf_levels=levels, sigmas=sigmas)
     lw = kwargs.pop('lw', None)
     bg_alpha = alpha  # /2
     if lw is not None:
@@ -743,6 +751,10 @@ def _draw_contours_2d(ax, xx, yy, hist_data, smap,
     background = _none_dict(background, 'background', defaults=kwargs)
 
     if colors is None:
+        smap, smap_is_log = _parse_smap(smap, color, cmap=cmap)
+        if not isinstance(smap, mpl.cm.ScalarMappable):
+            smap = _get_smap(hist, **smap)
+
         colors_bg = smap.to_rgba(pdf_levels)
         colors = colors_bg[::-1]
 
@@ -767,9 +779,9 @@ def _draw_contours_2d(ax, xx, yy, hist_data, smap,
     kwargs['zorder'] = zorder
 
     if background:
-        ax.contour(xx, yy, hist_data, **background)
+        ax.contour(xx, yy, hist, **background)
 
-    ax.contour(xx, yy, hist_data, **kwargs)
+    ax.contour(xx, yy, hist, **kwargs)
 
     return
 
@@ -856,11 +868,13 @@ def nbshow():
     return utils.run_if_notebook(plt.show, otherwise=lambda: plt.close('all'))
 
 
-def _save_fig(fig, fname, path=None, quiet=False, rename=True, **kwargs):
+def _save_fig(fig, fname, path=None, subdir=None, quiet=False, rename=True, **kwargs):
     """Save the given figure to the given filename, with some added niceties.
     """
     if path is None:
         path = os.path.abspath(os.path.curdir)
+    if subdir is not None:
+        path = os.path.join(path, subdir, '')
     fname = os.path.join(path, fname)
     utils.check_path(fname)
     if rename:
@@ -926,7 +940,7 @@ def _parse_smap(smap, color, cmap=None, defaults=dict(log=False)):
 
     smap_is_log = smap['log']
     if cmap is None:
-        cmap = _COLOR_CMAP.get(color, 'Greys')
+        cmap = _COLOR_CMAP.get(color[0], 'Greys')
 
     smap.setdefault('cmap', cmap)
 
