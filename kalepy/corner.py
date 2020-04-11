@@ -19,8 +19,6 @@ _COLOR_CMAP = {
     'r': 'Reds',
 }
 _DEF_SIGMAS = np.arange(0.5, 2.1, 0.5)
-
-
 _MASK_CMAP = mpl.colors.LinearSegmentedColormap.from_list(
     "white_cmap", [(1, 1, 1), (1, 1, 1)], N=2)
 
@@ -87,6 +85,14 @@ class Corner:
 
         return corner_data(axes, data, **kwargs)
 
+    def kde(self, axes=None, kde=None, **kwargs):
+        if axes is None:
+            axes = self.axes
+        if kde is None:
+            kde = self._kde
+
+        return corner_kde(axes, kde, **kwargs)
+
 
 def figax(figsize=[12, 6], nrows=1, ncols=1, scale='linear',
           xlabel='', xlim=None, xscale=None,
@@ -147,6 +153,10 @@ def figax(figsize=[12, 6], nrows=1, ncols=1, scale='linear',
     return fig, axes
 
 
+# ======  API Data Methods  ======
+# ================================
+
+
 def corner_data(axes, data, edges=None, levels=None, hist=None, pad=True, rotate=True,
                 mask_dense=True, mask_sparse=True, median=True, sigmas=None, density=True,
                 hist1d=True, hist2d=True, scatter=True, carpet=True, contour=True,
@@ -167,7 +177,7 @@ def corner_data(axes, data, edges=None, levels=None, hist=None, pad=True, rotate
         hist1d = hist
         hist2d = hist
 
-    edges = _parse_edges(edges, data)
+    edges = utils.parse_edges(edges, data)
 
     extr = [utils.minmax(dd) for dd in data]
 
@@ -187,6 +197,7 @@ def corner_data(axes, data, edges=None, levels=None, hist=None, pad=True, rotate
     extr_hist2d = None
     for (ii, jj), ax in np.ndenumerate(axes):
         if jj > ii:
+            ax.set_visible(False)
             continue
 
         # Diagonals
@@ -242,7 +253,7 @@ def corner_data(axes, data, edges=None, levels=None, hist=None, pad=True, rotate
     return
 
 
-def dist1d_data(ax, edges, hist=None, data=None, sigmas=None, color='k',
+def dist1d_data(ax, edges=None, hist=None, data=None, sigmas=None, color='k',
                 median=None, hist1d=True, carpet=None, density=True, rotate=False):
 
     if carpet is None:
@@ -254,7 +265,7 @@ def dist1d_data(ax, edges, hist=None, data=None, sigmas=None, color='k',
     hist1d = _none_dict(hist1d, 'hist1d', dict(color=color))
     carpet = _none_dict(carpet, 'carpet', dict(color=color))
 
-    edges = _parse_edges(edges, data)
+    edges = utils.parse_edges(edges, data)
     if (hist is None) and (data is None):
         raise ValueError("Either `hist` or `data` must be provided!")
 
@@ -278,7 +289,7 @@ def dist1d_data(ax, edges, hist=None, data=None, sigmas=None, color='k',
     return
 
 
-def dist2d_data(ax, edges, hist=None, data=None, sigmas=None, color='k', smap=None, cmap=None,
+def dist2d_data(ax, edges=None, hist=None, data=None, sigmas=None, color='k', smap=None, cmap=None,
                 scatter=None, median=None, hist2d=True, contour=True, density=True,
                 pad=True, mask_dense=True, mask_sparse=True):
 
@@ -287,11 +298,12 @@ def dist2d_data(ax, edges, hist=None, data=None, sigmas=None, color='k', smap=No
     if median is None:
         median = scatter
 
-    hist2d = _none_dict(hist2d, 'hist2d')
+    hist2d = _none_dict(hist2d, 'hist2d', dict())
     scatter = _none_dict(scatter, 'scatter', dict(color=color))
-    contour = _none_dict(contour, 'contour')
+    contour = _none_dict(contour, 'contour', dict())
 
-    edges = _parse_edges(edges, data)
+    edges = utils.parse_edges(edges, data)
+    extr = [[ee.min(), ee.max()] for ee in edges]
     gsh = tuple([len(ee)-1 for ee in edges])
     if (hist is None) and (data is None):
         raise ValueError("Either `hist` or `data` must be provided!")
@@ -317,18 +329,9 @@ def dist2d_data(ax, edges, hist=None, data=None, sigmas=None, color='k', smap=No
     if scatter is not None:
         _draw_scatter(ax, *data, **scatter)
 
-    # Draw 2D Histogram
-    # -------------------------------
-    if hist2d is not None:
-        hist2d.setdefault('cmap', smap.cmap)
-        hist2d.setdefault('norm', smap.norm)
-        if mask_sparse is True:
-            mask_sparse = pdf_levels.min()
-        _draw_hist2d(ax, *edges, hist, mask_below=mask_sparse, **hist2d)
-
     # Draw Median Lines (Target Style)
     # -----------------------------------------
-    if median is not None:
+    if median:
         effects = ([
             mpl.patheffects.Stroke(linewidth=2.0, foreground='0.75', alpha=0.75),
             mpl.patheffects.Normal()
@@ -355,18 +358,245 @@ def dist2d_data(ax, edges, hist=None, data=None, sigmas=None, color='k', smap=No
 
     # Mask dense scatter-points
     if mask_dense and (scatter is not None):
-        ax.contourf(xc, yc, hist, [pdf_levels.min(), hist.max()],
-                    cmap=_MASK_CMAP, antialiased=False)
+        span = [pdf_levels.min(), hist.max()]
+        ax.contourf(xc, yc, hist, span,
+                    cmap=_MASK_CMAP, antialiased=True)
 
+    # Draw 2D Histogram
+    # -------------------------------
+    if hist2d is not None:
+        hist2d.setdefault('cmap', smap.cmap)
+        hist2d.setdefault('norm', smap.norm)
+        if mask_sparse is True:
+            mask_sparse = pdf_levels.min()
+        _draw_hist2d(ax, *edges, hist, mask_below=mask_sparse, **hist2d)
+
+    # Draw Contours
+    # --------------------------------
     if contour is not None:
-        _draw_contours(ax, xc, yc, hist, smap, **contour)
+        _draw_contours_2d(ax, xc, yc, hist, smap, **contour)
+
+    for ex, lim_func in zip(extr, [ax.set_xlim, ax.set_ylim]):
+        lim_func(ex)
 
     return
 
 
-# ===========================
-# ====  Drawing Methods  ====
-# ===========================
+# ======  API KDEs Methods  ======
+# ================================
+
+
+def corner_kde(axes, kde, edges=None, reflect=None, sigmas=None, levels=None, rotate=True,
+               median=True, hist2d=True, contour=True, cdf=True,
+               color='k', smap=None, cmap=None, verbose=False):
+
+    shp = np.shape(axes)
+    if (np.ndim(axes) != 2) or (shp[0] != shp[1]):
+        raise ValueError("`axes` (shape: {}) must be an NxN arrays!".format(shp))
+
+    size = shp[0]
+    last = size - 1
+
+    if edges is None:
+        edges = kde._guess_edges()
+
+    if verbose:
+        print("Constructing PDF")
+
+    # pdf = kde.pdf_grid(edges, reflect=reflect)
+    extr = [utils.minmax(ee) for ee in edges]
+    smap, smap_is_log = _parse_smap(smap, color, cmap=cmap)
+
+    #
+    # Calculate Distributions
+    # ================================
+    #
+
+    if verbose:
+        print("Calculating Distributions")
+    pdf1d = np.full(size, None, dtype=object)
+    pdf2d = np.full(shp, None, dtype=object)
+    extr_hist2d = None
+    for (ii, jj), ax in np.ndenumerate(axes):
+        if verbose:
+            print("\t", ii, jj)
+
+        if jj > ii:
+            ax.set_visible(False)
+            continue
+
+        # Diagonals
+        # ----------------------
+        if ii == jj:
+            rot = (rotate and (jj == last))
+            set_lim_func = ax.set_ylim if rot else ax.set_xlim
+            set_lim_func(extr[jj])
+            pdf1d[jj] = kde.pdf_grid(edges[jj], params=jj, reflect=reflect)
+
+        # Off-Diagonals
+        # ----------------------
+        else:
+            # kk = (3-ii + 3-jj) % 3
+            # cdf = utils.cumtrapz(pdf, edges)
+            # pdf2d[jj, ii] = utils.trapz_nd(pdf, edges, axis=kk)
+
+            pdf2d[jj, ii] = kde.pdf_grid([edges[jj], edges[ii]], params=[jj, ii], reflect=reflect)
+            extr_hist2d = utils.minmax(pdf2d[jj, ii], prev=extr_hist2d, positive=smap_is_log)
+
+            ax.set_xlim(extr[jj])
+            ax.set_ylim(extr[ii])
+
+    #
+    # Draw / Plot Data
+    # ===========================
+    #
+
+    # Draw 1D Histograms & Carpets
+    # -----------------------------------------
+    for jj, ax in enumerate(axes.diagonal()):
+        if verbose:
+            print("Running dist1d_kde: ", jj)
+        rot = (rotate and (jj == last))
+        dist1d_kde(ax, kde, pdf=pdf1d[jj], param=jj, reflect=reflect, color=color, rotate=rot,
+                   sigmas=sigmas, median=median, cdf=cdf)
+
+    # Draw 2D Histograms and Contours
+    # -----------------------------------------
+    # _smap = plot.smap(extr_hist2d, **smap)
+
+    for (ii, jj), ax in np.ndenumerate(axes):
+        if jj >= ii:
+            continue
+
+        if verbose:
+            print("Running dist2d_kde: ", jj, ii)
+
+        _smap = plot.smap(pdf2d[jj, ii], **smap)
+        dist2d_kde(ax, kde, params=(jj, ii), pdf=pdf2d[jj, ii], reflect=reflect,
+                   sigmas=sigmas, color=color, smap=_smap, cmap=cmap,
+                   median=median, hist2d=hist2d, contour=contour)
+
+    return
+
+
+def dist1d_kde(ax, kde, param=None, pdf=None, reflect=None, edges=None, sigmas=True, color='k',
+               cdf=True, median=True, rotate=False):
+
+    if (param is None):
+        if kde.ndim > 1:
+            raise ValueError("`kde` has {} dimensions, `param` required!".format(kde.ndim))
+
+        param = 0
+
+    edges = kde._guess_edges()[param]
+    if pdf is None:
+        pdf = kde.pdf(edges, reflect=reflect, params=param)
+
+    vals = [edges, pdf]
+    if rotate:
+        vals = vals[::-1]
+    ax.plot(*vals, color=color)
+
+    do_conts = ((sigmas is not None) and (sigmas is not False)) or median
+    plot_cdf = cdf
+    if do_conts or plot_cdf:
+        if sigmas is True:
+            sigmas = _DEF_SIGMAS
+        elif (sigmas is None) or (sigmas is False):
+            sigmas = []
+
+        if median:
+            sigmas = np.append([0.0], sigmas)
+
+        # Convert from standard-deviations to percentiles
+        percs = sp.stats.norm.cdf(sigmas)
+        print("med1d")
+        print("\tee=", utils.array_str(edges))
+        print("\tpdf=", utils.array_str(pdf))
+
+        # NOTE: currently `kde.cdf` does not work with `params`... once it does, use that!
+        cdf = utils.cumtrapz(pdf, edges)
+        # Normalize to the maximum value
+        cdf /= cdf.max()
+
+        if do_conts:
+            # Get both the lower (left) and upper (right) values
+            percs = np.append(1 - percs, percs)
+            # Reshape to (sigmas, 2)
+            locs = np.interp(percs, cdf, edges).reshape(2, len(sigmas)).T
+
+            _draw_contours_1d(ax, locs, color=color, rotate=rotate)
+
+        if plot_cdf:
+            tw = ax.twiny() if rotate else ax.twinx()
+            vals = [edges, cdf]
+            if rotate:
+                vals = vals[::-1]
+            tw.plot(*vals, color=color, ls='--')
+
+    return
+
+
+def dist2d_kde(ax, kde, params=None, pdf=None, reflect=None, color='k', smap=None, cmap=None,
+               hist2d=True, contour=True, sigmas=None, median=True):
+    # from datetime import datetime
+
+    if (params is None):
+        if kde.ndim > 2:
+            raise ValueError("`kde` has {} dimensions, `params` required!".format(kde.ndim))
+
+        params = (0, 1)
+
+    hist2d = _none_dict(hist2d, 'hist2d', dict())
+    contour = _none_dict(contour, 'contour', dict())
+
+    edges = kde._guess_edges()
+    edges = [edges[pp] for pp in params]
+
+    if pdf is None:
+        pdf = kde.pdf_grid(edges, params=params, reflect=reflect)
+    xx, yy = np.meshgrid(*edges, indexing='ij')
+
+    pdf_levels, _levels = _dfm_levels(pdf, sigmas=sigmas)
+
+    smap, smap_is_log = _parse_smap(smap, color, cmap=cmap)
+    if not isinstance(smap, mpl.cm.ScalarMappable):
+        smap = plot.smap(pdf, **smap)
+
+    # Draw 2D Histogram
+    # -------------------------------
+    if hist2d is not None:
+        hist2d.setdefault('cmap', smap.cmap)
+        hist2d.setdefault('norm', smap.norm)
+        _draw_hist2d(ax, *edges, pdf, **hist2d)
+
+    # Draw Median Lines (Target Style)
+    # -----------------------------------------
+    if median:
+        effects = ([
+            mpl.patheffects.Stroke(linewidth=2.0, foreground='0.75', alpha=0.75),
+            mpl.patheffects.Normal()
+        ])
+
+        for ii, func in enumerate([ax.axvline, ax.axhline]):
+            pp = params[ii]
+            ee = edges[ii]
+            cdf = kde.pdf(ee, reflect=reflect, params=pp)
+            cdf = utils.cumtrapz(cdf, ee)
+            cdf /= cdf.max()
+            cdf = np.interp(0.5, cdf, ee)
+            func(cdf, color=color, ls='-', alpha=0.5, lw=1.0, path_effects=effects)
+
+    # Draw Contours
+    # --------------------------------
+    if contour is not None:
+        _draw_contours_2d(ax, xx, yy, pdf, smap, sigmas=sigmas, **contour)
+
+    return
+
+
+# ======  Drawing Methods  =====
+# ==============================
 
 
 def _draw_scatter(ax, xx, yy, color='k', alpha=0.1, s=4, **kwargs):
@@ -374,6 +604,7 @@ def _draw_scatter(ax, xx, yy, color='k', alpha=0.1, s=4, **kwargs):
     kwargs.setdefault('edgecolor', 'none')
     kwargs.setdefault('alpha', alpha)
     kwargs.setdefault('s', s)
+    # kwargs.setdefault('zorder', 80)
     return ax.scatter(xx, yy, **kwargs)
 
 
@@ -384,10 +615,35 @@ def _draw_hist2d(ax, xx, yy, data, mask_below=None, **kwargs):
     return
 
 
-def _draw_contours(ax, xx, yy, hist_data, smap,
-                   linewidths=1.0, alpha=0.8, colors=None, zorder=20,
-                   background=True, levels=None, **kwargs):
-    pdf_levels, levels = _dfm_levels(hist_data, cdf_levels=levels)
+def _draw_contours_1d(ax, locs, color='k', span=None, rotate=False, alpha=0.1):
+    kw = dict(facecolor=color, alpha=alpha, edgecolor='none')
+
+    for lo, hi in locs:
+        # If median is included (sigma=0, cdf=0.5), lo will equal hi
+        if lo == hi:
+            print("med1d - _draw_contours_1d", lo)
+            line_func = ax.axhline if rotate else ax.axvline
+            line_func(lo, ls='--', color=color, alpha=0.5)
+
+        if span is None:
+            span_func = ax.axhspan if rotate else ax.axvspan
+            span_func(lo, hi, **kw)
+        else:
+            center = [lo, span[0]]
+            extent = [hi - lo, span[1] - span[0]]
+            if rotate:
+                center = center[::-1]
+                extent = span[::-1]
+            rect = mpl.patches.Rectangle(center, *extent, **kw)
+            ax.add_patch(rect)
+
+    return
+
+
+def _draw_contours_2d(ax, xx, yy, hist_data, smap,
+                      linewidths=1.0, alpha=0.8, colors=None, zorder=10,
+                      background=True, sigmas=None, levels=None, **kwargs):
+    pdf_levels, levels = _dfm_levels(hist_data, cdf_levels=levels, sigmas=sigmas)
     lw = kwargs.pop('lw', None)
     bg_alpha = alpha  # /2
     if lw is not None:
@@ -473,9 +729,6 @@ def _draw_hist1d(ax, edges, hist=None, data=None, joints=False, median=True, sig
         temp = np.array(xval)
         xval = yval
         yval = temp
-        line_func = ax.axhline
-    else:
-        line_func = ax.axvline
 
     # Plot Histogram
     line, = ax.plot(xval, yval, **kwargs)
@@ -499,65 +752,13 @@ def _draw_hist1d(ax, edges, hist=None, data=None, joints=False, median=True, sig
         # Reshape to (sigmas, 2)
         locs = np.interp(percs, cdf, data).reshape(2, len(sigmas)).T
 
-        # pc = []
-        kw = dict(facecolor=color, alpha=0.1, edgecolor='none')
-        for ss, (lo, hi) in zip(sigmas, locs):
-            # If median is included (sigma=0, cdf=0.5), lo will equal hi
-            if lo == hi:
-                line_func(np.median(data), ls='--', color=color, alpha=0.5)
-
-            if span is None:
-                func = ax.axhspan if rotate else ax.axvspan
-                func(lo, hi, **kw)
-            else:
-                center = [lo, span[0]]
-                extent = [hi - lo, span[1] - span[0]]
-                if rotate:
-                    center = center[::-1]
-                    extent = span[::-1]
-                rect = mpl.patches.Rectangle(center, *extent, **kw)
-                ax.add_patch(rect)
-                # pc.append(rect)
-
-        # # Create patch collection with specified colour/alpha
-        # pc = mpl.collections.PatchCollection(pc, **kw)
-        # # Add collection to axes
-        # ax.add_collection(pc)
+        _draw_contours_1d(ax, locs, color=color, span=span, rotate=rotate)
 
     return line
 
 
-# ===========================
 # ====  Utility Methods  ====
 # ===========================
-
-
-def _parse_edges(edges, data, num=None):
-    data = np.atleast_2d(data)
-    shape = np.shape(data)
-    dims, pnts = shape
-    is_scalar = (edges is None) or np.isscalar(edges)
-    is_nbins = ((np.shape(edges) == (dims,)) and utils.really1d(edges))
-    if is_scalar or is_nbins:
-        # If a single value is given (`None` or an integer number of bins) convert to list
-        if is_scalar:
-            if edges is None:
-                edges = np.min([40, np.sqrt(pnts)]) if num is None else num
-
-            edges = [edges for ii in range(dims)]
-
-        edges = [utils.spacing(data[ii], 'lin', edges[ii]) for ii in range(dims)]
-
-    edges = np.squeeze(edges)
-
-    if (dims == 1):
-        if not utils.really1d(edges):
-            raise ValueError("Shape of data ({}) is 1D but `edges` are not ({})!".format(
-                shape, np.shape(edges)))
-    elif not np.all([np.ndim(ee) == 1 and np.size(ee) > 1 for ee in edges]):
-        raise ValueError("`edges` is invalid for {} parameters!".format(dims))
-
-    return edges
 
 
 def _parse_smap(smap, color, cmap=None, defaults=dict(log=False)):
