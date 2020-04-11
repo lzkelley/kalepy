@@ -27,24 +27,23 @@
 ## Current
 
 - `kalepy/`
-  - `corner.py`  [NEW-FILE]
+  - `kde.py`  <==  `kde_base.py`  [RENAME]
+  - `plot.py`
     - Methods for constructing "corner" plots (based strongly on Dan Foreman-Mackey's `corner` package).
+    - `draw_carpet()`  <==  `draw_carpet_fuzz()`  [RENAME]
+      - Add `rotate` argument to plot vertically instead of horizontally.
+    - `_get_smap()`  <==  `smap()`  [RENAME]
+      - Add `log` argument to specify log-scaling.
+    - `utils()`
+      - Add `positive` argument to filter by positive definite values.
     - `Corner`
       - Class for managing corner plots and plotting scatter data or KDE PDFs.
     - `corner_data()`
       - Higher-level function for constructing a full corner plot given scatter-data.
-  - `kde.py`  <==  `kde_base.py`  [RENAME]
-  - `plot.py`
-    - `draw_carpet_fuzz()`
-      - Add `rotate` argument to plot vertically instead of horizontally.
-    - `smap()`
-      - Add `log` argument to specify log-scaling.
-    - `utils()`
-      - Add `positive` argument to filter by positive definite values.
 
 - `notebooks/`
-  - `corner-plots.ipynb`  [NEW-FILE]
-    - For testing and demonstration of corner plots.
+  - `plotting.ipynb`  [NEW-FILE]
+    - For testing and demonstration of plotting methods, especially corner plots.
   - `kde.ipynb`
     - Add corner plots using the `corner.py` submodule.
 
