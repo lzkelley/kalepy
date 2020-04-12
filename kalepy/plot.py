@@ -96,7 +96,8 @@ class Corner:
                     tlab.set_visible(False)
 
             if jj == 0:
-                ax.set_ylabel(labels[ii])
+                if ii != 0:
+                    ax.set_ylabel(labels[ii])
             else:
                 ax.set_ylabel('')
                 for tlab in ax.yaxis.get_ticklabels():
@@ -155,7 +156,13 @@ class Corner:
             data_kwargs = kwargs.copy()
 
         kde_kwargs.setdefault('hist2d', False)
+        kde_kwargs.setdefault('rotate', rotate)
         data_kwargs.setdefault('contour', False)
+        data_kwargs.setdefault('rotate', rotate)
+
+        for kk, vv in kwargs.items():
+            kde_kwargs.setdefault(kk, vv)
+            data_kwargs.setdefault(kk, vv)
 
         corner_kde(axes, kde, **kde_kwargs)
         extrema, pdf = _get_corner_axes_extrema(axes, rotate)
@@ -245,7 +252,7 @@ def corner(kde_data, labels=None, init={}, **kwargs):
 def corner_data(axes, data, edges=None, levels=None, hist=None, pad=True, rotate=True,
                 mask_dense=True, mask_sparse=True, median=True, sigmas=None, density=True,
                 hist1d=True, hist2d=True, scatter=True, carpet=True,
-                contour=None, contour1d=True, contour2d=True,
+                contour=None, contour1d=True, contour2d=True, renormalize=False,
                 color='k', smap=None, cmap=None):
 
     shp = np.shape(axes)
@@ -317,7 +324,8 @@ def corner_data(axes, data, edges=None, levels=None, hist=None, pad=True, rotate
         rot = (rotate and (jj == last))
 
         dist1d_data(ax, edges[jj], hist=data_hist1d[jj], data=data[jj],
-                    sigmas=sigmas, color=color, density=density, rotate=rot,
+                    sigmas=sigmas, color=color, density=density,
+                    rotate=rot, renormalize=renormalize,
                     median=median, hist1d=hist1d, carpet=carpet, contour=contour1d)
 
     # Draw 2D Histograms and Contours
@@ -337,7 +345,7 @@ def corner_data(axes, data, edges=None, levels=None, hist=None, pad=True, rotate
 
 
 def dist1d_data(ax, edges=None, hist=None, data=None,
-                sigmas=None, color='k', density=True, rotate=False,
+                sigmas=None, color='k', density=True, rotate=False, renormalize=False,
                 contour=True, median=None, hist1d=True, carpet=None):
 
     if carpet is None:
@@ -362,7 +370,7 @@ def dist1d_data(ax, edges=None, hist=None, data=None,
 
     if hist1d is not None:
         _draw_hist1d(ax, edges, hist=hist, data=data,
-                     rotate=rotate, **hist1d)
+                     renormalize=renormalize, rotate=rotate, **hist1d)
 
     if contour or median:
         sigmas = _get_def_sigmas(sigmas, contour=contour, median=median)
@@ -485,7 +493,7 @@ def dist2d_data(ax, edges=None, hist=None, data=None, sigmas=None,
 
 def corner_kde(axes, kde, edges=None, reflect=None, sigmas=None, levels=None, rotate=True,
                median=True, hist2d=True, contour=None, contour1d=True, contour2d=True,
-               color='k', smap=None, cmap=None):
+               color='k', smap=None, cmap=None, renormalize=False):
 
     shp = np.shape(axes)
     if (np.ndim(axes) != 2) or (shp[0] != shp[1]):
@@ -540,7 +548,7 @@ def corner_kde(axes, kde, edges=None, reflect=None, sigmas=None, levels=None, ro
     for jj, ax in enumerate(axes.diagonal()):
         rot = (rotate and (jj == last))
         dist1d_kde(ax, kde, pdf=pdf1d[jj], param=jj, reflect=reflect, color=color, rotate=rot,
-                   sigmas=sigmas, median=median, contour=contour1d)
+                   sigmas=sigmas, median=median, contour=contour1d, renormalize=renormalize)
 
     # Draw 2D Histograms and Contours
     # -----------------------------------------
@@ -559,7 +567,7 @@ def corner_kde(axes, kde, edges=None, reflect=None, sigmas=None, levels=None, ro
 
 
 def dist1d_kde(ax, kde, param=None, pdf=None, reflect=None, edges=None, sigmas=True, color='k',
-               contour=True, median=True, rotate=False):
+               contour=True, median=True, rotate=False, renormalize=False):
 
     if (param is None):
         if kde.ndim > 1:
@@ -570,6 +578,9 @@ def dist1d_kde(ax, kde, param=None, pdf=None, reflect=None, edges=None, sigmas=T
     edges = kde._guess_edges()[param]
     if pdf is None:
         pdf = kde.pdf(edges, reflect=reflect, params=param)
+
+    if renormalize:
+        pdf = pdf / pdf.max()
 
     vals = [edges, pdf]
     if rotate:
@@ -835,7 +846,7 @@ def _draw_contours_2d(ax, xx, yy, hist, smap=None, color=None, cmap=None,
 
 
 def _draw_hist1d(ax, edges, hist=None, data=None, joints=False,
-                 nonzero=False, positive=False, extend=None,
+                 nonzero=False, positive=False, extend=None, renormalize=False,
                  rotate=False, **kwargs):
 
     if hist is None:
@@ -879,6 +890,9 @@ def _draw_hist1d(ax, edges, hist=None, data=None, joints=False,
         yval = temp
 
     # Plot Histogram
+    if renormalize:
+        yval = yval / yval[np.isfinite(yval)].max()
+
     line, = ax.plot(xval, yval, **kwargs)
 
     return line
