@@ -418,7 +418,42 @@ def parse_edges(edges, data):
     return edges
 
 
-def _get_edges_1d(edges, data, ndim=1, num_max=100, pad=1):
+def _guess_edges(data, ndim=None, num_min=None, num_max=None):
+    num_eff = data.size
+    if (ndim is not None) and (num_eff > 100):
+        # num_eff = np.power(num_eff, 1.0 / ndim)
+        _num_eff = num_eff / ndim**2
+        num_eff = np.clip(_num_eff, 100, None)
+
+    # span = np.fabs(data.max() - data.min())
+    span = [data.min(), data.max()]
+    span_width = np.diff(span)[0]
+
+    # Sturges histogram bin estimator.
+    w1 = span_width / (np.log2(num_eff) + 1.0)
+    # Freedman-Diaconis histogram bin estimator
+    iqr = iqrange(data, log=False)               # get interquartile range
+    w2 = 2.0 * iqr * num_eff ** (-1.0 / 3.0)
+
+    bin_width = min(w1, w2)
+    if bin_width <= 0.0:
+        raise ValueError("`bin_width` is negative (w1 = {}, w2 = {})!".format(w1, w2))
+
+    num_bins = int(np.ceil(span_width / bin_width))
+    num_bins = np.clip(num_bins, num_min, num_max)
+
+    return num_bins, bin_width, span
+
+
+def iqrange(data, log=False):
+    """Calculate inter-quartile range of the given data."""
+    if log:
+        data = np.log10(data)
+    iqr = np.subtract(*np.percentile(data, [75, 25]))
+    return iqr
+
+
+def _get_edges_1d(edges, data, ndim=1, num_min=10, num_max=100, pad=1):
     """
 
     Arguments
@@ -444,31 +479,9 @@ def _get_edges_1d(edges, data, ndim=1, num_max=100, pad=1):
             np.shape(edges))
         raise ValueError(err)
 
-    num_eff = data.size
-    if (ndim is not None) and (num_eff > 100):
-        # num_eff = np.power(num_eff, 1.0 / ndim)
-        _num_eff = num_eff / ndim**2
-        num_eff = np.clip(_num_eff, 100, None)
-
-    # span = np.fabs(data.max() - data.min())
-    span = [data.min(), data.max()]
-    span_width = np.diff(span)[0]
-
-    # Sturges histogram bin estimator.
-    w1 = span_width / (np.log2(num_eff) + 1.0)
-    # Freedman-Diaconis histogram bin estimator
-    iqr = np.subtract(*np.percentile(data, [75, 25]))
-    w2 = 2.0 * iqr * num_eff ** (-1.0 / 3.0)
-
-    bin_width = min(w1, w2)
-    if bin_width <= 0.0:
-        raise ValueError("`bin_width` is negative (w1 = {}, w2 = {})!".format(w1, w2))
-
+    _num_bins, bin_width, span = _guess_edges(data, ndim, num_min, num_max)
     if num_bins is None:
-        num_bins = int(np.ceil(span_width / bin_width))
-
-    if num_max is not None:
-        num_bins = np.clip(num_bins, 10, num_max)
+        num_bins = _num_bins
 
     if pad is not None:
         pad_width = pad * bin_width
