@@ -70,6 +70,8 @@ class Kernel(object):
         if reflect is None:
             result = self._pdf_clear(pnts, data, weights, params=params)
         else:
+            if params is not None:
+                raise NotImplementedError("`params` argument with `reflect` is not implemented!")
             result = self._pdf_reflect(pnts, data, weights, reflect)
 
         # print("Kernel.pdf(): result.shape = {}".format(result.shape))
