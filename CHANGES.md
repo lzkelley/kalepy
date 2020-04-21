@@ -4,10 +4,9 @@
 - `Triweight` kernel is currently NOT-WORKING
   - The distribution is non-unitary for 2D distributions.  This might be a normalization issue when constructing the PDF (i.e. in `Triweight._evaluate()`) --- is this scaling for the nball correct??
 - Differences between covariance-matrix elements of numerous orders of magnitude can cause spurious results, in particular in the PDF marginalized over parameters.  See "KDE::Dynamic Range" docstrings.  Currently this is checked for in the `KDE._finalize()` method, at the end of initialization, and a warning is given if the dynamic range seems too large. 
-- Create better methods for constructing bin-edges, particularly within the KDEs for default spacings.
-
 - BUG: calculating marginalized PDF's by integrating over dimensions differs from calculating them directly!
 
+- Calculate CDF for particular parameters!
 
 - `kalepy/`
     - Allow for calculating PDF and resampling in only particular dimensions/parameters.
