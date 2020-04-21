@@ -362,6 +362,7 @@ class KDE(object):
             # Normalize to the maximum value
             cdf /= cdf.max()
 
+            edges = np.atleast_2d(edges)
             self._cdf_grid = (edges, cdf)
             self._cdf_func = sp.interpolate.RegularGridInterpolator(
                 *self._cdf_grid, bounds_error=False, fill_value=None)
