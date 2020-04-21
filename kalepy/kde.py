@@ -127,6 +127,7 @@ class KDE(object):
     """
 
     def __init__(self, dataset, bandwidth=None, weights=None, kernel=None,
+                 extrema=None, edges=None, reflect=None,
                  neff=None, diagonal=False, helper=True, bw_rescale=None, **kwargs):
         """Initialize the `KDE` class with the given dataset and optional specifications.
 
@@ -163,10 +164,14 @@ class KDE(object):
 
         """
         self._helper = helper
+        self._squeeze = (np.ndim(dataset) == 1)
         self._dataset = np.atleast_2d(dataset)
         ndim, ndata = self.dataset.shape
+        uniform_weights = False
         if weights is None:
-            weights = np.ones(ndata)/ndata
+            weights = np.ones(ndata)
+            uniform_weights = True
+
         bw_method = kwargs.pop('bw_method', None)
         if bw_method is not None:
             logging.info("Use `bandwidth` argument instead of `bw_method`")
@@ -182,6 +187,11 @@ class KDE(object):
         self._diagonal = diagonal
         self._ndim = ndim
         self._ndata = ndata
+        self._reflect = reflect
+
+        # The first time `edges` are used, they need to be 'checked' for consistency
+        self._check_edges_flag = True
+        self._edges = edges
 
         if np.count_nonzero(weights) == 0 or np.any(~np.isfinite(weights) | (weights < 0)):
             raise ValueError("Invalid `weights` entries, all must be finite and > 0!")
@@ -191,6 +201,7 @@ class KDE(object):
             raise ValueError("`weights` input should be shaped as (N,)!")
 
         self._weights = weights
+        self._uniform_weights = uniform_weights
 
         if neff is None:
             neff = 1.0 / np.sum(weights**2)
@@ -207,67 +218,39 @@ class KDE(object):
             distribution=dist, bandwidth=self._bandwidth, covariance=self._covariance,
             helper=helper, **kwargs)
 
+        # Get Extrema
+        # -------------------------
+        # Determine the effective minima / maxima that should be used; KDE generally has support
+        #   outside of the data values themselves.
+
+        # If the Kernel is finite, then there is only support out to `bandwidth` beyond datapoints
+        if self.kernel.FINITE:
+            out = (1.0 + _NUM_PAD)
+        # If infinite kernel, how many standard-deviations can we expect values to lie at
+        else:
+            out = sp.stats.norm.ppf(1.0 - 1.0/neff)
+            # Extra to be double sure...
+            out *= 1.2
+
+        # Find the effective-extrema in each dimension, to be used if `extrema` is not specified
+        _bandwidth = np.sqrt(self.kernel.matrix.diagonal())
+        eff_extrema = [
+            [np.min(dd) - bw*out, np.max(dd) + bw*out]
+            for bw, dd in zip(_bandwidth, self.dataset)
+        ]
+
+        if (extrema is None) and (reflect is not None):
+            extrema = reflect
+
+        extrema = utils._parse_extrema(eff_extrema, extrema, warn=helper)
+        self._extrema = extrema
+
+        # Finish Intialization
+        # -------------------------------
         self._finalize()
         self._cdf_grid = None
         self._cdf_func = None
         return
-
-    def _guess_edges(self, nmin=100, nmax=1e4, tot_max=1e8, reflect=None):
-        """Guess good grid edges to resolve the KDE's PDF.
-
-        To-Do: this doesn't need to be done on a grid, do something smarter!
-        To-Do: implement reflect (set boundaries to reflect values when given)
-
-        """
-        data = self.dataset
-        neff = self.neff
-        ndim = self.ndim
-        # bandwidth = self.kernel.bandwidth.diagonal()
-        bandwidth = np.sqrt(self.kernel.matrix.diagonal())
-        finite = self.kernel.FINITE
-        if reflect is not None:
-            raise ValueError("`reflect` is not supported in calculing grid edges!")
-
-        # Number of grid points in each dimension
-        max_per_dim = np.power(tot_max, 1.0/ndim)
-        if max_per_dim < nmin:
-            err = (
-                "Cannot resolve ndim={} dimensions ".format(ndim) +
-                "with at least nmin={:.2e} ".format(nmin) +
-                "points and stay below maximum = {:.3e}!".format(tot_max)
-            )
-            raise ValueError(err)
-
-        npd = np.power(neff, 1.0/ndim)
-        npd = np.clip(npd, nmin, nmax)
-        npd = np.clip(npd, 0.0, max_per_dim)
-        npd = int(npd)
-        msg = "KDE._guess_edges:: Using {} bins per dimension".format(npd)
-        # print(msg)
-        if self._helper:
-            logging.info(msg)
-
-        # If the Kernel is finite, then there is only support out to `bandwidth` beyond extrema
-        if finite:
-            out = (1.0 + _NUM_PAD)
-        # If infinite, how many standard-deviations can we expect data points to lie at
-        else:
-            out = sp.stats.norm.ppf(1 - 1/neff)
-            # Extra to be double sure...
-            out *= 1.5
-
-        # Find the extrema in each dimension
-        extr = [[np.min(dd) - bw*out, np.max(dd) + bw*out] for bw, dd in zip(bandwidth, data)]
-        # for bw, dd, ee in zip(bandwidth, data, extr):
-        #     print("b={:.2e}   |   d={:.2e}, {:.2e}  |   e={:.2e}, {:.2e}".format(
-        #         bw, *utils.minmax(dd), *utils.minmax(ee)))
-
-        edges = [np.linspace(*ex, npd) for ex in extr]
-        msg = "KDE._guess_edges:: extrema = {}".format(
-            ", ".join(["[{:.2e}, {:.2e}]".format(*ex) for ex in extr]))
-        # print(msg)
-
-        return edges
 
     def pdf(self, pnts, reflect=None, params=None):
         """Evaluate the kernel-density-estimate PDF at the given data-points.
@@ -498,6 +481,33 @@ class KDE(object):
     @property
     def dataset(self):
         return self._dataset
+
+    @property
+    def edges(self):
+        # The values of `self._edges` set during initialization can be general specifications
+        # for bin-edges instead of the bin-edges themselves.  So they need to be "checked" the
+        # first time
+        if (self._edges is not None) and (not self._check_edges_flag):
+            return self._edges
+
+        # `extrema` is already set to include preset `reflect` values and takes into account
+        #   whether the kernel is finite or not (see `KDE.__init__`)
+        extrema = self.extrema
+        edges = utils.parse_edges(
+            self.dataset, edges=self._edges,
+            extrema=extrema, weights=self.weights, nmin=3, nmax=200, pad=0)
+
+        # If input `data` to KDE is given as 1D array, then give 1D edges (instead of `(1, E)`)
+        if self._squeeze:
+            edges = np.squeeze(edges)
+
+        self._edges = edges
+        self._check_edges_flag = False
+        return self._edges
+
+    @property
+    def extrema(self):
+        return self._extrema
 
     @property
     def kernel(self):

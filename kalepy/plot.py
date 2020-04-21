@@ -291,7 +291,7 @@ def corner_data(axes, data, weights=None, edges=None,
         contour1d = contour
         contour2d = contour
 
-    edges = utils.parse_edges(edges, data)
+    edges = utils.parse_edges(data, edges=edges)
 
     extr = [utils.minmax(dd) for dd in data]
 
@@ -386,7 +386,7 @@ def dist1d_data(ax, edges=None, hist=None, data=None, weights=None,
     carpet = _none_dict(carpet, 'carpet', dict(color=color))
 
     if data is not None:
-        edges = utils.parse_edges(edges, data)
+        edges = utils.parse_edges(data, edges=edges)
     elif (edges is None) or not utils.really1d(edges):
         raise ValueError("When `data` is not provided, `edges` must be bin-edges explicitly!")
 
@@ -448,7 +448,7 @@ def dist2d_data(ax, edges=None, hist=None, data=None, weights=None, sigmas=None,
         median = scatter
 
     if data is not None:
-        edges = utils.parse_edges(edges, data)
+        edges = utils.parse_edges(data, edges=edges)
     elif (edges is None) or (len(edges) != 2) or not np.all([utils.really1d(ee) for ee in edges]):
         raise ValueError("When `data` is not provided, `edges` must be bin-edges explicitly!")
 
@@ -495,7 +495,7 @@ def dist2d_data(ax, edges=None, hist=None, data=None, weights=None, sigmas=None,
             if weights is None:
                 med = np.median(dd)
             else:
-                med = utils.percentiles(dd, percs=0.5, weights=weights)
+                med = utils.quantiles(dd, percs=0.5, weights=weights)
 
             func(med, color=color, ls='-', alpha=0.5, lw=1.0, path_effects=effects)
 
@@ -560,7 +560,7 @@ def corner_kde(axes, kde, edges=None, reflect=None, sigmas=None, levels=None, ro
     #     reflect = [None] * size
 
     if edges is None:
-        edges = kde._guess_edges()
+        edges = kde.edges
 
     if contour is not None:
         contour1d = contour
@@ -632,7 +632,10 @@ def dist1d_kde(ax, kde, param=None, pdf=None, reflect=None, edges=None, sigmas=T
 
         param = 0
 
-    edges = kde._guess_edges()[param]
+    edges = kde.edges
+    if (not utils.really1d(edges)) or (param > 0):
+        edges = edges[param]
+
     if pdf is None:
         pdf = kde.pdf(edges, reflect=reflect, params=param)
 
@@ -664,7 +667,6 @@ def dist1d_kde(ax, kde, param=None, pdf=None, reflect=None, edges=None, sigmas=T
 
 def dist2d_kde(ax, kde, params=None, pdf=None, reflect=None, color='k', smap=None, cmap=None,
                hist2d=True, contour=True, sigmas=None, median=True):
-    # from datetime import datetime
 
     if (params is None):
         if kde.ndim > 2:
@@ -675,7 +677,7 @@ def dist2d_kde(ax, kde, params=None, pdf=None, reflect=None, color='k', smap=Non
     hist2d = _none_dict(hist2d, 'hist2d', dict())
     contour = _none_dict(contour, 'contour', dict())
 
-    edges = kde._guess_edges()
+    edges = kde.edges
     edges = [edges[pp] for pp in params]
 
     if pdf is None:

@@ -25,14 +25,15 @@
 
 
 ## Current
+- Improved how 'edges' (both for bins and PDF evaluation) are constructed, especially in multiple dimensions.  `KDE` constructs extrema from the given data and then calls `utils.parse_edges`.
 
 - `kalepy/`
   - `__init__.py`
     - `corner()`  [NEW-METHOD]
       - New top-level API method for constructing corner plots using either a dataset or KDE instance.
   - `kde.py`  <==  `kde_base.py`  [RENAME]
-    - `_guess_edges()`
-      - BUG: The "bandwidth" being used before wasn't being scaled by the covariance.
+    - Improved how 'edges' are constructed.  Constructs `extrema` based on input data, and uses `utils.parse_edges` to construct edges.
+    - `_guess_edges()`  [REMOVED]
   - `plot.py`
     - Methods for constructing "corner" plots (based strongly on Dan Foreman-Mackey's `corner` package).
     - `draw_carpet()`  <==  `draw_carpet_fuzz()`  [RENAME]
@@ -46,10 +47,13 @@
     - `corner_data()`
       - Higher-level function for constructing a full corner plot given scatter-data.
   - `utils.py`
-    - `_get_edges_1d()`
-      - BUG: avoid negative bin-width for very small number of data points.
+    - `parse_edges()`
+      - Allow `weights` to be passed for calculating effective number of data points and inter-quartile ranges
+    - `quantiles()`  <==  `percentiles()`
     - `stats()`  [NEW-METHOD]
       - Combines `array_str()` and `stats_str()` output.
+    - `_get_edges_1d()`
+      - BUG: avoid negative bin-width for very small number of data points.
 
 - `notebooks/`
   - `plotting.ipynb`  [NEW-FILE]

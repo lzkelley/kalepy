@@ -85,17 +85,6 @@ def alltrue(xx, msg=None):
     return
 
 
-def ave_std(values, weights=None, **kwargs):
-    """
-    Return the weighted average and (biased[1]) standard deviation.
-
-    [1]: i.e. we are dividing by the size `n` of values, not `n-1`.
-    """
-    average = np.average(values, weights=weights, **kwargs)
-    variance = np.average((values - average)**2, weights=weights, **kwargs)
-    return average, np.sqrt(variance)
-
-
 def bins(*args, **kwargs):
     """Calculate `np.linspace(*args)` and return also centers and widths.
 
@@ -134,41 +123,6 @@ def bound_indices(data, bounds, outside=False):
             lo = True if (bnd[0] is None) else (bnd[0] < data[ii, :])
             hi = True if (bnd[1] is None) else (data[ii, :] < bnd[1])
             idx = idx & (lo & hi)
-
-    return idx
-
-
-# NOTE: this is SLOWER
-def _bound_indices(data, bounds, outside=False):
-    """Find the indices of the `data` array that are bounded by the given `bounds`.
-
-    If `outside` is True, then indices for values *outside* of the bounds are returned.
-    """
-    data = np.atleast_2d(data)
-    bounds = np.atleast_2d(bounds)
-    ndim, nvals = np.shape(data)
-    # shape = (ndim, 2, nvals)
-    shape = (ndim, nvals)
-
-    if outside:
-        idx = np.zeros(shape, dtype=int)
-    else:
-        idx = np.ones(shape, dtype=int)
-
-    for ii, bnd in enumerate(bounds):
-        if ((len(bnd) == 1) and (bnd[0] is None)):
-            continue
-
-        if bnd[0] is None:
-            bnd[0] = -np.inf
-        if bnd[1] is None:
-            bnd[1] = +np.inf
-
-        temp = np.searchsorted(bnd, data[ii, :])
-        temp = (temp + outside) % 2
-        idx[ii, :] = temp
-
-    idx = np.product(idx, axis=0).astype(bool)
 
     return idx
 
@@ -397,15 +351,24 @@ def modify_exists(path_fname):
     return fname
 
 
-def parse_edges(edges, data):
+def parse_edges(data, edges=None, extrema=None, weights=None, nmin=3, nmax=200, pad=None):
+    """
+    """
+    if np.ndim(data) not in [1, 2]:
+        err = (
+            "`data` (shape: {}) ".format(np.shape(data)) +
+            "must have shape (N,) or (D, N) for `N` data points and `D` parameters!"
+        )
+        raise ValueError(err)
 
-    if np.ndim(data) == 1:
-        edges = _get_edges_1d(edges, data, ndim=None)
-        return edges
-    elif np.ndim(data) != 2:
-        raise ValueError("`data` (shape: {}) must be 1D or 2D!".format(np.shape(data)))
-
+    squeeze = (np.ndim(data) == 1)
+    data = np.atleast_2d(data)
     npars = np.shape(data)[0]
+
+    if pad is None:
+        pad = 1 if extrema is None else 0
+    extrema = _parse_extrema(data, extrema=extrema, warn=True)
+
     # If `edges` provides a specification for each dimension, convert to npars*[edges]
     if (np.ndim(edges) == 0) or (really1d(edges) and (np.size(edges) != npars)):
         edges = [edges] * npars
@@ -414,46 +377,17 @@ def parse_edges(edges, data):
             len(edges), npars)
         raise ValueError(err)
 
-    edges = [_get_edges_1d(ee, dd, ndim=npars) for dd, ee in zip(data, edges)]
+    edges = [_get_edges_1d(edges[ii], data[ii], extrema[ii],
+                           npars, nmin, nmax, pad, weights=weights)
+             for ii in range(npars)]
+
+    if squeeze:
+        edges = np.squeeze(edges)
+
     return edges
 
 
-def _guess_edges(data, ndim=None, num_min=None, num_max=None):
-    num_eff = data.size
-    if (ndim is not None) and (num_eff > 100):
-        # num_eff = np.power(num_eff, 1.0 / ndim)
-        _num_eff = num_eff / ndim**2
-        num_eff = np.clip(_num_eff, 100, None)
-
-    # span = np.fabs(data.max() - data.min())
-    span = [data.min(), data.max()]
-    span_width = np.diff(span)[0]
-
-    # Sturges histogram bin estimator.
-    w1 = span_width / (np.log2(num_eff) + 1.0)
-    # Freedman-Diaconis histogram bin estimator
-    iqr = iqrange(data, log=False)               # get interquartile range
-    w2 = 2.0 * iqr * num_eff ** (-1.0 / 3.0)
-
-    bin_width = min(w1, w2)
-    if bin_width <= 0.0:
-        raise ValueError("`bin_width` is negative (w1 = {}, w2 = {})!".format(w1, w2))
-
-    num_bins = int(np.ceil(span_width / bin_width))
-    num_bins = np.clip(num_bins, num_min, num_max)
-
-    return num_bins, bin_width, span
-
-
-def iqrange(data, log=False):
-    """Calculate inter-quartile range of the given data."""
-    if log:
-        data = np.log10(data)
-    iqr = np.subtract(*np.percentile(data, [75, 25]))
-    return iqr
-
-
-def _get_edges_1d(edges, data, ndim=1, num_min=10, num_max=100, pad=1):
+def _get_edges_1d(edges, data, extrema, ndim, nmin, nmax, pad, weights=None):
     """
 
     Arguments
@@ -479,21 +413,65 @@ def _get_edges_1d(edges, data, ndim=1, num_min=10, num_max=100, pad=1):
             np.shape(edges))
         raise ValueError(err)
 
-    _num_bins, bin_width, span = _guess_edges(data, ndim, num_min, num_max)
+    _num_bins, bin_width, _span = _guess_edges(
+        data, extrema=extrema, ndim=ndim, num_min=nmin, num_max=nmax, weights=weights)
     if num_bins is None:
         num_bins = _num_bins
 
     if pad is not None:
         pad_width = pad * bin_width
-        span[0] -= pad_width
-        span[1] += pad_width
+        extrema = [extrema[0] - pad_width, extrema[1] + pad_width]
 
-    edges = np.linspace(*span, num_bins + 1, endpoint=True)
+    edges = np.linspace(*extrema, num_bins + 1, endpoint=True)
     return edges
 
 
-def percentiles(values, percs=None, sigmas=None, weights=None, axis=None, values_sorted=False):
-    """Compute weighted percentiles.
+def _guess_edges(data, extrema=None, ndim=None, num_min=None, num_max=None, weights=None):
+    if weights is None:
+        num_eff = data.size
+    else:
+        if (not really1d(weights)) or (np.size(weights) != np.size(data)):
+            err = "Shape of `weights` ({}) does not match `data` ({})!".format(
+                np.shape(weights), np.shape(data))
+            raise ValueError(err)
+
+        num_eff = 1.0 / np.sum(weights**2)
+
+    if (ndim is not None) and (num_eff > 100):
+        # num_eff = np.power(num_eff, 1.0 / ndim)
+        _num_eff = num_eff / ndim**2
+        num_eff = np.clip(_num_eff, 100, None)
+
+    if extrema is None:
+        extrema = [data.min(), data.max()]
+    span_width = np.diff(extrema)[0]
+
+    # Sturges histogram bin estimator.
+    w1 = span_width / (np.log2(num_eff) + 1.0)
+    # Freedman-Diaconis histogram bin estimator
+    iqr = iqrange(data, log=False, weights=weights)               # get interquartile range
+    w2 = 2.0 * iqr * num_eff ** (-1.0 / 3.0)
+
+    bin_width = min(w1, w2)
+    if bin_width <= 0.0:
+        raise ValueError("`bin_width` is negative (w1 = {}, w2 = {})!".format(w1, w2))
+
+    num_bins = int(np.ceil(span_width / bin_width))
+    num_bins = np.clip(num_bins, num_min, num_max)
+
+    return num_bins, bin_width, extrema
+
+
+def iqrange(data, log=False, weights=None):
+    """Calculate inter-quartile range of the given data."""
+    if log:
+        data = np.log10(data)
+    iqr = np.subtract(*quantiles(data, percs=[0.75, 0.25], weights=weights))
+    return iqr
+
+
+def quantiles(values, percs=None, sigmas=None, weights=None, axis=None, values_sorted=False):
+    """Compute weighted quartiles.
 
     Taken from `zcode.math.statistics`
     Based on @Alleo answer: http://stackoverflow.com/a/29677616/230468
@@ -515,6 +493,9 @@ def percentiles(values, percs=None, sigmas=None, weights=None, axis=None, values
         Array of percentiles of the weighted input data.
 
     """
+    if (percs is None) and (sigmas is None):
+        raise ValueError("Either `percs` or `sigmas` must be provided!")
+
     values = np.array(values)
     if percs is None:
         percs = sp.stats.norm.cdf(sigmas)
@@ -682,7 +663,7 @@ def stats_str(data, percs=[0.0, 0.16, 0.50, 0.84, 1.00], ave=False, std=False, w
 
     # Add percentiles
     if percs_flag:
-        tiles = percentiles(data, percs, weights=weights).astype(data.dtype)
+        tiles = quantiles(data, percs, weights=weights).astype(data.dtype)
         out += "(" + ", ".join(form.format(tt) for tt in tiles) + ")"
         out += ", for (" + ", ".join("{:.0f}%".format(100*pp) for pp in percs) + ")"
 
@@ -945,3 +926,110 @@ class Test_Base(object):
 
         np.random.seed(object.__getattribute__(self, "DEF_SEED"))
         return value
+
+
+def _parse_extrema(data, extrema=None, warn=True):
+    """Get extrema (min and max) consistent with the given `data`.
+
+    `data` must have shape (D, N) for `D` parameters/dimensions, and `N` data points.
+    `extrema` can be:
+        None: extrema are calculated
+        (2,): extrema taken as the same for each dimension
+        (D, 2): extrema given for each dimension
+
+        In the latter two cases, any values of `extrema` that are 'None' are filled in using
+        extrema from the data.
+
+    """
+
+    # `data` must be shaped as (D, N)
+    if np.ndim(data) != 2:
+        err = "`data` must be shaped (D, N) for `D` dimensions/parameters and `N` data points!"
+        raise ValueError(err)
+
+    npars = np.shape(data)[0]
+
+    data_extrema = [minmax(dd) for dd in data]
+    if extrema is None:
+        extrema = data_extrema
+    else:
+        # Convert from (2,) ==> (D, 2)
+        if np.shape(extrema) == (2,) and really1d(extrema):
+            extrema = [extrema for ii in range(npars)]
+        # If already (D, 2) we're good, keep going
+        elif np.shape(extrema) == (npars, 2):
+            pass
+        # Otherwise bad
+        else:
+            err = "`extrema` shape '{}' unrecognized for {} parameters!".format(
+                np.shape(extrema), npars)
+            raise ValueError(err)
+
+        # Fill in `None` values and check if given `extrema` is out of bounds for data
+        for dd in range(npars):
+            for ii in range(2):
+                if extrema[dd][ii] is None:
+                    extrema[dd][ii] = data_extrema[dd][ii]
+
+            if warn:
+                if (extrema[dd][0] > data_extrema[dd][0]):
+                    msg = "lower `extrema` in dimension {} ({}) is above data min: {}!".format(
+                        dd, extrema[dd][0], data_extrema[dd][0])
+                    logging.warning(msg)
+
+                if (extrema[dd][1] < data_extrema[dd][1]):
+                    msg = "lower `extrema` in dimension {} ({}) is below data max: {}!".format(
+                        dd, extrema[dd][1], data_extrema[dd][1])
+                    logging.warning(msg)
+
+    return extrema
+
+
+'''
+# NOTE: this is SLOWER
+def _bound_indices(data, bounds, outside=False):
+    """Find the indices of the `data` array that are bounded by the given `bounds`.
+
+    If `outside` is True, then indices for values *outside* of the bounds are returned.
+    """
+    data = np.atleast_2d(data)
+    bounds = np.atleast_2d(bounds)
+    ndim, nvals = np.shape(data)
+    # shape = (ndim, 2, nvals)
+    shape = (ndim, nvals)
+
+    if outside:
+        idx = np.zeros(shape, dtype=int)
+    else:
+        idx = np.ones(shape, dtype=int)
+
+    for ii, bnd in enumerate(bounds):
+        if ((len(bnd) == 1) and (bnd[0] is None)):
+            continue
+
+        if bnd[0] is None:
+            bnd[0] = -np.inf
+        if bnd[1] is None:
+            bnd[1] = +np.inf
+
+        temp = np.searchsorted(bnd, data[ii, :])
+        temp = (temp + outside) % 2
+        idx[ii, :] = temp
+
+    idx = np.product(idx, axis=0).astype(bool)
+
+    return idx
+'''
+
+
+'''
+def ave_std(values, weights=None, **kwargs):
+    """
+    Return the weighted average and (biased[1]) standard deviation.
+
+    [1]: i.e. we are dividing by the size `n` of values, not `n-1`.
+    """
+    average = np.average(values, weights=weights, **kwargs)
+    variance = np.average((values - average)**2, weights=weights, **kwargs)
+    return average, np.sqrt(variance)
+'''
