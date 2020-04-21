@@ -353,7 +353,7 @@ class KDE(object):
             raise NotImplementedError("`reflect` is not yet implemented for CDF!")
 
         if self._cdf_func is None:
-            edges = self._guess_edges()
+            edges = self.edges
 
             # Calculate PDF at grid locations
             pdf = self.pdf_grid(edges)

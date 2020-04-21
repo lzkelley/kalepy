@@ -46,7 +46,6 @@ def pdf(data, edges=None, reflect=None, **kwargs):
     ---------
     edges : array_like of scalar or None
         Locations at which to evaluate the PDF.
-        If `None`: edges are constructed using the `KDE._guess_edges()` method.
     kwargs : dict
         Additional key-value pair arguments passed to the `KDE.__init__` constructor.
 
@@ -60,10 +59,7 @@ def pdf(data, edges=None, reflect=None, **kwargs):
     """
     kde = KDE(data, **kwargs)
     if edges is None:
-        edges = kde._guess_edges()
-        if len(edges) == 1:
-            import numpy as np
-            edges = np.array(edges).squeeze()
+        edges = kde.edges
 
     vals = kde.pdf(edges, reflect=reflect)
     return edges, vals
