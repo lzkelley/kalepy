@@ -361,7 +361,8 @@ def modify_exists(path_fname):
     return fname
 
 
-def parse_edges(data, edges=None, extrema=None, weights=None, nmin=3, nmax=200, pad=None):
+def parse_edges(data, edges=None, extrema=None, weights=None,
+                nmin=3, nmax=200, pad=None, refine=1.0):
     """
     """
     if np.ndim(data) not in [1, 2]:
@@ -388,7 +389,7 @@ def parse_edges(data, edges=None, extrema=None, weights=None, nmin=3, nmax=200, 
         raise ValueError(err)
 
     edges = [_get_edges_1d(edges[ii], data[ii], extrema[ii],
-                           npars, nmin, nmax, pad, weights=weights)
+                           npars, nmin, nmax, pad, weights=weights, refine=refine)
              for ii in range(npars)]
 
     if squeeze:
@@ -397,7 +398,7 @@ def parse_edges(data, edges=None, extrema=None, weights=None, nmin=3, nmax=200, 
     return edges
 
 
-def _get_edges_1d(edges, data, extrema, ndim, nmin, nmax, pad, weights=None):
+def _get_edges_1d(edges, data, extrema, ndim, nmin, nmax, pad, weights=None, refine=1.0):
     """
 
     Arguments
@@ -424,9 +425,12 @@ def _get_edges_1d(edges, data, extrema, ndim, nmin, nmax, pad, weights=None):
         raise ValueError(err)
 
     _num_bins, bin_width, _span = _guess_edges(
-        data, extrema=extrema, ndim=ndim, num_min=nmin, num_max=nmax, weights=weights)
+        data, extrema=extrema, weights=weights,
+        ndim=ndim, num_min=nmin, num_max=nmax, refine=refine)
     if num_bins is None:
         num_bins = _num_bins
+
+    print("data = ", np.shape(data), " ==> num bins = ", num_bins)
 
     if pad is not None:
         pad_width = pad * bin_width
@@ -436,7 +440,8 @@ def _get_edges_1d(edges, data, extrema, ndim, nmin, nmax, pad, weights=None):
     return edges
 
 
-def _guess_edges(data, extrema=None, ndim=None, num_min=None, num_max=None, weights=None):
+def _guess_edges(data, extrema=None, ndim=None, weights=None,
+                 num_min=None, num_max=None, refine=1.0):
     if weights is None:
         num_eff = data.size
     else:
@@ -445,7 +450,7 @@ def _guess_edges(data, extrema=None, ndim=None, num_min=None, num_max=None, weig
                 np.shape(weights), np.shape(data))
             raise ValueError(err)
 
-        num_eff = 1.0 / np.sum(weights**2)
+        num_eff = np.sum(weights)**2 / np.sum(weights**2)
 
     if (ndim is not None) and (num_eff > 100):
         # num_eff = np.power(num_eff, 1.0 / ndim)
@@ -462,7 +467,7 @@ def _guess_edges(data, extrema=None, ndim=None, num_min=None, num_max=None, weig
     iqr = iqrange(data, log=False, weights=weights)               # get interquartile range
     w2 = 2.0 * iqr * num_eff ** (-1.0 / 3.0)
 
-    bin_width = min(w1, w2)
+    bin_width = min(w1, w2) / refine
     if bin_width <= 0.0:
         raise ValueError("`bin_width` is negative (w1 = {}, w2 = {})!".format(w1, w2))
 

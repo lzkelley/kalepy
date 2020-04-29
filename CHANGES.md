@@ -38,16 +38,19 @@
     - `_guess_edges()`  [REMOVED]
   - `plot.py`
     - Methods for constructing "corner" plots (based strongly on Dan Foreman-Mackey's `corner` package).
-    - `draw_carpet()`  <==  `draw_carpet_fuzz()`  [RENAME]
-      - Add `rotate` argument to plot vertically instead of horizontally.
-    - `_get_smap()`  <==  `smap()`  [RENAME]
-      - Add `log` argument to specify log-scaling.
-    - `utils()`
-      - Add `positive` argument to filter by positive definite values.
     - `Corner`
       - Class for managing corner plots and plotting scatter data or KDE PDFs.
+
     - `corner_data()`
       - Higher-level function for constructing a full corner plot given scatter-data.
+    - `draw_carpet()`  <==  `draw_carpet_fuzz()`  [RENAME]
+      - Add `rotate` argument to plot vertically instead of horizontally.
+    - `hist()` [NEW-METHOD]
+      - Calculate histogram using `utils.histogram()`, then draw it using `_draw_hist1d()`.
+    - `utils()`
+      - Add `positive` argument to filter by positive definite values.
+    - `_get_smap()`  <==  `smap()`  [RENAME]
+      - Add `log` argument to specify log-scaling.
   - `utils.py`
     - `histogram()`  [NEW-METHOD]
       - Calculate histograms with both `density` and `probability` parameters (instead of combined like in numpy).

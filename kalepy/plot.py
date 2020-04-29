@@ -1005,14 +1005,11 @@ def _draw_contours_2d(ax, xx, yy, hist, smap=None, color=None, cmap=None,
     return
 
 
-def _draw_hist1d(ax, edges, hist, joints=False,
+def _draw_hist1d(ax, edges, hist, joints=True,
                  nonzero=False, positive=False, extend=None, renormalize=False,
                  rotate=False, **kwargs):
 
-    # if hist is None:
-    #     hist, _ = np.histogram(data, bins=edges, density=True)
-
-    # Extend bin edges if needed
+    # Check shape of edges
     if len(edges) != len(hist)+1:
         raise RuntimeError("``edges`` must have length hist+1!")
 
@@ -1120,6 +1117,13 @@ def _get_corner_axes_extrema(axes, rotate, extrema=None, pdf=None):
             extrema[ii] = utils.minmax(ax.get_ylim(), prev=extrema[ii])
 
     return extrema, pdf
+
+
+def hist(ax, data, bins=None, weights=None, density=False, probability=False, **kwargs):
+    hist, edges = utils.histogram(data, bins=bins, weights=weights,
+                                  density=density, probability=probability)
+
+    return hist, edges, _draw_hist1d(ax, edges, hist, **kwargs)
 
 
 # ====  Utility Methods  ====
