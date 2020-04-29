@@ -1180,6 +1180,7 @@ def _get_smap(args=[0.0, 1.0], cmap=None, log=False, norm=None, under='w', over=
 
 
 def _parse_smap(smap, color, cmap=None, defaults=dict(log=False)):
+    uniform = False
     if isinstance(smap, mpl.cm.ScalarMappable):
         # If `smap` was created with `kalepy.plot._get_smap()` than it should have this attribute
         try:
@@ -1189,7 +1190,7 @@ def _parse_smap(smap, color, cmap=None, defaults=dict(log=False)):
         except AttributeError:
             smap_is_log = False
 
-        return smap, smap_is_log
+        return smap, smap_is_log, uniform
 
     if smap is None:
         smap = {}
@@ -1201,7 +1202,6 @@ def _parse_smap(smap, color, cmap=None, defaults=dict(log=False)):
         smap.setdefault(kk, vv)
 
     smap_is_log = smap['log']
-    uniform = False
     if cmap is None:
         # cmap = _COLOR_CMAP.get(color[0], 'Greys')
         if color in _COLOR_CMAP.keys():
