@@ -167,40 +167,43 @@ class KDE(object):
         self._squeeze = (np.ndim(dataset) == 1)
         self._dataset = np.atleast_2d(dataset)
         ndim, ndata = self.dataset.shape
-        uniform_weights = False
-        if weights is None:
-            weights = np.ones(ndata)
-            uniform_weights = True
+        self._ndim = ndim
+        self._ndata = ndata
+
+        # Set `weights`
+        # --------------------------------
+        weights_uniform = True
+        weights_total = None
+        if weights is not None:
+            if np.shape(weights) != (ndata,):
+                raise ValueError("`weights` input should be shaped as (N,)!")
+
+            if np.count_nonzero(weights) == 0 or np.any(~np.isfinite(weights) | (weights < 0)):
+                raise ValueError("Invalid `weights` entries, all must be finite and > 0!")
+
+            weights = np.asarray(weights).astype(float)
+            weights_total = np.sum(weights)
+            weights_uniform = False
+
+        if neff is None:
+            if weights_uniform:
+                neff = ndata
+            else:
+                neff = np.sum(weights)**2 / np.sum(weights**2)
+
+        self._weights = weights
+        self._weights_total = weights_total
+        self._weights_uniform = weights_uniform
+        self._neff = neff
+
+        # Set covariance, bandwidth, distribution and kernel
+        # -----------------------------------------------------------
+        covariance = np.cov(dataset, rowvar=True, bias=False, aweights=weights)
+        self._covariance = np.atleast_2d(covariance)
 
         if bandwidth is None:
             bandwidth = _BANDWIDTH_DEFAULT
 
-        self._diagonal = diagonal
-        self._ndim = ndim
-        self._ndata = ndata
-        self._reflect = reflect
-
-        # The first time `edges` are used, they need to be 'checked' for consistency
-        self._check_edges_flag = True
-        self._edges = edges
-
-        if np.count_nonzero(weights) == 0 or np.any(~np.isfinite(weights) | (weights < 0)):
-            raise ValueError("Invalid `weights` entries, all must be finite and > 0!")
-        weights = np.atleast_1d(weights).astype(float)
-        weights /= np.sum(weights)
-        if np.shape(weights) != (ndata,):
-            raise ValueError("`weights` input should be shaped as (N,)!")
-
-        self._weights = weights
-        self._uniform_weights = uniform_weights
-
-        if neff is None:
-            neff = 1.0 / np.sum(weights**2)
-
-        self._neff = neff
-
-        covariance = np.cov(dataset, rowvar=True, bias=False, aweights=weights)
-        self._covariance = np.atleast_2d(covariance)
         self._set_bandwidth(bandwidth, bw_rescale)
 
         # Convert from string, class, etc to a kernel
@@ -209,8 +212,8 @@ class KDE(object):
             distribution=dist, bandwidth=self._bandwidth, covariance=self._covariance,
             helper=helper, **kwargs)
 
-        # Get Extrema
-        # -------------------------
+        # Get Distribution Extrema
+        # ------------------------------------
         # Determine the effective minima / maxima that should be used; KDE generally has support
         #   outside of the data values themselves.
 
@@ -238,15 +241,21 @@ class KDE(object):
 
         # Finish Intialization
         # -------------------------------
-        self._finalize()
+        # The first time `edges` are used, they need to be 'checked' for consistency
+        self._check_edges_flag = True
+        self._edges = edges
+        self._diagonal = diagonal
+        self._reflect = reflect
         self._cdf_grid = None
         self._cdf_func = None
+
+        self._finalize()
         return
 
-    def pdf(self, pnts, reflect=None, params=None):
+    def pdf(self, pnts=None, reflect=None, params=None):
         """Evaluate the kernel-density-estimate PDF at the given data-points.
 
-        This method acts as an API to the `Kernel.pdf` method of this instance's `kernel`.
+        This method acts as an API to the `Kernel.pdf` method for this instance's `kernel`.
 
         Arguments
         ---------
@@ -266,8 +275,12 @@ class KDE(object):
             See class docstrings:`Projection` for more information.
 
         """
+        if reflect is None:
+            reflect = self._reflect
+        if pnts is None:
+            pnts = self.edges
+
         result = self.kernel.pdf(pnts, self.dataset, self.weights, reflect=reflect, params=params)
-        # print("KDE.pdf(): result.shape = {}".format(result.shape))
         return result
 
     def pdf_grid(self, edges, reflect=None, params=None):
