@@ -44,11 +44,20 @@ class Kernel(object):
         return
 
     def pdf(self, points, data, weights, reflect=None, params=None):
+        """Calculate the Density Function using this Kernel.
+
+        Arguments
+        ---------
+        points : tuple of ndarray of float, (D,) for each of `D` dimensions of data
+            Points at which to evaluate the density function.
+            Locations must be specified for each dimension of the data,
+                or for each of target `params` dimensions of the data.
+
+        """
         pnts = np.atleast_2d(points)
         ndim, nval = np.shape(data)
-        # print("pnts.shape = {}, len(pnts) = {}".format(np.shape(pnts), len(pnts)))
 
-        # Check shape if unput `edges`
+        # If no `params` is given, then using all data dimensions
         if (params is None):
             # Should be edges for all parameters
             if len(pnts) != ndim:
@@ -56,16 +65,21 @@ class Kernel(object):
                        "Provide an arraylike of edges for each dim/param!")
                 err = err.format(len(pnts), ndim)
                 raise ValueError(err)
+        # If `params` are given, we are only examining a subset of dimensions
         else:
             params = np.atleast_1d(params)
-            # Should only be as many edges as target parameters
+            # If `pnts` are given for all dimensions, select those for the target dimensions
+            if len(pnts) == ndim:
+                pnts = [pnts[pp] for pp in params]
+
+            # Make sure `pnts` have the right shape
             if len(params) != len(pnts):
-                err = "length of `params` = '{}', but nparams in `points` = {}!".format(
+                err = "length of `params` = '{}', but `pnts` has {} values!".format(
                     len(params), len(pnts))
                 raise ValueError(err)
 
         # Make sure shape/values of reflect look okay
-        reflect = self._check_reflect(reflect, ndim, data, weights)
+        reflect = self._check_reflect(reflect, data, weights)
 
         if reflect is None:
             result = self._pdf_clear(pnts, data, weights, params=params)
@@ -195,7 +209,7 @@ class Kernel(object):
         # Make sure `reflect` matches
         if reflect is not None:
             # This is now either (D,) [and contains `None` values] or (D,2)
-            reflect = self._check_reflect(reflect, ndim, data, weights)
+            reflect = self._check_reflect(reflect, data, weights)
 
         # Have `Distribution` class perform resampling
         # ---------------------------------------------------
@@ -372,29 +386,32 @@ class Kernel(object):
         trunc = bounds + qnts
         return trunc
 
-    def _check_reflect(self, reflect, ndim, data, weights):
+    def _check_reflect(self, reflect, data, weights):
+        """Make sure the given `reflect` argument is valid given the data shape
+        """
         if reflect is None:
             return reflect
 
-        if ndim == 1 and np.ndim(reflect) == 1:
-            reflect = np.atleast_2d(reflect)
+        # NOTE: FIX: Should this happen in the method that calls `_check_reflect`?
+        data = np.atleast_2d(data)
+        reflect = np.atleast_2d(data)
 
+        ndim, nval = np.shape(data)
         if len(reflect) != ndim:
-            msg = "`reflect` ({}) must have length (D,) = ({},)!".format(
+            err = "`reflect` ({},) must match the data with ({}) parameters!".format(
                 len(reflect), ndim)
-            raise ValueError(msg)
+            raise ValueError(err)
 
         if not np.all([(ref is None) or len(ref) == 2 for ref in reflect]):
-            raise ValueError("each row of `reflect` must be `None` or shape (2,)!")
+            raise ValueError("each row of `reflect` must be `None` or have shape (2,)!")
 
         # Perform additional diagnostics
         for ii in range(ndim):
-            if np.all(np.array(reflect[ii]) != None) and (reflect[ii][0] >= reflect[ii][1]): # noqa
-                err = "Reflect has inverted order:  `reflect`[{}] = {}  !".format(ii, reflect[ii])
+            if np.all(np.array(reflect[ii]) != None) and (reflect[ii][0] >= reflect[ii][1]):  # noqa
+                err = "Reflect is out of order:  `reflect`[{}] = {}  !".format(ii, reflect[ii])
                 raise ValueError(err)
 
             if self._helper:
-
                 # Warn if any datapoints are outside of reflection bounds
                 bads = utils.bound_indices(data[ii, :], reflect[ii], outside=True)
                 if np.any(bads):
