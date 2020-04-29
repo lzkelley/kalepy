@@ -3,8 +3,10 @@
 - Try using `sp.stats.rv_continuous` as base-class for 'Distribution' to provide functionality like 'ppf' etc.
 - `Triweight` kernel is currently NOT-WORKING
   - The distribution is non-unitary for 2D distributions.  This might be a normalization issue when constructing the PDF (i.e. in `Triweight._evaluate()`) --- is this scaling for the nball correct??
-- Differences between covariance-matrix elements of numerous orders of magnitude can cause spurious results, in particular in the PDF marginalized over parameters.  See "KDE::Dynamic Range" docstrings.  Currently this is checked for in the `KDE._finalize()` method, at the end of initialization, and a warning is given if the dynamic range seems too large. 
+- Differences between covariance-matrix elements of numerous orders of magnitude can cause spurious results, in particular in the PDF marginalized over parameters.  See "KDE::Dynamic Range" docstrings.  Currently this is checked for in the `KDE._finalize()` method, at the end of initialization, and a warning is given if the dynamic range seems too large.
 - BUG: calculating marginalized PDF's by integrating over dimensions differs from calculating them directly!
+
+- Implement reflection with target parameters!
 
 - Calculate CDF for particular parameters!
 
@@ -211,7 +213,7 @@
 
 ## v0.2 – 2019/06/03
 - Module renamed from `kdes` to `kalepy`.
-- Notebooks are now included in travis unit testing. 
+- Notebooks are now included in travis unit testing.
 - Added skeleton for sphinx documentation; not written yet.
 
 - `README.md`
