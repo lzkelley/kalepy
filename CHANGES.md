@@ -22,6 +22,7 @@
     - `kde.py`
       - `KDE`
         - Explore more efficient ways of calculating the CDF using the underlying kernels instead of integrating the PDF.
+        - Use different methods for `grid` edges in ND, instead of broadcasting and flattening (inefficient).
 
 
 

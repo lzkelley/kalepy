@@ -308,6 +308,9 @@ class KDE(object):
             Only calculate the PDF for certain parameters (dimensions).
             See class docstrings:`Projection` for more information.
 
+        NOTE: optimize: there are likely much faster methods than broadcasting and flattening,
+                        use a different method to calculate cdf on a grid.
+
         """
         ndim = self.ndim
         # If `edges` is 1D (and not "jagged") then expand to 2D
@@ -333,7 +336,6 @@ class KDE(object):
         coords = np.vstack([xx.ravel() for xx in coords])
         pdf = self.pdf(coords, reflect=reflect, params=params)
         pdf = pdf.reshape(shp)
-        # print("KDE.pdf_grid(): result.shape = {}".format(pdf.shape))
         return pdf
 
     def cdf(self, pnts, params=None, reflect=None):
@@ -377,6 +379,11 @@ class KDE(object):
         return cdf
 
     def cdf_grid(self, edges, **kwargs):
+        """
+
+        NOTE: optimize: there are likely much faster methods than broadcasting and flattening,
+                        use a different method to calculate cdf on a grid.
+        """
         ndim = self.ndim
         if len(edges) != ndim:
             err = "`edges` must be (D,)=({},): an arraylike of edges for each dim/param!"
