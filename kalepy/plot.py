@@ -190,6 +190,44 @@ class Corner:
         _set_corner_axes(self.axes, extrema, rotate, pdf=None)
         return
 
+    def legend(self, handles=None, labels=None, index=None,
+               loc=None, fancybox=False, borderaxespad=0, **kwargs):
+        """
+        """
+        fig = self.fig
+
+        # Set Bounding Box Location
+        # ------------------------------------
+        bbox = kwargs.pop('bbox', None)
+        bbox = kwargs.pop('bbox_to_anchor', bbox)
+        if bbox is None:
+            if index is None:
+                size = self.size
+                if size in [2, 3]:
+                    index = (0, -1)
+                    loc = 'lower left'
+                elif size == 1:
+                    index = (0, 0)
+                    loc = 'upper right'
+                elif size % 2 == 0:
+                    index = size // 2
+                    index = (1, index)
+                    loc = 'upper right'
+                else:
+                    index = (size // 2) + 1
+                    loc = 'lower left'
+                    index = (size-index-1, index)
+
+            bbox = self.axes[index].get_position()
+            bbox = (bbox.x0, bbox.y0)
+            kwargs['bbox_to_anchor'] = bbox
+            kwargs.setdefault('bbox_transform', fig.transFigure)
+
+        # Set other defaults
+        leg = fig.legend(handles, labels, fancybox=fancybox,
+                         borderaxespad=borderaxespad, loc=loc, **kwargs)
+        return leg
+
 
 def figax(figsize=[12, 6], nrows=1, ncols=1, scale='linear',
           xlabel='', xlim=None, xscale=None,
@@ -299,7 +337,7 @@ def corner_data(axes, data, weights=None, edges=None,
         logging.warning("Cannot `carpet` without `hist1d`!")
         carpet = False
 
-    smap, smap_is_log = _parse_smap(smap, color, cmap=cmap)
+    smap, smap_is_log, uniform_color = _parse_smap(smap, color, cmap=cmap)
 
     #
     # Calculate Distributions
@@ -465,15 +503,14 @@ def dist2d_data(ax, edges=None, hist=None, data=None, weights=None, sigmas=None,
     if sigmas is None:
         sigmas = _DEF_SIGMAS
 
-    pdf_levels, _levels = _dfm_levels(hist, sigmas=sigmas)
-
+    sigmas, pdf_levels, _levels = _dfm_levels(hist, sigmas=sigmas)
     hist2d = _none_dict(hist2d, 'hist2d', dict(smap=smap, cmap=cmap, color=color))
     scatter = _none_dict(scatter, 'scatter', dict(color=color))
     contour = _none_dict(
         contour, 'contour',
-        dict(smap=smap, cmap=cmap, color=color, pdf_levels=pdf_levels))
+        dict(smap=smap, cmap=cmap, color=color, sigmas=sigmas))  # pdf_levels=pdf_levels))
 
-    # smap, smap_is_log = _parse_smap(smap, color, cmap=cmap)
+    # smap, smap_is_log, uniform_color = _parse_smap(smap, color, cmap=cmap)
     # if not isinstance(smap, mpl.cm.ScalarMappable):
     #     smap = _get_smap(hist, **smap)
 
@@ -568,7 +605,7 @@ def corner_kde(axes, kde, edges=None, reflect=None, sigmas=None, levels=None, ro
 
     # pdf = kde.pdf_grid(edges, reflect=reflect)
     extr = [utils.minmax(ee) for ee in edges]
-    smap, smap_is_log = _parse_smap(smap, color, cmap=cmap)
+    smap, smap_is_log, uniform_color = _parse_smap(smap, color, cmap=cmap)
 
     #
     # Calculate Distributions
@@ -684,9 +721,9 @@ def dist2d_kde(ax, kde, params=None, pdf=None, reflect=None, color='k', smap=Non
         pdf = kde.pdf_grid(edges, params=params, reflect=reflect)
     xx, yy = np.meshgrid(*edges, indexing='ij')
 
-    pdf_levels, _levels = _dfm_levels(pdf, sigmas=sigmas)
+    sigmas, pdf_levels, _levels = _dfm_levels(pdf, sigmas=sigmas)
 
-    smap, smap_is_log = _parse_smap(smap, color, cmap=cmap)
+    smap, smap_is_log, uniform_color = _parse_smap(smap, color, cmap=cmap)
     if not isinstance(smap, mpl.cm.ScalarMappable):
         smap = _get_smap(pdf, **smap)
 
@@ -838,7 +875,7 @@ def _draw_scatter(ax, xx, yy, color='k', alpha=0.1, s=4, **kwargs):
 
 def _draw_hist2d(ax, xx, yy, data, mask_below=None, color=None, smap=None, **kwargs):
     cmap = kwargs.pop('cmap')
-    smap, smap_is_log = _parse_smap(smap, color, cmap=cmap)
+    smap, smap_is_log, uniform_color = _parse_smap(smap, color, cmap=cmap)
     if not isinstance(smap, mpl.cm.ScalarMappable):
         smap = _get_smap(data, **smap)
 
@@ -879,8 +916,11 @@ def _draw_contours_2d(ax, xx, yy, hist, smap=None, color=None, cmap=None,
                       smooth=None, upsample=2, reverse=False,
                       linewidths=1.0, alpha=0.8, colors=None, zorder=10,
                       background=True, sigmas=None, pdf_levels=None, cdf_levels=None, **kwargs):
-    if pdf_levels is None:
-        pdf_levels, cdf_levels = _dfm_levels(hist, cdf_levels=cdf_levels, sigmas=sigmas)
+
+    if (pdf_levels is not None) and (upsample is not None or smooth is not None):
+        err = ("Cannot provide `pdf_levels` with upsampling or smoothing!  "
+               "Provide `sigmas` or `cdf_levels` instead!")
+        raise ValueError(err)
 
     if (upsample is not None) and (upsample > 0):
         xx = sp.ndimage.zoom(xx, upsample)
@@ -891,6 +931,9 @@ def _draw_contours_2d(ax, xx, yy, hist, smap=None, color=None, cmap=None,
             smooth *= upsample
         hist = sp.ndimage.filters.gaussian_filter(hist, smooth)
 
+    if pdf_levels is None:
+        sigmas, pdf_levels, cdf_levels = _dfm_levels(hist, cdf_levels=cdf_levels, sigmas=sigmas)
+
     lw = kwargs.pop('lw', None)
     bg_alpha = alpha  # /2
     if lw is not None:
@@ -899,7 +942,7 @@ def _draw_contours_2d(ax, xx, yy, hist, smap=None, color=None, cmap=None,
     background = _none_dict(background, 'background', defaults=kwargs)
 
     if colors is None:
-        smap, smap_is_log = _parse_smap(smap, color, cmap=cmap)
+        smap, smap_is_log, uniform_color = _parse_smap(smap, color, cmap=cmap)
         if not isinstance(smap, mpl.cm.ScalarMappable):
             smap = _get_smap(hist, **smap)
 
@@ -1158,12 +1201,18 @@ def _parse_smap(smap, color, cmap=None, defaults=dict(log=False)):
         smap.setdefault(kk, vv)
 
     smap_is_log = smap['log']
+    uniform = False
     if cmap is None:
-        cmap = _COLOR_CMAP.get(color[0], 'Greys')
+        # cmap = _COLOR_CMAP.get(color[0], 'Greys')
+        if color in _COLOR_CMAP.keys():
+            cmap = _COLOR_CMAP[color]
+        else:
+            cmap = 'Greys'
+            uniform = True
 
     smap.setdefault('cmap', cmap)
 
-    return smap, smap_is_log
+    return smap, smap_is_log, uniform
 
 
 def _none_dict(val, name, defaults={}):
@@ -1195,6 +1244,8 @@ def _dfm_levels(hist, cdf_levels=None, sigmas=None):
             sigmas = _DEF_SIGMAS
         # Convert from standard-deviations to CDF values
         cdf_levels = 1.0 - np.exp(-0.5 * np.square(sigmas))
+    elif sigmas is None:
+        sigmas = np.sqrt(-2.0 * np.log(1.0 - cdf_levels))
 
     # Compute the density levels.
     hflat = hist.flatten()
@@ -1227,7 +1278,7 @@ def _dfm_levels(hist, cdf_levels=None, sigmas=None):
     #     V[np.where(bad)[0][0]] *= 1.0 - 1e-4
     #     m = np.diff(V) == 0
     pdf_levels.sort()
-    return pdf_levels, cdf_levels
+    return sigmas, pdf_levels, cdf_levels
 
 
 '''
