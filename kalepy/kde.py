@@ -147,7 +147,7 @@ class KDE(object):
         weights : array_like (N,), None  [optional]
             Weights corresponding to each `dataset` point.  Must match the number of points `N` in
             the `dataset`.
-            If `None`, weights are uniformly set to 1/N for each value.
+            If `None`, weights are uniformly set to 1.0 for each value.
         kernel : str, Distribution, None  [optional]
             The distribution function that should be used for the kernel.  This can be a `str`
             specification that must match one of the existing distribution functions, or this can
@@ -171,15 +171,6 @@ class KDE(object):
         if weights is None:
             weights = np.ones(ndata)
             uniform_weights = True
-
-        bw_method = kwargs.pop('bw_method', None)
-        if bw_method is not None:
-            logging.info("Use `bandwidth` argument instead of `bw_method`")
-            if bandwidth is not None:
-                err = "Use only the `bandwidth` argument, not `bw_method` also!"
-                raise ValueError(err)
-            bandwidth = bw_method
-            del bw_method
 
         if bandwidth is None:
             bandwidth = _BANDWIDTH_DEFAULT
