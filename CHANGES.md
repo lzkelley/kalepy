@@ -49,6 +49,8 @@
     - `corner_data()`
       - Higher-level function for constructing a full corner plot given scatter-data.
   - `utils.py`
+    - `histogram()`  [NEW-METHOD]
+      - Calculate histograms with both `density` and `probability` parameters (instead of combined like in numpy).
     - `parse_edges()`
       - Allow `weights` to be passed for calculating effective number of data points and inter-quartile ranges
     - `quantiles()`  <==  `percentiles()`

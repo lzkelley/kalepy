@@ -43,6 +43,140 @@ class Test_Bound_Indices(utils.Test_Base):
         return
 
 
+class Test_Histogram(object):
+
+    @classmethod
+    def setup_class(cls):
+        np.random.seed(9865)
+
+        num_points = 20
+
+        cls.bins = [
+            13,
+            np.linspace(-1.0, 1.0, 11),
+        ]
+
+        cls.data = [
+            np.ones(num_points),
+            np.random.uniform(-1, 1, num_points),
+            np.random.poisson(size=num_points) / np.sqrt(num_points),
+        ]
+
+        cls.weights = [
+            None,
+            np.ones(num_points),
+            np.ones(num_points) / num_points,
+            np.random.uniform(0.0, 10.0, num_points),
+        ]
+        return
+
+    def test_hist_dens_prob(self):
+        for weights in self.weights:
+            self._test_hist_dens_prob(weights)
+
+        return
+
+    def _test_hist_dens_prob(self, weights):
+        for data in self.data:
+            for bins in self.bins:
+                hh, ee = utils.histogram(data, bins,
+                                         weights=weights, density=True, probability=True)
+                hh_true, ee_true = np.histogram(data, bins, weights=weights, density=True)
+
+                if not np.all(ee == ee_true):
+                    print("edges     = ", ee)
+                    print("    truth = ", ee_true)
+                    raise ValueError("Edges do not match!")
+
+                bads = ~np.isclose(hh, hh_true)
+                if np.any(bads):
+                    print("hist      = ", hh)
+                    print("    truth = ", hh_true)
+                    raise ValueError("Histograms do not match!")
+
+        return
+
+    def test_hist(self):
+        for weights in self.weights:
+            self._test_hist(weights)
+
+        return
+
+    def _test_hist(self, weights):
+        for data in self.data:
+            for bins in self.bins:
+                hh, ee = utils.histogram(data, bins,
+                                         weights=weights, density=False, probability=False)
+                hh_true, ee_true = np.histogram(data, bins, weights=weights, density=False)
+
+                if not np.all(ee == ee_true):
+                    print("edges     = ", ee)
+                    print("    truth = ", ee_true)
+                    raise ValueError("Edges do not match!")
+
+                bads = ~np.isclose(hh, hh_true)
+                if np.any(bads):
+                    print("hist      = ", hh)
+                    print("    truth = ", hh_true)
+                    raise ValueError("Histograms do not match!")
+
+        return
+
+    def test_hist_dens(self):
+        for weights in self.weights:
+            self._test_hist_dens(weights)
+
+        return
+
+    def _test_hist_dens(self, weights):
+        for data in self.data:
+            for bins in self.bins:
+                hh, ee = utils.histogram(data, bins,
+                                         weights=weights, density=True, probability=False)
+                hh_true, ee_true = np.histogram(data, bins, weights=weights, density=False)
+                hh_true = hh_true.astype(float) / np.diff(ee_true)
+
+                if not np.all(ee == ee_true):
+                    print("edges     = ", ee)
+                    print("    truth = ", ee_true)
+                    raise ValueError("Edges do not match!")
+
+                bads = ~np.isclose(hh, hh_true)
+                if np.any(bads):
+                    print("hist      = ", hh)
+                    print("    truth = ", hh_true)
+                    raise ValueError("Histograms do not match!")
+
+        return
+
+    def test_hist_prob(self):
+        for weights in self.weights:
+            self._test_hist_prob(weights)
+
+        return
+
+    def _test_hist_prob(self, weights):
+        for data in self.data:
+            for bins in self.bins:
+                hh, ee = utils.histogram(data, bins,
+                                         weights=weights, density=False, probability=True)
+                hh_true, ee_true = np.histogram(data, bins, weights=weights, density=False)
+                hh_true = hh_true.astype(float) / hh_true.sum()
+
+                if not np.all(ee == ee_true):
+                    print("edges     = ", ee)
+                    print("    truth = ", ee_true)
+                    raise ValueError("Edges do not match!")
+
+                bads = ~np.isclose(hh, hh_true)
+                if np.any(bads):
+                    print("hist      = ", hh)
+                    print("    truth = ", hh_true)
+                    raise ValueError("Histograms do not match!")
+
+        return
+
+
 class Test_Midpoints(object):
 
     @classmethod

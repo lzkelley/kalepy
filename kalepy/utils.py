@@ -231,6 +231,16 @@ def cumtrapz(pdf, edges, prepend=True, axis=None):
     return cdf
 
 
+def histogram(data, bins=None, weights=None, density=False, probability=False):
+    hist, edges = np.histogram(data, bins=bins, weights=weights)
+    if density:
+        hist = hist.astype(float) / np.diff(edges)
+    if probability:
+        tot = data.size if weights is None else np.sum(weights)
+        hist = hist.astype(float) / tot
+    return hist, edges
+
+
 def matrix_invert(matrix, helper=True):
     try:
         matrix_inv = np.linalg.inv(matrix)
