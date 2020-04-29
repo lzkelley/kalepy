@@ -169,11 +169,15 @@ class KDE(object):
         ndim, ndata = self.dataset.shape
         self._ndim = ndim
         self._ndata = ndata
+        self._diagonal = diagonal
+        self._reflect = reflect
+        # The first time `edges` are used, they need to be 'checked' for consistency
+        self._check_edges_flag = True
+        self._edges = edges
 
         # Set `weights`
         # --------------------------------
         weights_uniform = True
-        weights_total = None
         if weights is not None:
             if np.shape(weights) != (ndata,):
                 raise ValueError("`weights` input should be shaped as (N,)!")
@@ -182,7 +186,6 @@ class KDE(object):
                 raise ValueError("Invalid `weights` entries, all must be finite and > 0!")
 
             weights = np.asarray(weights).astype(float)
-            weights_total = np.sum(weights)
             weights_uniform = False
 
         if neff is None:
@@ -192,8 +195,7 @@ class KDE(object):
                 neff = np.sum(weights)**2 / np.sum(weights**2)
 
         self._weights = weights
-        self._weights_total = weights_total
-        self._weights_uniform = weights_uniform
+        self._weights_uniform = weights_uniform    # currently unused
         self._neff = neff
 
         # Set covariance, bandwidth, distribution and kernel
@@ -241,11 +243,6 @@ class KDE(object):
 
         # Finish Intialization
         # -------------------------------
-        # The first time `edges` are used, they need to be 'checked' for consistency
-        self._check_edges_flag = True
-        self._edges = edges
-        self._diagonal = diagonal
-        self._reflect = reflect
         self._cdf_grid = None
         self._cdf_func = None
 
