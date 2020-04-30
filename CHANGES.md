@@ -33,9 +33,19 @@
   - `__init__.py`
     - `corner()`  [NEW-METHOD]
       - New top-level API method for constructing corner plots using either a dataset or KDE instance.
+    - `density()`  [NEW-METHOD]
+      - Interface to `KDE.density()`
+    - `resample()`  [NEW-METHOD]
+      - Interface to `KDE.resample()`
   - `kde.py`  <==  `kde_base.py`  [RENAME]
     - Improved how 'edges' are constructed.  Constructs `extrema` based on input data, and uses `utils.parse_edges` to construct edges.
     - `_guess_edges()`  [REMOVED]
+    - `KDE`
+      - `density()`  [NEW-METHOD]
+        - Calculate density using KDE, where 'density' can either be number density or probability density (i.e. 'pdf').
+      - `pdf()`
+        - Now calls `density()` using `probability=True`.
+  - `kernels.py`
   - `plot.py`
     - Methods for constructing "corner" plots (based strongly on Dan Foreman-Mackey's `corner` package).
     - `Corner`

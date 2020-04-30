@@ -39,32 +39,59 @@ del _path
 # High Level API Functions
 # -----------------------------------
 
-def pdf(data, edges=None, reflect=None, **kwargs):
-    """Use a KDE to calculate a PDF of the given data.
+def density(data, edges=None, reflect=None, probability=False, **kwargs):
+    """Use a KDE to calculate the density of the given data.
 
     Arguments
     ---------
-    edges : array_like of scalar or None
+    points : array_like of scalar or None
         Locations at which to evaluate the PDF.
     kwargs : dict
         Additional key-value pair arguments passed to the `KDE.__init__` constructor.
 
     Returns
     -------
-    edges : (N,) array_like of scalar
+    points : (N,) array_like of scalar
         Locations at which the PDF is evaluated.
     vals : (N,) array_like of scalar
         PDF evaluated at the given points
 
     """
     kde = KDE(data, **kwargs)
-    if edges is None:
-        edges = kde.edges
-
-    vals = kde.pdf(edges, reflect=reflect)
-    return edges, vals
+    points, vals = kde.density(edges, reflect=reflect, probability=probability)
+    return points, vals
 
 
+def pdf(data, points=None, reflect=None, **kwargs):
+    """Use a KDE to calculate the probability-density of the given data.
+
+    Arguments
+    ---------
+    points : array_like of scalar or None
+        Locations at which to evaluate the PDF.
+    kwargs : dict
+        Additional key-value pair arguments passed to the `KDE.__init__` constructor.
+
+    Returns
+    -------
+    points : (N,) array_like of scalar
+        Locations at which the PDF is evaluated.
+    vals : (N,) array_like of scalar
+        PDF evaluated at the given points
+
+    """
+    return density(data, points=points, reflect=reflect, probability=True, **kwargs)
+
+
+def resample(data, size=None, reflect=None, keep=None, **kwargs):
+    """Use a KDE to resample from a reconstructed density function of the given data.
+    """
+    kde = KDE(data, reflect=reflect, **kwargs)
+    samps = kde.resample(size=size, keep=keep)
+    return samps
+
+
+'''
 def cdf(data, edges=None, **kwargs):
     """Use a KDE to calculate a CDF of the given data.
 
@@ -94,3 +121,4 @@ def cdf(data, edges=None, **kwargs):
 
     vals = kde.cdf(edges)
     return edges, vals
+'''

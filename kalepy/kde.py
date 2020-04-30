@@ -121,10 +121,10 @@ class KDE(object):
     >>> ks, pv = sp.stats.ks_2samp(data, samp)
     >>> pv > 0.05
     True
-    >>> print("p-value: {:.1e}".format(pv))
-    p-value: 9.5e-01
 
     """
+
+    _EDGE_REFINEMENT = 10.0
 
     def __init__(self, dataset, bandwidth=None, weights=None, kernel=None,
                  extrema=None, edges=None, reflect=None,
@@ -249,14 +249,14 @@ class KDE(object):
         self._finalize()
         return
 
-    def pdf(self, pnts=None, reflect=None, params=None):
-        """Evaluate the kernel-density-estimate PDF at the given data-points.
+    def density(self, points=None, reflect=None, params=None, probability=False):
+        """Evaluate the KDE distribution at the given data-points.
 
         This method acts as an API to the `Kernel.pdf` method for this instance's `kernel`.
 
         Arguments
         ---------
-        pnts : ([D,]M,) array_like of float
+        points : ([D,]M,) array_like of float
             The locations at which the PDF should be evaluated.  The number of dimensions `D` must
             match that of the `dataset` that initialized this class' instance.
             NOTE: If the `params` kwarg (see below) is given, then only those dimensions of the
@@ -274,11 +274,43 @@ class KDE(object):
         """
         if reflect is None:
             reflect = self._reflect
-        if pnts is None:
-            pnts = self.edges
+        if points is None:
+            points = self.edges
 
-        result = self.kernel.pdf(pnts, self.dataset, self.weights, reflect=reflect, params=params)
-        return result
+        result = self.kernel.pdf(points, self.dataset, self.weights, reflect=reflect, params=params)
+        if probability:
+            if self.weights is None:
+                result = result / self.ndata
+            else:
+                result = result / np.sum(self.weights)
+
+        return points, result
+
+    def pdf(self, points, reflect=None, params=None):
+        """Evaluate the kernel-density-estimate PDF at the given data-points.
+
+        This method acts as an API to the `Kernel.pdf` method for this instance's `kernel`.
+
+        Arguments
+        ---------
+        points : ([D,]M,) array_like of float
+            The locations at which the PDF should be evaluated.  The number of dimensions `D` must
+            match that of the `dataset` that initialized this class' instance.
+            NOTE: If the `params` kwarg (see below) is given, then only those dimensions of the
+            target parameters should be specified in `pnts`.
+
+        reflect : (D,) array_like, None (default)
+            Locations at which reflecting boundary conditions should be imposed.
+            For each dimension `D`, a pair of boundary locations (for: lower, upper) must be
+            specified, or `None`.  `None` can also be given to specify no boundary at that
+            location.  See class docstrings:`Reflection` for more information.
+        params : int, array_like of int, None (default)
+            Only calculate the PDF for certain parameters (dimensions).
+            See class docstrings:`Projection` for more information.
+
+        """
+        points, pdf = self.density(points=points, reflect=reflect, params=params, probability=True)
+        return pdf
 
     def pdf_grid(self, edges, reflect=None, params=None):
         """Convenience method to compute the PDF given the edges of a grid in each dimension.
@@ -452,9 +484,14 @@ class KDE(object):
 
         warn = False
 
-        if np.any(offd != 0.0):
-            d_vals = np.log10(np.fabs(diag))
-            o_vals = np.log10(np.fabs(offd))
+        # if np.any(np.isclose(diag, 0.0)):
+        #     err = "Diagonal matrix elements zero!  {}".format(diag)
+        #     logging.warning(err)
+
+        # if np.any(offd != 0.0):
+        if not np.all(np.isclose(offd, 0.0)):
+            d_vals = np.log10(np.fabs(diag[diag != 0.0]))
+            o_vals = np.log10(np.fabs(offd[offd != 0.0]))
             if np.all(d_vals <= WARN_ALL_BELOW) and np.all(o_vals <= WARN_ALL_BELOW):
                 logging.warning("Covariance matrix:\n" + str(mat))
                 logging.warning("All matrix elements are less than 1e{}!".format(WARN_ALL_BELOW))
@@ -503,8 +540,8 @@ class KDE(object):
         #   whether the kernel is finite or not (see `KDE.__init__`)
         extrema = self.extrema
         edges = utils.parse_edges(
-            self.dataset, edges=self._edges,
-            extrema=extrema, weights=self.weights, nmin=3, nmax=200, pad=0)
+            self.dataset, edges=self._edges, extrema=extrema, weights=self.weights,
+            nmin=3, nmax=200, pad=0, refine=self._EDGE_REFINEMENT)
 
         # If input `data` to KDE is given as 1D array, then give 1D edges (instead of `(1, E)`)
         if self._squeeze:
