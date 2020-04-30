@@ -63,7 +63,7 @@ class Corner:
         if isinstance(kde_data, KDE):
             kde = kde_data
             data = kde.dataset
-            weights = None if kde._uniform_weights else kde.weights
+            weights = None if kde._weights_uniform else kde.weights
             size = len(data)
         elif np.isscalar(kde_data):
             size = kde_data
