@@ -35,6 +35,7 @@ class Kernel(object):
         bandwidth = np.atleast_2d(bandwidth)
         covariance = np.atleast_2d(covariance)
         matrix = covariance * np.square(bandwidth)
+
         self._ndim = np.shape(matrix)[0]
         self._matrix = matrix
         self._bandwidth = bandwidth
@@ -79,7 +80,7 @@ class Kernel(object):
                 raise ValueError(err)
 
         # Make sure shape/values of reflect look okay
-        reflect = self._check_reflect(reflect, data, weights)
+        reflect = _check_reflect(reflect, data, weights=weights)
 
         # Calculate PDF
         # -----------------------
@@ -158,7 +159,7 @@ class Kernel(object):
         white_points = np.dot(whitening, pnts)
 
         if weights is None:
-            weights = np.ones_like(result)
+            weights = np.ones(num_data, dtype=np.float)
 
         for ii in range(num_data):
             yy = white_points - white_dataset[:, ii, np.newaxis]
@@ -218,7 +219,7 @@ class Kernel(object):
         # Make sure `reflect` matches
         if reflect is not None:
             # This is now either (D,) [and contains `None` values] or (D,2)
-            reflect = self._check_reflect(reflect, data, weights)
+            reflect = _check_reflect(reflect, data, weights=weights)
 
         # Perform resampling
         # -------------------------------
@@ -404,66 +405,6 @@ class Kernel(object):
         # Expand the reflection bounds based on the bandwidth interval
         trunc = bounds + qnts
         return trunc
-
-    def _check_reflect(self, reflect, data, weights):
-        """Make sure the given `reflect` argument is valid given the data shape
-        """
-        if reflect is None:
-            return reflect
-
-        # NOTE: FIX: Should this happen in the method that calls `_check_reflect`?
-        data = np.atleast_2d(data)
-        reflect = np.atleast_2d(data)
-
-        ndim, nval = np.shape(data)
-        if len(reflect) != ndim:
-            err = "`reflect` ({},) must match the data with ({}) parameters!".format(
-                len(reflect), ndim)
-            raise ValueError(err)
-
-        if not np.all([(ref is None) or len(ref) == 2 for ref in reflect]):
-            raise ValueError("each row of `reflect` must be `None` or have shape (2,)!")
-
-        # Perform additional diagnostics
-        for ii in range(ndim):
-            if np.all(np.array(reflect[ii]) != None) and (reflect[ii][0] >= reflect[ii][1]):  # noqa
-                err = "Reflect is out of order:  `reflect`[{}] = {}  !".format(ii, reflect[ii])
-                raise ValueError(err)
-
-            if self._helper:
-                # Warn if any datapoints are outside of reflection bounds
-                bads = utils.bound_indices(data[ii, :], reflect[ii], outside=True)
-                if np.any(bads):
-                    frac = np.sum(weights[bads]) / np.sum(weights)
-                    msg = ("A fraction {:.2e} of data[{}] ".format(frac, ii) +
-                           " are outside of `reflect` bounds!")
-                    logging.warning(msg)
-                    msg = (
-                        "`reflect[{}]` = {}; ".format(ii, reflect[ii]) +
-                        "`data[{}]` = {}".format(ii, utils.stats_str(data[ii], weights=weights))
-                    )
-                    logging.warning(msg)
-                    logging.warning("I hope you know what you're doing.")
-
-                # Warn if bandwidth is comparable to area in-bounds
-                if np.all(np.array(reflect[ii]) != None):   # noqa
-                    width = np.diff(reflect[ii])[0]
-                    bw = np.sqrt(self.matrix[ii, ii])
-                    rat = width / bw
-                    thresh = 1.0 if self.FINITE else 2.0
-                    if rat < thresh:
-                        msg = (
-                            "The bandwidth[{}] = {:.2e} is comparable ".format(ii, bw) +
-                            "to the area within reflect = {:.2e}!".format(width)
-                        )
-                        logging.warning(msg)
-                        msg = ""
-                        if not self.FINITE:
-                            msg += "consider using a kernel with finite-support, or "
-                        msg += "consider setting `keep={}`".format(ii)
-                        logging.warning(msg.capitalize())
-
-        return reflect
 
     @classmethod
     def _cov_keep_vars(cls, matrix, keep, reflect=None):
@@ -878,3 +819,57 @@ def _nball_vol(ndim, rad=1.0):
     vol = np.pi**(ndim/2)
     vol = (rad**ndim) * vol / sp.special.gamma((ndim/2) + 1)
     return vol
+
+
+def _check_reflect(reflect, data, weights=None, helper=False):
+    """Make sure the given `reflect` argument is valid given the data shape
+    """
+    if reflect is None:
+        return reflect
+
+    # NOTE: FIX: Should this happen in the method that calls `_check_reflect`?
+    data = np.atleast_2d(data)
+    ndim, nval = np.shape(data)
+    if (len(reflect) == 2) and (ndim == 1):
+        reflect = np.atleast_2d(reflect)
+
+    if (len(reflect) != ndim):  # and not ((len(reflect) == 2) and (ndim == 1)):
+        err = "`reflect` ({},) must match the data with ({}) parameters!".format(
+            len(reflect), ndim)
+        raise ValueError(err)
+
+    try:
+        goods = [(ref is None) or len(ref) == 2 for ref in reflect]
+    except TypeError as err:
+        err = "Invalid `reflect` argument: Error: '{}'".format(err)
+        raise ValueError(err)
+
+    if not np.all(goods):
+        err = "each row of `reflect` must be `None` or have shape (2,)!  '{}'".format(reflect)
+        raise ValueError(err)
+
+    # Perform additional diagnostics
+    for ii in range(ndim):
+        if np.all(np.array(reflect[ii]) != None) and (reflect[ii][0] >= reflect[ii][1]):  # noqa
+            err = "Reflect is out of order:  `reflect`[{}] = {}  !".format(ii, reflect[ii])
+            raise ValueError(err)
+
+        if helper:
+            # Warn if any datapoints are outside of reflection bounds
+            bads = utils.bound_indices(data[ii, :], reflect[ii], outside=True)
+            if np.any(bads):
+                if weights is None:
+                    frac = np.count_nonzero(bads) / bads.size
+                else:
+                    frac = np.sum(weights[bads]) / np.sum(weights)
+                msg = ("A fraction {:.2e} of data[{}] ".format(frac, ii) +
+                       " are outside of `reflect` bounds!")
+                logging.warning(msg)
+                msg = (
+                    "`reflect[{}]` = {}; ".format(ii, reflect[ii]) +
+                    "`data[{}]` = {}".format(ii, utils.stats_str(data[ii], weights=weights))
+                )
+                logging.warning(msg)
+                logging.warning("I hope you know what you're doing.")
+
+    return reflect
