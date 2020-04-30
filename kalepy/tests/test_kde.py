@@ -318,7 +318,8 @@ class Test_KDE_Resample(object):
             # Make sure the two distributions resemble eachother
             ks, pv = sp.stats.ks_2samp(samp_1d, samp_2d)
             # Calibrated to the above seed-value of `9235`
-            assert_true(pv > 0.5)
+            print("{}, pv = {}".format(ii, pv))
+            assert_true(pv > 0.05)
 
         return
 
@@ -343,7 +344,10 @@ class Test_KDE_Resample(object):
         # Add an array of uniform values at location `ii`, make sure they are preserved in resample
         for ii in range(3):
             test = np.array(data)
-            test = np.insert(test, ii, norm*np.ones_like(test[0]), axis=0)
+            tt = norm * np.ones_like(test[0])
+            idx = np.random.choice(tt.size, tt.size//2)
+            tt[idx] *= -1
+            test = np.insert(test, ii, tt, axis=0)
 
             # Construct KDE
             kde3d = kale.KDE(test)
@@ -352,7 +356,7 @@ class Test_KDE_Resample(object):
             samples = kde3d.resample(NUM, keep=ii)
             # Make sure the uniform values are still the same
             param_samp = samples[ii]
-            assert_true(np.allclose(param_samp, norm))
+            assert_true(np.all(np.isclose(param_samp, norm) | np.isclose(param_samp, -norm)))
 
             # Make sure the other two parameters are consistent (KS-test) with input data
             samples = np.delete(samples, ii, axis=0)
@@ -363,7 +367,7 @@ class Test_KDE_Resample(object):
                 print("\t" + kale.utils.stats_str(stuff[0]))
                 print("\t" + kale.utils.stats_str(stuff[1]))
                 print(msg)
-                assert_true(pv > 0.01)
+                assert_true(pv > 0.05)
 
         return
 
