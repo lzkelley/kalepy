@@ -39,7 +39,7 @@ del _path
 # High Level API Functions
 # -----------------------------------
 
-def density(data, edges=None, reflect=None, probability=False, **kwargs):
+def density(data, points=None, weights=None, reflect=None, probability=False, **kwargs):
     """Use a KDE to calculate the density of the given data.
 
     Arguments
@@ -58,11 +58,11 @@ def density(data, edges=None, reflect=None, probability=False, **kwargs):
 
     """
     kde = KDE(data, **kwargs)
-    points, vals = kde.density(edges, reflect=reflect, probability=probability)
+    points, vals = kde.density(points, weights=weights, reflect=reflect, probability=probability)
     return points, vals
 
 
-def pdf(data, points=None, reflect=None, **kwargs):
+def pdf(data, points=None, weights=None, reflect=None, **kwargs):
     """Use a KDE to calculate the probability-density of the given data.
 
     Arguments
@@ -80,13 +80,14 @@ def pdf(data, points=None, reflect=None, **kwargs):
         PDF evaluated at the given points
 
     """
-    return density(data, points=points, reflect=reflect, probability=True, **kwargs)
+    pdf = density(data, points=points, weights=weights, reflect=reflect, probability=True, **kwargs)
+    return pdf
 
 
-def resample(data, size=None, reflect=None, keep=None, **kwargs):
+def resample(data, size=None, weights=None, reflect=None, keep=None, **kwargs):
     """Use a KDE to resample from a reconstructed density function of the given data.
     """
-    kde = KDE(data, reflect=reflect, **kwargs)
+    kde = KDE(data, weights=weights, reflect=reflect, **kwargs)
     samps = kde.resample(size=size, keep=keep)
     return samps
 
