@@ -10,7 +10,13 @@ import scipy.linalg  # noqa
 
 
 def add_cov(data, cov):
-    color_mat = sp.linalg.cholesky(cov)
+    try:
+        color_mat = sp.linalg.cholesky(cov)
+    except Exception:
+        logging.error("Cholesky decomposition failed!")
+        logging.error("cov matrix: {}".format(cov))
+        raise
+
     color_data = np.dot(color_mat.T, data)
     return color_data
 
@@ -429,8 +435,6 @@ def _get_edges_1d(edges, data, extrema, ndim, nmin, nmax, pad, weights=None, ref
         ndim=ndim, num_min=nmin, num_max=nmax, refine=refine)
     if num_bins is None:
         num_bins = _num_bins
-
-    print("data = ", np.shape(data), " ==> num bins = ", num_bins)
 
     if pad is not None:
         pad_width = pad * bin_width
