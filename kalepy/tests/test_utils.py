@@ -43,6 +43,140 @@ class Test_Bound_Indices(utils.Test_Base):
         return
 
 
+class Test_Histogram(object):
+
+    @classmethod
+    def setup_class(cls):
+        np.random.seed(9865)
+
+        num_points = 20
+
+        cls.bins = [
+            13,
+            np.linspace(-1.0, 1.0, 11),
+        ]
+
+        cls.data = [
+            np.ones(num_points),
+            np.random.uniform(-1, 1, num_points),
+            np.random.poisson(size=num_points) / np.sqrt(num_points),
+        ]
+
+        cls.weights = [
+            None,
+            np.ones(num_points),
+            np.ones(num_points) / num_points,
+            np.random.uniform(0.0, 10.0, num_points),
+        ]
+        return
+
+    def test_hist_dens_prob(self):
+        for weights in self.weights:
+            self._test_hist_dens_prob(weights)
+
+        return
+
+    def _test_hist_dens_prob(self, weights):
+        for data in self.data:
+            for bins in self.bins:
+                hh, ee = utils.histogram(data, bins,
+                                         weights=weights, density=True, probability=True)
+                hh_true, ee_true = np.histogram(data, bins, weights=weights, density=True)
+
+                if not np.all(ee == ee_true):
+                    print("edges     = ", ee)
+                    print("    truth = ", ee_true)
+                    raise ValueError("Edges do not match!")
+
+                bads = ~np.isclose(hh, hh_true)
+                if np.any(bads):
+                    print("hist      = ", hh)
+                    print("    truth = ", hh_true)
+                    raise ValueError("Histograms do not match!")
+
+        return
+
+    def test_hist(self):
+        for weights in self.weights:
+            self._test_hist(weights)
+
+        return
+
+    def _test_hist(self, weights):
+        for data in self.data:
+            for bins in self.bins:
+                hh, ee = utils.histogram(data, bins,
+                                         weights=weights, density=False, probability=False)
+                hh_true, ee_true = np.histogram(data, bins, weights=weights, density=False)
+
+                if not np.all(ee == ee_true):
+                    print("edges     = ", ee)
+                    print("    truth = ", ee_true)
+                    raise ValueError("Edges do not match!")
+
+                bads = ~np.isclose(hh, hh_true)
+                if np.any(bads):
+                    print("hist      = ", hh)
+                    print("    truth = ", hh_true)
+                    raise ValueError("Histograms do not match!")
+
+        return
+
+    def test_hist_dens(self):
+        for weights in self.weights:
+            self._test_hist_dens(weights)
+
+        return
+
+    def _test_hist_dens(self, weights):
+        for data in self.data:
+            for bins in self.bins:
+                hh, ee = utils.histogram(data, bins,
+                                         weights=weights, density=True, probability=False)
+                hh_true, ee_true = np.histogram(data, bins, weights=weights, density=False)
+                hh_true = hh_true.astype(float) / np.diff(ee_true)
+
+                if not np.all(ee == ee_true):
+                    print("edges     = ", ee)
+                    print("    truth = ", ee_true)
+                    raise ValueError("Edges do not match!")
+
+                bads = ~np.isclose(hh, hh_true)
+                if np.any(bads):
+                    print("hist      = ", hh)
+                    print("    truth = ", hh_true)
+                    raise ValueError("Histograms do not match!")
+
+        return
+
+    def test_hist_prob(self):
+        for weights in self.weights:
+            self._test_hist_prob(weights)
+
+        return
+
+    def _test_hist_prob(self, weights):
+        for data in self.data:
+            for bins in self.bins:
+                hh, ee = utils.histogram(data, bins,
+                                         weights=weights, density=False, probability=True)
+                hh_true, ee_true = np.histogram(data, bins, weights=weights, density=False)
+                hh_true = hh_true.astype(float) / hh_true.sum()
+
+                if not np.all(ee == ee_true):
+                    print("edges     = ", ee)
+                    print("    truth = ", ee_true)
+                    raise ValueError("Edges do not match!")
+
+                bads = ~np.isclose(hh, hh_true)
+                if np.any(bads):
+                    print("hist      = ", hh)
+                    print("    truth = ", hh_true)
+                    raise ValueError("Histograms do not match!")
+
+        return
+
+
 class Test_Midpoints(object):
 
     @classmethod
@@ -527,51 +661,6 @@ class Test_Cumsum(utils.Test_Base):
         for nd in range(1, 5):
             for ax in range(nd):
                 self._test_axis_ndim(nd, ax)
-
-        return
-
-
-class Test_Pre_Pad_Zero(utils.Test_Base):
-
-    def _compare_io(self, inn, out, axis):
-        innsh = np.shape(inn)
-        outsh = np.shape(out)
-        ndim = len(innsh)
-        if axis is None:
-            axis = np.arange(ndim)
-        axis = np.atleast_1d(axis)
-        cut_base = [slice(None) for ii in range(ndim)]
-        for aa in axis:
-            si = innsh[aa]
-            so = outsh[aa]
-            msg = "Output along axis={} is {{fail:}}the correct shape".format(aa)
-            utils.assert_true(so == si+1, msg=msg)
-            cut = [0 if ii == aa else cb for ii, cb in enumerate(cut_base)]
-            msg = "Padding for axis={} is {{fail:}}all zero".format(aa)
-            utils.alltrue(out[tuple(cut)] == 0.0, msg)
-
-        return
-
-    def _test_ndim_axis(self, ndim, axis):
-
-        # Construct a random shape in `ndim` dimensions
-        shape = np.random.randint(2, 7, ndim)
-        # Fill with random values
-        vals = np.random.uniform(-20.0, 20.0, shape)
-
-        res = utils._pre_pad_zero(vals, axis=axis)
-        if axis is None:
-            chk = np.pad(vals, [1, 0])
-            msg = "Output ndim={} without axis does {{fail:}}match numpy result".format(ndim)
-            utils.allclose(res, chk, msg=msg)
-
-        self._compare_io(vals, res, axis)
-        return
-
-    def test(self):
-        for nd in range(1, 5):
-            for ax in [None] + list(range(nd)):
-                self._test_ndim_axis(nd, ax)
 
         return
 

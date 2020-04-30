@@ -21,19 +21,13 @@ _TRUNCATE_INFINITE_KERNELS = 1e-8
 # Default bandwidth calculation method
 _BANDWIDTH_DEFAULT = 'scott'
 
-_PATH_NB_OUT = os.path.join(_path, 'notebooks', 'output')
+_PATH_NB_OUT = os.path.join(_path, os.path.pardir, 'notebooks', 'output')
 
 
 from kalepy import kernels   # noqa
-# from kalepy.kernels import *  # noqa
 from kalepy import utils   # noqa
-# from kalepy.utils import *  # noqa
-
-from kalepy.kde_base import KDE  # noqa
-
-# __all__ = []
-# __all__.extend(kernels.__all__)
-# __all__.extend(utils.__all__)
+from kalepy.kde import KDE  # noqa
+from kalepy.plot import corner  # noqa
 
 del os
 del inn
@@ -45,36 +39,60 @@ del _path
 # High Level API Functions
 # -----------------------------------
 
-def pdf(data, edges=None, reflect=None, **kwargs):
-    """Use a KDE to calculate a PDF of the given data.
+def density(data, points=None, weights=None, reflect=None, probability=False, **kwargs):
+    """Use a KDE to calculate the density of the given data.
 
     Arguments
     ---------
-    edges : array_like of scalar or None
+    points : array_like of scalar or None
         Locations at which to evaluate the PDF.
-        If `None`: edges are constructed using the `KDE._guess_edges()` method.
     kwargs : dict
         Additional key-value pair arguments passed to the `KDE.__init__` constructor.
 
     Returns
     -------
-    edges : (N,) array_like of scalar
+    points : (N,) array_like of scalar
         Locations at which the PDF is evaluated.
     vals : (N,) array_like of scalar
         PDF evaluated at the given points
 
     """
     kde = KDE(data, **kwargs)
-    if edges is None:
-        edges = kde._guess_edges()
-        if len(edges) == 1:
-            import numpy as np
-            edges = np.array(edges).squeeze()
-
-    vals = kde.pdf(edges, reflect=reflect)
-    return edges, vals
+    points, vals = kde.density(points, weights=weights, reflect=reflect, probability=probability)
+    return points, vals
 
 
+def pdf(data, points=None, weights=None, reflect=None, **kwargs):
+    """Use a KDE to calculate the probability-density of the given data.
+
+    Arguments
+    ---------
+    points : array_like of scalar or None
+        Locations at which to evaluate the PDF.
+    kwargs : dict
+        Additional key-value pair arguments passed to the `KDE.__init__` constructor.
+
+    Returns
+    -------
+    points : (N,) array_like of scalar
+        Locations at which the PDF is evaluated.
+    vals : (N,) array_like of scalar
+        PDF evaluated at the given points
+
+    """
+    pdf = density(data, points=points, weights=weights, reflect=reflect, probability=True, **kwargs)
+    return pdf
+
+
+def resample(data, size=None, weights=None, reflect=None, keep=None, **kwargs):
+    """Use a KDE to resample from a reconstructed density function of the given data.
+    """
+    kde = KDE(data, weights=weights, reflect=reflect, **kwargs)
+    samps = kde.resample(size=size, keep=keep)
+    return samps
+
+
+'''
 def cdf(data, edges=None, **kwargs):
     """Use a KDE to calculate a CDF of the given data.
 
@@ -104,3 +122,4 @@ def cdf(data, edges=None, **kwargs):
 
     vals = kde.cdf(edges)
     return edges, vals
+'''

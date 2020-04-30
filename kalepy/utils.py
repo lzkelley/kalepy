@@ -9,18 +9,14 @@ import scipy as sp
 import scipy.linalg  # noqa
 
 
-'''
-__all__ = [
-    'add_cov', 'array_str', 'ave_std', 'bins', 'check_path', 'cumsum', 'cumtrapz', 'midpoints',
-    'minmax', 'modify_exists', 'percentiles', 'rem_cov',
-    'spacing', 'stats_str',
-    'trapz_nd', 'trapz_dens_to_mass'
-]
-'''
-
-
 def add_cov(data, cov):
-    color_mat = sp.linalg.cholesky(cov)
+    try:
+        color_mat = sp.linalg.cholesky(cov)
+    except Exception:
+        logging.error("Cholesky decomposition failed!")
+        logging.error("cov matrix: {}".format(cov))
+        raise
+
     color_data = np.dot(color_mat.T, data)
     return color_data
 
@@ -95,17 +91,6 @@ def alltrue(xx, msg=None):
     return
 
 
-def ave_std(values, weights=None, **kwargs):
-    """
-    Return the weighted average and (biased[1]) standard deviation.
-
-    [1]: i.e. we are dividing by the size `n` of values, not `n-1`.
-    """
-    average = np.average(values, weights=weights, **kwargs)
-    variance = np.average((values - average)**2, weights=weights, **kwargs)
-    return average, np.sqrt(variance)
-
-
 def bins(*args, **kwargs):
     """Calculate `np.linspace(*args)` and return also centers and widths.
 
@@ -144,41 +129,6 @@ def bound_indices(data, bounds, outside=False):
             lo = True if (bnd[0] is None) else (bnd[0] < data[ii, :])
             hi = True if (bnd[1] is None) else (data[ii, :] < bnd[1])
             idx = idx & (lo & hi)
-
-    return idx
-
-
-# NOTE: this is SLOWER
-def _bound_indices(data, bounds, outside=False):
-    """Find the indices of the `data` array that are bounded by the given `bounds`.
-
-    If `outside` is True, then indices for values *outside* of the bounds are returned.
-    """
-    data = np.atleast_2d(data)
-    bounds = np.atleast_2d(bounds)
-    ndim, nvals = np.shape(data)
-    # shape = (ndim, 2, nvals)
-    shape = (ndim, nvals)
-
-    if outside:
-        idx = np.zeros(shape, dtype=int)
-    else:
-        idx = np.ones(shape, dtype=int)
-
-    for ii, bnd in enumerate(bounds):
-        if ((len(bnd) == 1) and (bnd[0] is None)):
-            continue
-
-        if bnd[0] is None:
-            bnd[0] = -np.inf
-        if bnd[1] is None:
-            bnd[1] = +np.inf
-
-        temp = np.searchsorted(bnd, data[ii, :])
-        temp = (temp + outside) % 2
-        idx[ii, :] = temp
-
-    idx = np.product(idx, axis=0).astype(bool)
 
     return idx
 
@@ -276,9 +226,25 @@ def cumtrapz(pdf, edges, prepend=True, axis=None):
 
     # Prepend zeros to output array
     if prepend:
-        cdf = _pre_pad_zero(cdf, axis=axis)
+        ndim = np.ndim(cdf)
+        temp = [1, 0] if axis is None else [0, 0]
+        padding = [temp for ii in range(ndim)]
+        if axis is not None:
+            padding[axis][0] = 1
+        # cdf = _pre_pad_zero(cdf, axis=axis)
+        cdf = np.pad(cdf, padding, constant_values=0)
 
     return cdf
+
+
+def histogram(data, bins=None, weights=None, density=False, probability=False):
+    hist, edges = np.histogram(data, bins=bins, weights=weights)
+    if density:
+        hist = hist.astype(float) / np.diff(edges)
+    if probability:
+        tot = data.size if weights is None else np.sum(weights)
+        hist = hist.astype(float) / tot
+    return hist, edges
 
 
 def matrix_invert(matrix, helper=True):
@@ -333,7 +299,7 @@ def midpoints(data, scale='lin', frac=0.5, axis=-1, squeeze=True):
     return mids
 
 
-def minmax(data, prev=None, stretch=None, log_stretch=None, limit=None):
+def minmax(data, positive=False, prev=None, stretch=None, log_stretch=None, limit=None):
     if prev is not None:
         assert len(prev) == 2, "`prev` must have length 2."
     if limit is not None:
@@ -344,7 +310,8 @@ def minmax(data, prev=None, stretch=None, log_stretch=None, limit=None):
         return prev
 
     # Find extrema
-    minmax = np.array([np.min(data), np.max(data)])
+    idx = (data > 0.0) if positive else slice(None)
+    minmax = np.array([np.min(data[idx]), np.max(data[idx])])
 
     # Add stretch (relative to center point)
     if (stretch is not None) or (log_stretch is not None):
@@ -400,8 +367,130 @@ def modify_exists(path_fname):
     return fname
 
 
-def percentiles(values, percs=None, sigmas=None, weights=None, axis=None, values_sorted=False):
-    """Compute weighted percentiles.
+def parse_edges(data, edges=None, extrema=None, weights=None,
+                nmin=3, nmax=200, pad=None, refine=1.0):
+    """
+    """
+    if np.ndim(data) not in [1, 2]:
+        err = (
+            "`data` (shape: {}) ".format(np.shape(data)) +
+            "must have shape (N,) or (D, N) for `N` data points and `D` parameters!"
+        )
+        raise ValueError(err)
+
+    squeeze = (np.ndim(data) == 1)
+    data = np.atleast_2d(data)
+    npars = np.shape(data)[0]
+
+    if pad is None:
+        pad = 1 if extrema is None else 0
+    extrema = _parse_extrema(data, extrema=extrema, warn=True)
+
+    # If `edges` provides a specification for each dimension, convert to npars*[edges]
+    if (np.ndim(edges) == 0) or (really1d(edges) and (np.size(edges) != npars)):
+        edges = [edges] * npars
+    elif len(edges) != npars:
+        err = "length of `edges` ({}) does not match number of data dimensions ({})!".format(
+            len(edges), npars)
+        raise ValueError(err)
+
+    edges = [_get_edges_1d(edges[ii], data[ii], extrema[ii],
+                           npars, nmin, nmax, pad, weights=weights, refine=refine)
+             for ii in range(npars)]
+
+    if squeeze:
+        edges = np.squeeze(edges)
+
+    return edges
+
+
+def _get_edges_1d(edges, data, extrema, ndim, nmin, nmax, pad, weights=None, refine=1.0):
+    """
+
+    Arguments
+    ---------
+    edges : None, int, or array or scalar
+        Specification for bin-edges.
+        `None` : number of bins is automatically calculated from `data`
+        int : used as number of bins, span is calculated from `data`
+        array : used as fixed bin edges, ignores `data`
+    data : 1D array of scalar
+        Data points from which to calculate bin-edges
+    ndim : `None` or int
+        Number of dimensions of the data-set, used to calculate an effective number of data-points.
+
+    """
+
+    if np.ndim(edges) == 0:
+        num_bins = edges
+    elif really1d(edges):
+        return edges
+    else:
+        err = "1D `edges` (shape: {}) must be `None`, an integer or a 1D array of edges!".format(
+            np.shape(edges))
+        raise ValueError(err)
+
+    _num_bins, bin_width, _span = _guess_edges(
+        data, extrema=extrema, weights=weights,
+        ndim=ndim, num_min=nmin, num_max=nmax, refine=refine)
+    if num_bins is None:
+        num_bins = _num_bins
+
+    if pad is not None:
+        pad_width = pad * bin_width
+        extrema = [extrema[0] - pad_width, extrema[1] + pad_width]
+
+    edges = np.linspace(*extrema, num_bins + 1, endpoint=True)
+    return edges
+
+
+def _guess_edges(data, extrema=None, ndim=None, weights=None,
+                 num_min=None, num_max=None, refine=1.0):
+    if weights is None:
+        num_eff = data.size
+    else:
+        if (not really1d(weights)) or (np.size(weights) != np.size(data)):
+            err = "Shape of `weights` ({}) does not match `data` ({})!".format(
+                np.shape(weights), np.shape(data))
+            raise ValueError(err)
+
+        num_eff = np.sum(weights)**2 / np.sum(weights**2)
+
+    if (ndim is not None) and (num_eff > 100):
+        # num_eff = np.power(num_eff, 1.0 / ndim)
+        _num_eff = num_eff / ndim**2
+        num_eff = np.clip(_num_eff, 100, None)
+
+    if extrema is None:
+        extrema = [data.min(), data.max()]
+    span_width = np.diff(extrema)[0]
+
+    # Sturges histogram bin estimator.
+    w1 = span_width / (np.log2(num_eff) + 1.0)
+    # Freedman-Diaconis histogram bin estimator
+    iqr = iqrange(data, log=False, weights=weights)               # get interquartile range
+    w2 = 2.0 * iqr * num_eff ** (-1.0 / 3.0)
+
+    bin_width = min(w1, w2) / refine
+    if bin_width <= 0.0:
+        raise ValueError("`bin_width` is negative (w1 = {}, w2 = {})!".format(w1, w2))
+
+    num_bins = int(np.ceil(span_width / bin_width))
+    num_bins = np.clip(num_bins, num_min, num_max)
+
+    return num_bins, bin_width, extrema
+
+
+def iqrange(data, log=False, weights=None):
+    """Calculate inter-quartile range of the given data."""
+    if log:
+        data = np.log10(data)
+    iqr = np.subtract(*quantiles(data, percs=[0.75, 0.25], weights=weights))
+    return iqr
+
+
+def quantiles(values, percs=None, sigmas=None, weights=None, axis=None, values_sorted=False):
+    """Compute weighted quartiles.
 
     Taken from `zcode.math.statistics`
     Based on @Alleo answer: http://stackoverflow.com/a/29677616/230468
@@ -423,6 +512,9 @@ def percentiles(values, percs=None, sigmas=None, weights=None, axis=None, values
         Array of percentiles of the weighted input data.
 
     """
+    if (percs is None) and (sigmas is None):
+        raise ValueError("Either `percs` or `sigmas` must be provided!")
+
     values = np.array(values)
     if percs is None:
         percs = sp.stats.norm.cdf(sigmas)
@@ -521,6 +613,13 @@ def spacing(data, scale='log', num=None, dex=10, **kwargs):
     return spaced
 
 
+def stats(data):
+    rv = str(np.shape(data))
+    rv += " - " + array_str(data)
+    rv += " - " + stats_str(data)
+    return rv
+
+
 def stats_str(data, percs=[0.0, 0.16, 0.50, 0.84, 1.00], ave=False, std=False, weights=None,
               format=None, log=False, label_log=True):
     """Return a string with the statistics of the given array.
@@ -583,7 +682,7 @@ def stats_str(data, percs=[0.0, 0.16, 0.50, 0.84, 1.00], ave=False, std=False, w
 
     # Add percentiles
     if percs_flag:
-        tiles = percentiles(data, percs, weights=weights).astype(data.dtype)
+        tiles = quantiles(data, percs, weights=weights).astype(data.dtype)
         out += "(" + ", ".join(form.format(tt) for tt in tiles) + ")"
         out += ", for (" + ", ".join("{:.0f}%".format(100*pp) for pp in percs) + ")"
 
@@ -793,16 +892,6 @@ def _guess_str_format_from_range(arr, prec=2, log_limit=2, allow_int=True):
     return form
 
 
-def _pre_pad_zero(aa, axis=None):
-    if axis is None:
-        return np.pad(aa, [1, 0])
-
-    aa = np.moveaxis(aa, axis, 0)
-    aa = np.concatenate([[np.zeros_like(aa[0])], aa], axis=0)
-    aa = np.moveaxis(aa, 0, axis)
-    return aa
-
-
 def _prep_msg(msg=None):
     if (msg is None) or (msg is True):
         msg_fail = "FAILURE:: arrays do not match!"
@@ -856,3 +945,110 @@ class Test_Base(object):
 
         np.random.seed(object.__getattribute__(self, "DEF_SEED"))
         return value
+
+
+def _parse_extrema(data, extrema=None, warn=True):
+    """Get extrema (min and max) consistent with the given `data`.
+
+    `data` must have shape (D, N) for `D` parameters/dimensions, and `N` data points.
+    `extrema` can be:
+        None: extrema are calculated
+        (2,): extrema taken as the same for each dimension
+        (D, 2): extrema given for each dimension
+
+        In the latter two cases, any values of `extrema` that are 'None' are filled in using
+        extrema from the data.
+
+    """
+
+    # `data` must be shaped as (D, N)
+    if np.ndim(data) != 2:
+        err = "`data` must be shaped (D, N) for `D` dimensions/parameters and `N` data points!"
+        raise ValueError(err)
+
+    npars = np.shape(data)[0]
+
+    data_extrema = [minmax(dd) for dd in data]
+    if extrema is None:
+        extrema = data_extrema
+    else:
+        # Convert from (2,) ==> (D, 2)
+        if np.shape(extrema) == (2,) and really1d(extrema):
+            extrema = [extrema for ii in range(npars)]
+        # If already (D, 2) we're good, keep going
+        elif np.shape(extrema) == (npars, 2):
+            pass
+        # Otherwise bad
+        else:
+            err = "`extrema` shape '{}' unrecognized for {} parameters!".format(
+                np.shape(extrema), npars)
+            raise ValueError(err)
+
+        # Fill in `None` values and check if given `extrema` is out of bounds for data
+        for dd in range(npars):
+            for ii in range(2):
+                if extrema[dd][ii] is None:
+                    extrema[dd][ii] = data_extrema[dd][ii]
+
+            if warn:
+                if (extrema[dd][0] > data_extrema[dd][0]):
+                    msg = "lower `extrema` in dimension {} ({}) is above data min: {}!".format(
+                        dd, extrema[dd][0], data_extrema[dd][0])
+                    logging.warning(msg)
+
+                if (extrema[dd][1] < data_extrema[dd][1]):
+                    msg = "lower `extrema` in dimension {} ({}) is below data max: {}!".format(
+                        dd, extrema[dd][1], data_extrema[dd][1])
+                    logging.warning(msg)
+
+    return extrema
+
+
+'''
+# NOTE: this is SLOWER
+def _bound_indices(data, bounds, outside=False):
+    """Find the indices of the `data` array that are bounded by the given `bounds`.
+
+    If `outside` is True, then indices for values *outside* of the bounds are returned.
+    """
+    data = np.atleast_2d(data)
+    bounds = np.atleast_2d(bounds)
+    ndim, nvals = np.shape(data)
+    # shape = (ndim, 2, nvals)
+    shape = (ndim, nvals)
+
+    if outside:
+        idx = np.zeros(shape, dtype=int)
+    else:
+        idx = np.ones(shape, dtype=int)
+
+    for ii, bnd in enumerate(bounds):
+        if ((len(bnd) == 1) and (bnd[0] is None)):
+            continue
+
+        if bnd[0] is None:
+            bnd[0] = -np.inf
+        if bnd[1] is None:
+            bnd[1] = +np.inf
+
+        temp = np.searchsorted(bnd, data[ii, :])
+        temp = (temp + outside) % 2
+        idx[ii, :] = temp
+
+    idx = np.product(idx, axis=0).astype(bool)
+
+    return idx
+'''
+
+
+'''
+def ave_std(values, weights=None, **kwargs):
+    """
+    Return the weighted average and (biased[1]) standard deviation.
+
+    [1]: i.e. we are dividing by the size `n` of values, not `n-1`.
+    """
+    average = np.average(values, weights=weights, **kwargs)
+    variance = np.average((values - average)**2, weights=weights, **kwargs)
+    return average, np.sqrt(variance)
+'''

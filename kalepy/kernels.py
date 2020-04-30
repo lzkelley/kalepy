@@ -11,11 +11,6 @@ import scipy.stats   # noqa
 from kalepy import utils
 from kalepy import _NUM_PAD, _TRUNCATE_INFINITE_KERNELS
 
-'''
-__all__ = ['Kernel', 'Distribution',
-           'Gaussian', 'Box_Asym', 'Parabola',  # 'Triweight',
-           'get_distribution_class', 'get_all_distribution_classes']
-'''
 
 _INTERP_NUM_PER_STD = int(1e4)
 
@@ -40,6 +35,7 @@ class Kernel(object):
         bandwidth = np.atleast_2d(bandwidth)
         covariance = np.atleast_2d(covariance)
         matrix = covariance * np.square(bandwidth)
+
         self._ndim = np.shape(matrix)[0]
         self._matrix = matrix
         self._bandwidth = bandwidth
@@ -48,12 +44,21 @@ class Kernel(object):
         self._norm = None
         return
 
-    def pdf(self, points, data, weights, reflect=None, params=None):
+    def pdf(self, points, data, weights=None, reflect=None, params=None):
+        """Calculate the Density Function using this Kernel.
+
+        Arguments
+        ---------
+        points : tuple of ndarray of float, (D,) for each of `D` dimensions of data
+            Points at which to evaluate the density function.
+            Locations must be specified for each dimension of the data,
+                or for each of target `params` dimensions of the data.
+
+        """
         pnts = np.atleast_2d(points)
         ndim, nval = np.shape(data)
-        # print("pnts.shape = {}, len(pnts) = {}".format(np.shape(pnts), len(pnts)))
 
-        # Check shape if unput `edges`
+        # If no `params` is given, then using all data dimensions
         if (params is None):
             # Should be edges for all parameters
             if len(pnts) != ndim:
@@ -61,33 +66,40 @@ class Kernel(object):
                        "Provide an arraylike of edges for each dim/param!")
                 err = err.format(len(pnts), ndim)
                 raise ValueError(err)
+        # If `params` are given, we are only examining a subset of dimensions
         else:
             params = np.atleast_1d(params)
-            # Should only be as many edges as target parameters
+            # If `pnts` are given for all dimensions, select those for the target dimensions
+            if len(pnts) == ndim:
+                pnts = [pnts[pp] for pp in params]
+
+            # Make sure `pnts` have the right shape
             if len(params) != len(pnts):
-                err = "length of `params` = '{}', but nparams in `points` = {}!".format(
+                err = "length of `params` = '{}', but `pnts` has {} values!".format(
                     len(params), len(pnts))
                 raise ValueError(err)
 
         # Make sure shape/values of reflect look okay
-        reflect = self._check_reflect(reflect, ndim, data, weights)
+        reflect = _check_reflect(reflect, data, weights=weights)
 
+        # Calculate PDF
+        # -----------------------
         if reflect is None:
-            result = self._pdf_clear(pnts, data, weights, params=params)
+            result = self._pdf_clear(pnts, data, weights=weights, params=params)
         else:
-            result = self._pdf_reflect(pnts, data, weights, reflect)
+            if params is not None:
+                raise NotImplementedError("`params` argument with `reflect` is not implemented!")
+            result = self._pdf_reflect(pnts, data, reflect, weights=weights)
 
-        # print("Kernel.pdf(): result.shape = {}".format(result.shape))
         return result
 
-    def _pdf_clear(self, pnts, data, weights, params=None):
+    def _pdf_clear(self, pnts, data, weights=None, params=None):
         """
 
         If parameters are being selected (i.e. `params` is not None):
           - `pnts` should reflect only the *target* parameters.
 
         """
-        # print("Kernel._pdf_clear()::")
         matrix_inv = self.matrix_inv
         norm = self.norm
 
@@ -104,9 +116,12 @@ class Kernel(object):
                 npar_data, npar_pnts, params)
             raise ValueError(err)
 
+        if (weights is not None) and (np.shape(weights) != (num_data,)):
+            err = "Shape of `weights` ({}) does not match number of data points ({})!".format(
+                np.shpae(weights), num_data)
+            raise ValueError(err)
+
         whitening = sp.linalg.cholesky(matrix_inv)
-        # print("pnts: ndim = {}, npnts = {}, whitening = {}, weights = {}".format(
-        #     npar_pnts, num_points, np.shape(whitening), np.shape(weights)))
 
         # Construct the whitened sampling points
         white_points = np.dot(whitening, pnts)
@@ -114,20 +129,22 @@ class Kernel(object):
         result = np.zeros((num_points,), dtype=float)
         # Construct the 'whitened' (independent) dataset
         white_dataset = np.dot(whitening, data)
-        # print("data: ndim = {}, npnts = {}, white_dataset = {}, white_points = {}".format(
-        #     npar_data, num_data, np.shape(white_dataset), np.shape(white_points)))
 
-        for ii in range(num_data):
-            yy = white_points - white_dataset[:, ii, np.newaxis]
-            # print(ii, np.shape(yy), yy)
-            temp = weights[ii] * self.distribution.evaluate(yy)
-            result += temp.squeeze()
+        # NOTE: optimize: can the for-loop be sped up?
+        if weights is None:
+            for ii in range(num_data):
+                yy = white_points - white_dataset[:, ii, np.newaxis]
+                result += self.distribution.evaluate(yy).squeeze()
+        else:
+            for ii in range(num_data):
+                yy = white_points - white_dataset[:, ii, np.newaxis]
+                temp = weights[ii] * self.distribution.evaluate(yy)
+                result += temp.squeeze()
 
         result = result / norm
-        # print(params, "result = ", np.shape(result))
         return result
 
-    def _pdf_reflect(self, pnts, data, weights, reflect):
+    def _pdf_reflect(self, pnts, data, reflect, weights=None):
         matrix_inv = self.matrix_inv
         norm = self.norm
 
@@ -140,6 +157,9 @@ class Kernel(object):
         white_dataset = np.dot(whitening, data)
         # Construct the whitened sampling points
         white_points = np.dot(whitening, pnts)
+
+        if weights is None:
+            weights = np.ones(num_data, dtype=np.float)
 
         for ii in range(num_data):
             yy = white_points - white_dataset[:, ii, np.newaxis]
@@ -180,14 +200,15 @@ class Kernel(object):
         result = result / norm
         return result
 
-    def resample(self, data, weights, size=None, keep=None, reflect=None, squeeze=True):
+    def resample(self, data, weights=None, size=None, keep=None, reflect=None, squeeze=True):
         """
         """
         ndim, nval = np.shape(data)
+        # If a `size` (number of resample points) isn't given, use the number of data points
         if size is None:
             size = nval
 
-        size = int(np.floor(size))
+        size = int(size)
 
         # Check if the number of samples being drawn is near the limit imposed by truncation
         trunc_num = int(1/_TRUNCATE_INFINITE_KERNELS)
@@ -198,21 +219,23 @@ class Kernel(object):
         # Make sure `reflect` matches
         if reflect is not None:
             # This is now either (D,) [and contains `None` values] or (D,2)
-            reflect = self._check_reflect(reflect, ndim, data, weights)
+            reflect = _check_reflect(reflect, data, weights=weights)
 
-        # Have `Distribution` class perform resampling
-        # ---------------------------------------------------
+        # Perform resampling
+        # -------------------------------
         if reflect is None:
-            samples = self._resample_clear(data, weights, size, keep=keep)
+            samples = self._resample_clear(data, size, weights=None, keep=keep)
         else:
-            samples = self._resample_reflect(data, weights, size, reflect, keep=keep)
+            samples = self._resample_reflect(data, size, reflect, weights=weights, keep=keep)
 
         if (ndim == 1) and squeeze:
             samples = samples.squeeze()
 
         return samples
 
-    def _resample_clear(self, data, weights, size, matrix=None, keep=None):
+    def _resample_clear(self, data, size, weights=None, matrix=None, keep=None):
+        """Resample the given data without reflection.
+        """
         if matrix is None:
             matrix = self.matrix
 
@@ -240,7 +263,9 @@ class Kernel(object):
         samps = means + norm
         return samps
 
-    def _resample_reflect(self, data, weights, size, reflect, keep=None):
+    def _resample_reflect(self, data, size, reflect, weights=None, keep=None):
+        """Resample the given data using reflection.
+        """
         matrix = self.matrix
         # Modify covariance-matrix for any `keep` dimensions
         matrix = self._cov_keep_vars(matrix, keep, reflect=reflect)
@@ -248,11 +273,11 @@ class Kernel(object):
         ndim, nvals = np.shape(data)
 
         # Actually 'reflect' (append new, mirrored points) around the given reflection points
-        # Also construct bounding box for valid data
-        data, weights, bounds = self._reflect_data(data, weights, reflect)
+        #   Also construct bounding box for valid data
+        data, bounds, weights = self._reflect_data(data, reflect, weights=weights)
 
         # Remove data points outside of kernels (or truncated region)
-        data, weights = self._truncate_reflections(data, weights, bounds)
+        data, weights = self._truncate_reflections(data, bounds, weights=weights)
 
         if (self._chunk is not None) and (self._chunk < size):
             num_chunks = int(np.ceil(size/self._chunk))
@@ -260,9 +285,6 @@ class Kernel(object):
         else:
             chunk_size = size
             num_chunks = 1
-
-        # print("size = {}".format(size))
-        # print("chunk_size = {}, num_chunks = {}".format(chunk_size, num_chunks))
 
         # Draw randomly from the given data points, proportionally to their weights
         samps = np.zeros((size, ndim))
@@ -272,11 +294,9 @@ class Kernel(object):
         draw = chunk_size
         fracs = []
         while (num_good < size) and (cnt < MAX * num_chunks):
-            # print(cnt, "draw = {}".format(draw))
             # Draw candidate resample points
             #    set `keep` to None, `matrix` is already modified to account for it
-            trial = self._resample_clear(data, weights, draw, matrix=matrix, keep=None)
-            # print(trial)
+            trial = self._resample_clear(data, draw, weights=weights, matrix=matrix, keep=None)
             # Find the (boolean) indices of values within target boundaries
             idx = utils.bound_indices(trial, bounds)
 
@@ -317,11 +337,17 @@ class Kernel(object):
 
     # ==== Utilities ====
 
-    def _reflect_data(self, data, weights, reflect):
+    def _reflect_data(self, data, reflect, weights=None):
+        """Reflect the given data about the locations specified by `reflect`.
+
+        If input `weights` is None, then returned `weights` are None.
+
+        """
         bounds = np.zeros((data.shape[0], 2))
 
         old_data = np.copy(data)
-        old_weights = np.copy(weights)
+        if weights is not None:
+            old_weights = np.copy(weights)
 
         for ii, reflect_dim in enumerate(reflect):
             if reflect_dim is None:
@@ -340,21 +366,26 @@ class Kernel(object):
                 new_data[ii, :] = loc - (new_data[ii, :] - loc)
                 # NOTE: this returns a copy, so original `data` is *not* changed in-place
                 data = np.append(data, new_data, axis=-1)
-                weights = np.append(weights, old_weights)
+                if weights is not None:
+                    weights = np.append(weights, old_weights)
 
         # Re-normalize the weights
-        weights = weights / np.sum(weights)
-        return data, weights, bounds
+        if weights is not None:
+            weights = weights / np.sum(weights)
 
-    def _truncate_reflections(self, data, weights, bounds):
+        return data, bounds, weights
+
+    def _truncate_reflections(self, data, bounds, weights=None):
         # Determine the bounds outside of which we should truncate
         trunc = self._get_truncation_bounds(bounds)
         # Find the data-points outside of those bounds
         idx = utils.bound_indices(data, trunc)
         # Select only points within truncation bounds
         data = data[:, idx]
-        weights = weights[idx]
-        weights /= np.sum(weights)
+        if weights is not None:
+            weights = weights[idx]
+            weights /= np.sum(weights)
+
         return data, weights
 
     def _get_truncation_bounds(self, bounds):
@@ -374,63 +405,6 @@ class Kernel(object):
         # Expand the reflection bounds based on the bandwidth interval
         trunc = bounds + qnts
         return trunc
-
-    def _check_reflect(self, reflect, ndim, data, weights):
-        if reflect is None:
-            return reflect
-
-        if ndim == 1 and np.ndim(reflect) == 1:
-            reflect = np.atleast_2d(reflect)
-
-        if len(reflect) != ndim:
-            msg = "`reflect` ({}) must have length (D,) = ({},)!".format(
-                len(reflect), ndim)
-            raise ValueError(msg)
-
-        if not np.all([(ref is None) or len(ref) == 2 for ref in reflect]):
-            raise ValueError("each row of `reflect` must be `None` or shape (2,)!")
-
-        # Perform additional diagnostics
-        for ii in range(ndim):
-            if np.all(np.array(reflect[ii]) != None) and (reflect[ii][0] >= reflect[ii][1]): # noqa
-                err = "Reflect has inverted order:  `reflect`[{}] = {}  !".format(ii, reflect[ii])
-                raise ValueError(err)
-
-            if self._helper:
-
-                # Warn if any datapoints are outside of reflection bounds
-                bads = utils.bound_indices(data[ii, :], reflect[ii], outside=True)
-                if np.any(bads):
-                    frac = np.sum(weights[bads]) / np.sum(weights)
-                    msg = ("A fraction {:.2e} of data[{}] ".format(frac, ii) +
-                           " are outside of `reflect` bounds!")
-                    logging.warning(msg)
-                    msg = (
-                        "`reflect[{}]` = {}; ".format(ii, reflect[ii]) +
-                        "`data[{}]` = {}".format(ii, utils.stats_str(data[ii], weights=weights))
-                    )
-                    logging.warning(msg)
-                    logging.warning("I hope you know what you're doing.")
-
-                # Warn if bandwidth is comparable to area in-bounds
-                if np.all(np.array(reflect[ii]) != None):   # noqa
-                    width = np.diff(reflect[ii])[0]
-                    bw = np.sqrt(self.matrix[ii, ii])
-                    rat = width / bw
-                    thresh = 1.0 if self.FINITE else 2.0
-                    if rat < thresh:
-                        msg = (
-                            "The bandwidth[{}] = {:.2e} is comparable ".format(ii, bw) +
-                            "to the area within reflect = {:.2e}!".format(width)
-                        )
-                        logging.warning(msg)
-                        msg = ""
-                        if not self.FINITE:
-                            msg += "consider using a kernel with finite-support, or "
-                        msg += "consider setting `keep={}`".format(ii)
-                        logging.warning(msg.capitalize())
-
-        return reflect
 
     @classmethod
     def _cov_keep_vars(cls, matrix, keep, reflect=None):
@@ -845,3 +819,57 @@ def _nball_vol(ndim, rad=1.0):
     vol = np.pi**(ndim/2)
     vol = (rad**ndim) * vol / sp.special.gamma((ndim/2) + 1)
     return vol
+
+
+def _check_reflect(reflect, data, weights=None, helper=False):
+    """Make sure the given `reflect` argument is valid given the data shape
+    """
+    if reflect is None:
+        return reflect
+
+    # NOTE: FIX: Should this happen in the method that calls `_check_reflect`?
+    data = np.atleast_2d(data)
+    ndim, nval = np.shape(data)
+    if (len(reflect) == 2) and (ndim == 1):
+        reflect = np.atleast_2d(reflect)
+
+    if (len(reflect) != ndim):  # and not ((len(reflect) == 2) and (ndim == 1)):
+        err = "`reflect` ({},) must match the data with ({}) parameters!".format(
+            len(reflect), ndim)
+        raise ValueError(err)
+
+    try:
+        goods = [(ref is None) or len(ref) == 2 for ref in reflect]
+    except TypeError as err:
+        err = "Invalid `reflect` argument: Error: '{}'".format(err)
+        raise ValueError(err)
+
+    if not np.all(goods):
+        err = "each row of `reflect` must be `None` or have shape (2,)!  '{}'".format(reflect)
+        raise ValueError(err)
+
+    # Perform additional diagnostics
+    for ii in range(ndim):
+        if np.all(np.array(reflect[ii]) != None) and (reflect[ii][0] >= reflect[ii][1]):  # noqa
+            err = "Reflect is out of order:  `reflect`[{}] = {}  !".format(ii, reflect[ii])
+            raise ValueError(err)
+
+        if helper:
+            # Warn if any datapoints are outside of reflection bounds
+            bads = utils.bound_indices(data[ii, :], reflect[ii], outside=True)
+            if np.any(bads):
+                if weights is None:
+                    frac = np.count_nonzero(bads) / bads.size
+                else:
+                    frac = np.sum(weights[bads]) / np.sum(weights)
+                msg = ("A fraction {:.2e} of data[{}] ".format(frac, ii) +
+                       " are outside of `reflect` bounds!")
+                logging.warning(msg)
+                msg = (
+                    "`reflect[{}]` = {}; ".format(ii, reflect[ii]) +
+                    "`data[{}]` = {}".format(ii, utils.stats_str(data[ii], weights=weights))
+                )
+                logging.warning(msg)
+                logging.warning("I hope you know what you're doing.")
+
+    return reflect

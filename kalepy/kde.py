@@ -9,8 +9,6 @@ import scipy as sp
 from kalepy import kernels, utils, _NUM_PAD
 from kalepy import _BANDWIDTH_DEFAULT
 
-__all__ = ['KDE']
-
 
 class KDE(object):
     """Core class and primary API for using `Kalepy`, by constructin a KDE based on given data.
@@ -123,12 +121,13 @@ class KDE(object):
     >>> ks, pv = sp.stats.ks_2samp(data, samp)
     >>> pv > 0.05
     True
-    >>> print("p-value: {:.1e}".format(pv))
-    p-value: 9.5e-01
 
     """
 
+    _EDGE_REFINEMENT = 10.0
+
     def __init__(self, dataset, bandwidth=None, weights=None, kernel=None,
+                 extrema=None, edges=None, reflect=None,
                  neff=None, diagonal=False, helper=True, bw_rescale=None, **kwargs):
         """Initialize the `KDE` class with the given dataset and optional specifications.
 
@@ -148,7 +147,7 @@ class KDE(object):
         weights : array_like (N,), None  [optional]
             Weights corresponding to each `dataset` point.  Must match the number of points `N` in
             the `dataset`.
-            If `None`, weights are uniformly set to 1/N for each value.
+            If `None`, weights are uniformly set to 1.0 for each value.
         kernel : str, Distribution, None  [optional]
             The distribution function that should be used for the kernel.  This can be a `str`
             specification that must match one of the existing distribution functions, or this can
@@ -165,42 +164,48 @@ class KDE(object):
 
         """
         self._helper = helper
+        self._squeeze = (np.ndim(dataset) == 1)
         self._dataset = np.atleast_2d(dataset)
         ndim, ndata = self.dataset.shape
-        if weights is None:
-            weights = np.ones(ndata)/ndata
-        bw_method = kwargs.pop('bw_method', None)
-        if bw_method is not None:
-            logging.info("Use `bandwidth` argument instead of `bw_method`")
-            if bandwidth is not None:
-                err = "Use only the `bandwidth` argument, not `bw_method` also!"
-                raise ValueError(err)
-            bandwidth = bw_method
-            del bw_method
+        self._ndim = ndim
+        self._ndata = ndata
+        self._diagonal = diagonal
+        self._reflect = reflect
+        # The first time `edges` are used, they need to be 'checked' for consistency
+        self._check_edges_flag = True
+        self._edges = edges
+
+        # Set `weights`
+        # --------------------------------
+        weights_uniform = True
+        if weights is not None:
+            if np.shape(weights) != (ndata,):
+                raise ValueError("`weights` input should be shaped as (N,)!")
+
+            if np.count_nonzero(weights) == 0 or np.any(~np.isfinite(weights) | (weights < 0)):
+                raise ValueError("Invalid `weights` entries, all must be finite and > 0!")
+
+            weights = np.asarray(weights).astype(float)
+            weights_uniform = False
+
+        if neff is None:
+            if weights_uniform:
+                neff = ndata
+            else:
+                neff = np.sum(weights)**2 / np.sum(weights**2)
+
+        self._weights = weights
+        self._weights_uniform = weights_uniform    # currently unused
+        self._neff = neff
+
+        # Set covariance, bandwidth, distribution and kernel
+        # -----------------------------------------------------------
+        covariance = np.cov(dataset, rowvar=True, bias=False, aweights=weights)
+        self._covariance = np.atleast_2d(covariance)
 
         if bandwidth is None:
             bandwidth = _BANDWIDTH_DEFAULT
 
-        self._diagonal = diagonal
-        self._ndim = ndim
-        self._ndata = ndata
-
-        if np.count_nonzero(weights) == 0 or np.any(~np.isfinite(weights) | (weights < 0)):
-            raise ValueError("Invalid `weights` entries, all must be finite and > 0!")
-        weights = np.atleast_1d(weights).astype(float)
-        weights /= np.sum(weights)
-        if np.shape(weights) != (ndata,):
-            raise ValueError("`weights` input should be shaped as (N,)!")
-
-        self._weights = weights
-
-        if neff is None:
-            neff = 1.0 / np.sum(weights**2)
-
-        self._neff = neff
-
-        covariance = np.cov(dataset, rowvar=True, bias=False, aweights=weights)
-        self._covariance = np.atleast_2d(covariance)
         self._set_bandwidth(bandwidth, bw_rescale)
 
         # Convert from string, class, etc to a kernel
@@ -209,71 +214,49 @@ class KDE(object):
             distribution=dist, bandwidth=self._bandwidth, covariance=self._covariance,
             helper=helper, **kwargs)
 
-        self._finalize()
+        # Get Distribution Extrema
+        # ------------------------------------
+        # Determine the effective minima / maxima that should be used; KDE generally has support
+        #   outside of the data values themselves.
+
+        # If the Kernel is finite, then there is only support out to `bandwidth` beyond datapoints
+        if self.kernel.FINITE:
+            out = (1.0 + _NUM_PAD)
+        # If infinite kernel, how many standard-deviations can we expect values to lie at
+        else:
+            out = sp.stats.norm.ppf(1.0 - 1.0/neff)
+            # Extra to be double sure...
+            out *= 1.2
+
+        # Find the effective-extrema in each dimension, to be used if `extrema` is not specified
+        _bandwidth = np.sqrt(self.kernel.matrix.diagonal())
+        eff_extrema = [
+            [np.min(dd) - bw*out, np.max(dd) + bw*out]
+            for bw, dd in zip(_bandwidth, self.dataset)
+        ]
+
+        if (extrema is None) and (reflect is not None):
+            extrema = reflect
+
+        extrema = utils._parse_extrema(eff_extrema, extrema, warn=helper)
+        self._extrema = extrema
+
+        # Finish Intialization
+        # -------------------------------
         self._cdf_grid = None
         self._cdf_func = None
+
+        self._finalize()
         return
 
-    def _guess_edges(self, nmin=100, nmax=1e4, tot_max=1e8, reflect=None):
-        """Guess good grid edges to resolve the KDE's PDF.
+    def density(self, points=None, reflect=None, params=None, probability=False):
+        """Evaluate the KDE distribution at the given data-points.
 
-        To-Do: this doesn't need to be done on a grid, do something smarter!
-        To-Do: implement reflect (set boundaries to reflect values when given)
-
-        """
-        data = self.dataset
-        neff = self.neff
-        ndim = self.ndim
-        bandwidth = self.kernel.bandwidth.diagonal()
-        finite = self.kernel.FINITE
-        if reflect is not None:
-            raise ValueError("`reflect` is not supported in calculing grid edges!")
-
-        # Number of grid points in each dimension
-        max_per_dim = np.power(tot_max, 1.0/ndim)
-        if max_per_dim < nmin:
-            err = (
-                "Cannot resolve ndim={} dimensions ".format(ndim) +
-                "with at least nmin={:.2e} ".format(nmin) +
-                "points and stay below maximum = {:.3e}!".format(tot_max)
-            )
-            raise ValueError(err)
-
-        npd = np.power(neff, 1.0/ndim)
-        npd = np.clip(npd, nmin, nmax)
-        npd = np.clip(npd, 0.0, max_per_dim)
-        npd = int(npd)
-        msg = "KDE._guess_edges:: Using {} bins per dimension".format(npd)
-        # print(msg)
-        if self._helper:
-            logging.info(msg)
-
-        # If the Kernel is finite, then there is only support out to `bandwidth` beyond extrema
-        if finite:
-            out = (1.0 + _NUM_PAD)
-        # If infinite, how many standard-deviations can we expect data points to lie at
-        else:
-            out = sp.stats.norm.ppf(1 - 1/neff)
-            # Extra to be double sure...
-            out *= 1.5
-
-        # Find the extrema in each dimension
-        extr = [[np.min(dd) - bw*out, np.max(dd) + bw*out] for bw, dd in zip(bandwidth, data)]
-        edges = [np.linspace(*ex, npd) for ex in extr]
-        msg = "KDE._guess_edges:: extrema = {}".format(
-            ", ".join(["[{:.2e}, {:.2e}]".format(*ex) for ex in extr]))
-        # print(msg)
-
-        return edges
-
-    def pdf(self, pnts, reflect=None, params=None):
-        """Evaluate the kernel-density-estimate PDF at the given data-points.
-
-        This method acts as an API to the `Kernel.pdf` method of this instance's `kernel`.
+        This method acts as an API to the `Kernel.pdf` method for this instance's `kernel`.
 
         Arguments
         ---------
-        pnts : ([D,]M,) array_like of float
+        points : ([D,]M,) array_like of float
             The locations at which the PDF should be evaluated.  The number of dimensions `D` must
             match that of the `dataset` that initialized this class' instance.
             NOTE: If the `params` kwarg (see below) is given, then only those dimensions of the
@@ -289,9 +272,45 @@ class KDE(object):
             See class docstrings:`Projection` for more information.
 
         """
-        result = self.kernel.pdf(pnts, self.dataset, self.weights, reflect=reflect, params=params)
-        # print("KDE.pdf(): result.shape = {}".format(result.shape))
-        return result
+        if reflect is None:
+            reflect = self._reflect
+        if points is None:
+            points = self.edges
+
+        result = self.kernel.pdf(points, self.dataset, self.weights, reflect=reflect, params=params)
+        if probability:
+            if self.weights is None:
+                result = result / self.ndata
+            else:
+                result = result / np.sum(self.weights)
+
+        return points, result
+
+    def pdf(self, points, reflect=None, params=None):
+        """Evaluate the kernel-density-estimate PDF at the given data-points.
+
+        This method acts as an API to the `Kernel.pdf` method for this instance's `kernel`.
+
+        Arguments
+        ---------
+        points : ([D,]M,) array_like of float
+            The locations at which the PDF should be evaluated.  The number of dimensions `D` must
+            match that of the `dataset` that initialized this class' instance.
+            NOTE: If the `params` kwarg (see below) is given, then only those dimensions of the
+            target parameters should be specified in `pnts`.
+
+        reflect : (D,) array_like, None (default)
+            Locations at which reflecting boundary conditions should be imposed.
+            For each dimension `D`, a pair of boundary locations (for: lower, upper) must be
+            specified, or `None`.  `None` can also be given to specify no boundary at that
+            location.  See class docstrings:`Reflection` for more information.
+        params : int, array_like of int, None (default)
+            Only calculate the PDF for certain parameters (dimensions).
+            See class docstrings:`Projection` for more information.
+
+        """
+        points, pdf = self.density(points=points, reflect=reflect, params=params, probability=True)
+        return pdf
 
     def pdf_grid(self, edges, reflect=None, params=None):
         """Convenience method to compute the PDF given the edges of a grid in each dimension.
@@ -318,6 +337,9 @@ class KDE(object):
             Only calculate the PDF for certain parameters (dimensions).
             See class docstrings:`Projection` for more information.
 
+        NOTE: optimize: there are likely much faster methods than broadcasting and flattening,
+                        use a different method to calculate cdf on a grid.
+
         """
         ndim = self.ndim
         # If `edges` is 1D (and not "jagged") then expand to 2D
@@ -343,10 +365,9 @@ class KDE(object):
         coords = np.vstack([xx.ravel() for xx in coords])
         pdf = self.pdf(coords, reflect=reflect, params=params)
         pdf = pdf.reshape(shp)
-        # print("KDE.pdf_grid(): result.shape = {}".format(pdf.shape))
         return pdf
 
-    def cdf(self, pnts):
+    def cdf(self, pnts, params=None, reflect=None):
         """Cumulative Distribution Function based on KDE smoothed data.
 
         Arguments
@@ -360,8 +381,14 @@ class KDE(object):
             CDF Values at the target points
 
         """
+        if params is not None:
+            raise NotImplementedError("`params` is not yet implemented for CDF!")
+
+        if reflect is not None:
+            raise NotImplementedError("`reflect` is not yet implemented for CDF!")
+
         if self._cdf_func is None:
-            edges = self._guess_edges()
+            edges = self.edges
 
             # Calculate PDF at grid locations
             pdf = self.pdf_grid(edges)
@@ -370,6 +397,7 @@ class KDE(object):
             # Normalize to the maximum value
             cdf /= cdf.max()
 
+            edges = np.atleast_2d(edges)
             self._cdf_grid = (edges, cdf)
             self._cdf_func = sp.interpolate.RegularGridInterpolator(
                 *self._cdf_grid, bounds_error=False, fill_value=None)
@@ -380,6 +408,11 @@ class KDE(object):
         return cdf
 
     def cdf_grid(self, edges, **kwargs):
+        """
+
+        NOTE: optimize: there are likely much faster methods than broadcasting and flattening,
+                        use a different method to calculate cdf on a grid.
+        """
         ndim = self.ndim
         if len(edges) != ndim:
             err = "`edges` must be (D,)=({},): an arraylike of edges for each dim/param!"
@@ -451,9 +484,14 @@ class KDE(object):
 
         warn = False
 
-        if np.any(offd != 0.0):
-            d_vals = np.log10(np.fabs(diag))
-            o_vals = np.log10(np.fabs(offd))
+        # if np.any(np.isclose(diag, 0.0)):
+        #     err = "Diagonal matrix elements zero!  {}".format(diag)
+        #     logging.warning(err)
+
+        # if np.any(offd != 0.0):
+        if not np.all(np.isclose(offd, 0.0)):
+            d_vals = np.log10(np.fabs(diag[diag != 0.0]))
+            o_vals = np.log10(np.fabs(offd[offd != 0.0]))
             if np.all(d_vals <= WARN_ALL_BELOW) and np.all(o_vals <= WARN_ALL_BELOW):
                 logging.warning("Covariance matrix:\n" + str(mat))
                 logging.warning("All matrix elements are less than 1e{}!".format(WARN_ALL_BELOW))
@@ -489,6 +527,33 @@ class KDE(object):
     @property
     def dataset(self):
         return self._dataset
+
+    @property
+    def edges(self):
+        # The values of `self._edges` set during initialization can be general specifications
+        # for bin-edges instead of the bin-edges themselves.  So they need to be "checked" the
+        # first time
+        if (self._edges is not None) and (not self._check_edges_flag):
+            return self._edges
+
+        # `extrema` is already set to include preset `reflect` values and takes into account
+        #   whether the kernel is finite or not (see `KDE.__init__`)
+        extrema = self.extrema
+        edges = utils.parse_edges(
+            self.dataset, edges=self._edges, extrema=extrema, weights=self.weights,
+            nmin=3, nmax=200, pad=0, refine=self._EDGE_REFINEMENT)
+
+        # If input `data` to KDE is given as 1D array, then give 1D edges (instead of `(1, E)`)
+        if self._squeeze:
+            edges = np.squeeze(edges)
+
+        self._edges = edges
+        self._check_edges_flag = False
+        return self._edges
+
+    @property
+    def extrema(self):
+        return self._extrema
 
     @property
     def kernel(self):

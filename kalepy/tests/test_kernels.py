@@ -12,7 +12,7 @@ from numpy.testing import run_module_suite
 from nose import tools
 
 import kalepy as kale
-from kalepy import utils
+from kalepy import utils, kernels
 
 
 class Test_Kernels_Generic(object):
@@ -160,6 +160,61 @@ def test_kernels_evaluate_nd():
     for kernel in kale.kernels.get_all_distribution_classes():
         print("Testing '{}'".format(kernel))
         Test_Kernels_Generic._test_evaluate_nd(kernel)
+
+    return
+
+
+def _test_check_reflect(ndim, weights_flag):
+    reflects_good = [
+        None,
+        [-1.0, 1.0],
+        [-1.0, None],
+        [None, 1.0],
+        [None, None],
+    ]
+
+    reflects_bad = [
+        [None],
+        10.0,
+        [12.0],
+        [None, 1.0, 2.0],
+        [2.0, 1.0],
+    ]
+
+    ndata = 7
+
+    # Generate data
+    data = []
+    for ii in range(ndim):
+        data.append(np.random.uniform(-1.0, 1.0, ndata))
+
+    weights = np.random.uniform(0.0, 1.0, ndata) if weights_flag else None
+    nref = len(reflects_good)
+    shape = [nref] * ndim
+    for inds in np.ndindex(*shape):
+        reflect = [reflects_good[ii] for ii in inds]
+        print("---------")
+        print("inds = {}, reflect = {}".format(inds, reflect))
+        # Make sure good values do not raise errors, and return the appropriate object
+        ref = kernels._check_reflect(reflect, data, weights=weights)
+        if len(ref) != ndim:
+            err = "Returned reflect has length {}, but ndim = {}!".format(len(ref), ndim)
+            raise ValueError(err)
+
+        # Make sure bad values raise errors
+        for jj, bad in enumerate(reflects_bad):
+            jj = jj % ndim
+            reflect[jj] = bad
+            tools.assert_raises(ValueError, kernels._check_reflect, *(reflect, data, weights))
+
+    return
+
+
+def test_check_reflect():
+
+    for ndim in range(1, 4):
+        for wf in [False, True]:
+            _test_check_reflect(ndim, wf)
 
     return
 

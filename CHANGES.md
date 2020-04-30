@@ -3,7 +3,12 @@
 - Try using `sp.stats.rv_continuous` as base-class for 'Distribution' to provide functionality like 'ppf' etc.
 - `Triweight` kernel is currently NOT-WORKING
   - The distribution is non-unitary for 2D distributions.  This might be a normalization issue when constructing the PDF (i.e. in `Triweight._evaluate()`) --- is this scaling for the nball correct??
-- Differences between covariance-matrix elements of numerous orders of magnitude can cause spurious results, in particular in the PDF marginalized over parameters.  See "KDE::Dynamic Range" docstrings.  Currently this is checked for in the `KDE._finalize()` method, at the end of initialization, and a warning is given if the dynamic range seems too large. 
+- Differences between covariance-matrix elements of numerous orders of magnitude can cause spurious results, in particular in the PDF marginalized over parameters.  See "KDE::Dynamic Range" docstrings.  Currently this is checked for in the `KDE._finalize()` method, at the end of initialization, and a warning is given if the dynamic range seems too large.
+- BUG: calculating marginalized PDF's by integrating over dimensions differs from calculating them directly!
+
+- Implement reflection with target parameters!
+
+- Calculate CDF for particular parameters!
 
 - `kalepy/`
     - Allow for calculating PDF and resampling in only particular dimensions/parameters.
@@ -14,13 +19,67 @@
         - Make sure tests check both cases of `num_points > num_data` and visa-versa (e.g. in PDF calculation).
     - `kernels.py`
         - Use meta-classes to register subclasses of `Distribution`.
-    - `kde_base.py`
+    - `kde.py`
       - `KDE`
-        - Create a method or attribute to construct default `edges` values, like the current `_guess_edges()` method.  Check literature on guessing histogram spacing.
         - Explore more efficient ways of calculating the CDF using the underlying kernels instead of integrating the PDF.
+        - Use different methods for `grid` edges in ND, instead of broadcasting and flattening (inefficient).
+
 
 
 ## Current
+- Improved how 'edges' (both for bins and PDF evaluation) are constructed, especially in multiple dimensions.  `KDE` constructs extrema from the given data and then calls `utils.parse_edges`.
+
+- `kalepy/`
+  - `__init__.py`
+    - `corner()`  [NEW-METHOD]
+      - New top-level API method for constructing corner plots using either a dataset or KDE instance.
+    - `density()`  [NEW-METHOD]
+      - Interface to `KDE.density()`
+    - `resample()`  [NEW-METHOD]
+      - Interface to `KDE.resample()`
+  - `kde.py`  <==  `kde_base.py`  [RENAME]
+    - Improved how 'edges' are constructed.  Constructs `extrema` based on input data, and uses `utils.parse_edges` to construct edges.
+    - `_guess_edges()`  [REMOVED]
+    - `KDE`
+      - `density()`  [NEW-METHOD]
+        - Calculate density using KDE, where 'density' can either be number density or probability density (i.e. 'pdf').
+      - `pdf()`
+        - Now calls `density()` using `probability=True`.
+  - `kernels.py`
+  - `plot.py`
+    - Methods for constructing "corner" plots (based strongly on Dan Foreman-Mackey's `corner` package).
+    - `Corner`
+      - Class for managing corner plots and plotting scatter data or KDE PDFs.
+
+    - `corner_data()`
+      - Higher-level function for constructing a full corner plot given scatter-data.
+    - `draw_carpet()`  <==  `draw_carpet_fuzz()`  [RENAME]
+      - Add `rotate` argument to plot vertically instead of horizontally.
+    - `hist()` [NEW-METHOD]
+      - Calculate histogram using `utils.histogram()`, then draw it using `_draw_hist1d()`.
+    - `utils()`
+      - Add `positive` argument to filter by positive definite values.
+    - `_get_smap()`  <==  `smap()`  [RENAME]
+      - Add `log` argument to specify log-scaling.
+  - `utils.py`
+    - `histogram()`  [NEW-METHOD]
+      - Calculate histograms with both `density` and `probability` parameters (instead of combined like in numpy).
+    - `parse_edges()`
+      - Allow `weights` to be passed for calculating effective number of data points and inter-quartile ranges
+    - `quantiles()`  <==  `percentiles()`
+    - `stats()`  [NEW-METHOD]
+      - Combines `array_str()` and `stats_str()` output.
+    - `_get_edges_1d()`
+      - BUG: avoid negative bin-width for very small number of data points.
+
+- `notebooks/`
+  - `plotting.ipynb`  [NEW-FILE]
+    - For testing and demonstration of plotting methods, especially corner plots.
+  - `kde.ipynb`
+    - Add corner plots using the `corner.py` submodule.
+
+- `convert_notebook_tests.py`  <==  `build_notebook_tests.py`  [RENAME]
+
 
 
 ## v0.3.0 - 2020/04/07
@@ -170,7 +229,7 @@
 
 ## v0.2 – 2019/06/03
 - Module renamed from `kdes` to `kalepy`.
-- Notebooks are now included in travis unit testing. 
+- Notebooks are now included in travis unit testing.
 - Added skeleton for sphinx documentation; not written yet.
 
 - `README.md`
