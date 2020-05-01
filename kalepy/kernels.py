@@ -49,35 +49,13 @@ class Kernel(object):
 
         Arguments
         ---------
-        points : tuple of ndarray of float, (D,) for each of `D` dimensions of data
-            Points at which to evaluate the density function.
+        points : (D, N), 2darray of float,
+            `N` points at which to evaluate the density function over `D` parameters (dimensions).
             Locations must be specified for each dimension of the data,
                 or for each of target `params` dimensions of the data.
 
         """
-        pnts = np.atleast_2d(points)
-        ndim, nval = np.shape(data)
-
-        # If no `params` is given, then using all data dimensions
-        if (params is None):
-            # Should be edges for all parameters
-            if len(pnts) != ndim:
-                err = ("`points` has length {}, but data has {} parameters. "
-                       "Provide an arraylike of edges for each dim/param!")
-                err = err.format(len(pnts), ndim)
-                raise ValueError(err)
-        # If `params` are given, we are only examining a subset of dimensions
-        else:
-            params = np.atleast_1d(params)
-            # If `pnts` are given for all dimensions, select those for the target dimensions
-            if len(pnts) == ndim:
-                pnts = [pnts[pp] for pp in params]
-
-            # Make sure `pnts` have the right shape
-            if len(params) != len(pnts):
-                err = "length of `params` = '{}', but `pnts` has {} values!".format(
-                    len(params), len(pnts))
-                raise ValueError(err)
+        points = _check_points(points, data, params=params)
 
         # Make sure shape/values of reflect look okay
         reflect = _check_reflect(reflect, data, weights=weights)
@@ -85,19 +63,19 @@ class Kernel(object):
         # Calculate PDF
         # -----------------------
         if reflect is None:
-            result = self._pdf_clear(pnts, data, weights=weights, params=params)
+            result = self._pdf_clear(points, data, weights=weights, params=params)
         else:
             if params is not None:
                 raise NotImplementedError("`params` argument with `reflect` is not implemented!")
-            result = self._pdf_reflect(pnts, data, reflect, weights=weights)
+            result = self._pdf_reflect(points, data, reflect, weights=weights)
 
         return result
 
-    def _pdf_clear(self, pnts, data, weights=None, params=None):
+    def _pdf_clear(self, points, data, weights=None, params=None):
         """
 
         If parameters are being selected (i.e. `params` is not None):
-          - `pnts` should reflect only the *target* parameters.
+          - `points` should reflect only the *target* parameters.
 
         """
         matrix_inv = self.matrix_inv
@@ -109,10 +87,14 @@ class Kernel(object):
             params, data, matrix, norm = self._params_subset(data, matrix, params)
             matrix_inv = utils.matrix_invert(matrix, helper=self._helper)
 
-        npar_pnts, num_points = np.shape(pnts)
+        if len(points) == 1 and np.ndim(points) != 2 and not utils.really1d(points):
+            raise ValueError("Point must be (N,) or (D,N)!")
+
+        points = np.atleast_2d(points)
+        npar_pnts, num_points = np.shape(points)
         npar_data, num_data = np.shape(data)
         if npar_pnts != npar_data:
-            err = "`data` nparams ({}) does not match `pnts` ({})!  `params` = '{}'".format(
+            err = "`data` nparams ({}) does not match `points` ({})!  `params` = '{}'".format(
                 npar_data, npar_pnts, params)
             raise ValueError(err)
 
@@ -124,7 +106,7 @@ class Kernel(object):
         whitening = sp.linalg.cholesky(matrix_inv)
 
         # Construct the whitened sampling points
-        white_points = np.dot(whitening, pnts)
+        white_points = np.dot(whitening, points)
 
         result = np.zeros((num_points,), dtype=float)
         # Construct the 'whitened' (independent) dataset
@@ -144,19 +126,19 @@ class Kernel(object):
         result = result / norm
         return result
 
-    def _pdf_reflect(self, pnts, data, reflect, weights=None):
+    def _pdf_reflect(self, points, data, reflect, weights=None):
         matrix_inv = self.matrix_inv
         norm = self.norm
 
         ndim, num_data = np.shape(data)
-        ndim, num_points = np.shape(pnts)
+        ndim, num_points = np.shape(points)
         result = np.zeros((num_points,), dtype=float)
 
         whitening = sp.linalg.cholesky(matrix_inv)
         # Construct the 'whitened' (independent) dataset
         white_dataset = np.dot(whitening, data)
         # Construct the whitened sampling points
-        white_points = np.dot(whitening, pnts)
+        white_points = np.dot(whitening, points)
 
         if weights is None:
             weights = np.ones(num_data, dtype=np.float)
@@ -179,8 +161,8 @@ class Kernel(object):
                 white_dataset = np.dot(whitening, refl_data)
                 # Construct the whitened sampling points
                 #    shape (D,M) i.e. (dimensions, sample-points)
-                pnts = np.array(pnts)
-                white_points = np.dot(whitening, pnts)
+                points = np.array(points)
+                white_points = np.dot(whitening, points)
 
                 if num_points >= num_data:
                     for jj in range(num_data):
@@ -194,7 +176,7 @@ class Kernel(object):
 
             lo = -np.inf if reflect_dim[0] is None else reflect_dim[0]
             hi = +np.inf if reflect_dim[1] is None else reflect_dim[1]
-            idx = (pnts[ii, :] < lo) | (hi < pnts[ii, :])
+            idx = (points[ii, :] < lo) | (hi < points[ii, :])
             result[idx] = 0.0
 
         result = result / norm
@@ -437,7 +419,7 @@ class Kernel(object):
         # NOTE/WARNING: don't sort parameters (Changed 2020-04-07)
         # params = sorted(params)
         # Get rows corresponding to these parameters
-        # sub_pnts = pnts[params, :]
+        # sub_pnts = points[params, :]
         sub_data = data[params, :]
         # Get rows & cols corresponding to these parameters
         sub_mat = matrix[np.ix_(params, params)]
@@ -643,8 +625,8 @@ class Distribution(object):
         return self._SYMMETRIC
 
     @classmethod
-    def inside(cls, pnts):
-        idx = (cls.evaluate(pnts) > 0.0)
+    def inside(cls, points):
+        idx = (cls.evaluate(points) > 0.0)
         return idx
 
 
@@ -675,8 +657,8 @@ class Gaussian(Distribution):
         return samps
 
     @classmethod
-    def inside(cls, pnts):
-        ndim, nvals = np.shape(np.atleast_2d(pnts))
+    def inside(cls, points):
+        ndim, nvals = np.shape(np.atleast_2d(points))
         return np.ones(nvals, dtype=bool)
 
 
@@ -702,11 +684,11 @@ class Box_Asym(Distribution):
         return zz
 
     @classmethod
-    def inside(cls, pnts):
-        pnts = np.atleast_2d(pnts)
-        ndim, nvals = np.shape(pnts)
+    def inside(cls, points):
+        points = np.atleast_2d(points)
+        ndim, nvals = np.shape(points)
         bounds = [[-1.0, 1.0] for ii in range(ndim)]
-        idx = utils.bound_indices(pnts, bounds)
+        idx = utils.bound_indices(points, bounds)
         return idx
 
 
@@ -873,3 +855,36 @@ def _check_reflect(reflect, data, weights=None, helper=False):
                 logging.warning("I hope you know what you're doing.")
 
     return reflect
+
+
+def _check_points(points, data, params=None):
+    """
+
+    Need to end up with (D, N) array of `N` points specified at for each of `D` parameters.
+
+    """
+    data = np.atleast_2d(data)
+    ndim, nval = np.shape(data)
+    points = np.asarray(points)
+    params = params if params is None else np.atleast_1d(params)
+
+    if (points.ndim == 1) and ((ndim == 1) or (params is not None and len(params) == 1)):
+        return points
+
+    if np.ndim(points) != 2:
+        err = "`points` ({}) must be shaped (D,N) for D parameters/dimensions!".format(
+            np.shape(points))
+        raise ValueError(err)
+
+    if params is None:
+        if len(points) != ndim:
+            err = "`points` ({}) must have values for each of {} parameters!".format(
+                points.shape, ndim)
+            raise ValueError(err)
+    else:
+        if len(points) == ndim:
+            points = [points[pp] for pp in params]
+        elif len(points) != len(params):
+            raise ValueError("Tuple `points` must have length ndim or len(params)!")
+
+    return points

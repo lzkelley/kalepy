@@ -57,8 +57,8 @@ def density(data, points=None, weights=None, reflect=None, probability=False, **
         PDF evaluated at the given points
 
     """
-    kde = KDE(data, **kwargs)
-    points, vals = kde.density(points, weights=weights, reflect=reflect, probability=probability)
+    kde = KDE(data, weights=weights, reflect=reflect, **kwargs)
+    points, vals = kde.density(points, probability=probability)
     return points, vals
 
 

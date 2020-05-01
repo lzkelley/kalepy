@@ -238,6 +238,8 @@ def cumtrapz(pdf, edges, prepend=True, axis=None):
 
 
 def histogram(data, bins=None, weights=None, density=False, probability=False):
+    if bins is None:
+        bins = 'auto'
     hist, edges = np.histogram(data, bins=bins, weights=weights)
     if density:
         hist = hist.astype(float) / np.diff(edges)
@@ -978,6 +980,12 @@ def _parse_extrema(data, extrema=None, warn=True):
         # If already (D, 2) we're good, keep going
         elif np.shape(extrema) == (npars, 2):
             pass
+        # If jagged (D,) array
+        elif len(extrema) == npars:
+            if really1d(extrema) or not np.all([(ee is None) or (len(ee) == 2) for ee in extrema]):
+                err = "Each element of jagged `extrema` must be `None` or have length 2!"
+                raise ValueError(err)
+
         # Otherwise bad
         else:
             err = "`extrema` shape '{}' unrecognized for {} parameters!".format(
@@ -986,6 +994,9 @@ def _parse_extrema(data, extrema=None, warn=True):
 
         # Fill in `None` values and check if given `extrema` is out of bounds for data
         for dd in range(npars):
+            if extrema[dd] is None:
+                extrema[dd] = [None, None]
+
             for ii in range(2):
                 if extrema[dd][ii] is None:
                     extrema[dd][ii] = data_extrema[dd][ii]
@@ -1052,3 +1063,31 @@ def ave_std(values, weights=None, **kwargs):
     variance = np.average((values - average)**2, weights=weights, **kwargs)
     return average, np.sqrt(variance)
 '''
+
+
+def _random_data_3d_01(num=1e3):
+    num = int(num)
+
+    sigma = [1.0, 0.2, 1.5]
+    corr = [
+        [+1.4, +0.8, +0.4],
+        [+0.8, +1.0, -0.5],
+        [+0.2, -0.5, +1.0]
+    ]
+
+    cov = np.zeros_like(corr)
+    for (ii, jj), cc in np.ndenumerate(corr):
+        cov[ii, jj] = cc * sigma[ii] * sigma[jj]
+
+    data = np.random.multivariate_normal(np.zeros_like(sigma), cov, num).T
+    dd = data[1, :]
+    dd = (dd - dd.min())/dd.max()
+    data *= np.sqrt(dd)[np.newaxis, :]
+
+    pc = 0
+    extr = [np.percentile(dd, [0+pc, 100-pc]) for dd in data]
+    noise = [np.random.uniform(*ex, num//5) for ex in extr]
+    data = np.append(data, noise, axis=1)
+
+    # data[0, :] = np.fabs(data[0, :])
+    return data

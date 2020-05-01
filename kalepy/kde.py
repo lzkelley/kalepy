@@ -127,7 +127,7 @@ class KDE(object):
     _EDGE_REFINEMENT = 10.0
 
     def __init__(self, dataset, bandwidth=None, weights=None, kernel=None,
-                 extrema=None, edges=None, reflect=None,
+                 extrema=None, points=None, reflect=None,
                  neff=None, diagonal=False, helper=True, bw_rescale=None, **kwargs):
         """Initialize the `KDE` class with the given dataset and optional specifications.
 
@@ -171,9 +171,9 @@ class KDE(object):
         self._ndata = ndata
         self._diagonal = diagonal
         self._reflect = reflect
-        # The first time `edges` are used, they need to be 'checked' for consistency
-        self._check_edges_flag = True
-        self._edges = edges
+        # The first time `points` are used, they need to be 'checked' for consistency
+        self._check_points_flag = True
+        self._points = points
 
         # Set `weights`
         # --------------------------------
@@ -249,7 +249,7 @@ class KDE(object):
         self._finalize()
         return
 
-    def density(self, points=None, reflect=None, params=None, probability=False):
+    def density(self, points=None, reflect=None, params=None, grid=False, probability=False):
         """Evaluate the KDE distribution at the given data-points.
 
         This method acts as an API to the `Kernel.pdf` method for this instance's `kernel`.
@@ -275,7 +275,14 @@ class KDE(object):
         if reflect is None:
             reflect = self._reflect
         if points is None:
-            points = self.edges
+            points = self.points
+            # Convert from grid-edges to flattened-grid
+            grid = (self.ndim > 1)
+
+        if grid:
+            points = utils.meshgrid(*points)
+            shape = np.shape(points[0])
+            points = [pp.flatten() for pp in points]
 
         result = self.kernel.pdf(points, self.dataset, self.weights, reflect=reflect, params=params)
         if probability:
@@ -283,6 +290,9 @@ class KDE(object):
                 result = result / self.ndata
             else:
                 result = result / np.sum(self.weights)
+
+        if grid:
+            result = result.reshape(shape)
 
         return points, result
 
@@ -388,17 +398,17 @@ class KDE(object):
             raise NotImplementedError("`reflect` is not yet implemented for CDF!")
 
         if self._cdf_func is None:
-            edges = self.edges
+            points = self.points
 
             # Calculate PDF at grid locations
-            pdf = self.pdf_grid(edges)
+            pdf = self.pdf_grid(points)
             # Convert to CDF using trapezoid rule
-            cdf = utils.cumtrapz(pdf, edges)
+            cdf = utils.cumtrapz(pdf, points)
             # Normalize to the maximum value
             cdf /= cdf.max()
 
-            edges = np.atleast_2d(edges)
-            self._cdf_grid = (edges, cdf)
+            points = np.atleast_2d(points)
+            self._cdf_grid = (points, cdf)
             self._cdf_func = sp.interpolate.RegularGridInterpolator(
                 *self._cdf_grid, bounds_error=False, fill_value=None)
 
@@ -529,27 +539,27 @@ class KDE(object):
         return self._dataset
 
     @property
-    def edges(self):
-        # The values of `self._edges` set during initialization can be general specifications
+    def points(self):
+        # The values of `self._points` set during initialization can be general specifications
         # for bin-edges instead of the bin-edges themselves.  So they need to be "checked" the
         # first time
-        if (self._edges is not None) and (not self._check_edges_flag):
-            return self._edges
+        if (self._points is not None) and (not self._check_points_flag):
+            return self._points
 
         # `extrema` is already set to include preset `reflect` values and takes into account
         #   whether the kernel is finite or not (see `KDE.__init__`)
         extrema = self.extrema
-        edges = utils.parse_edges(
-            self.dataset, edges=self._edges, extrema=extrema, weights=self.weights,
+        points = utils.parse_edges(
+            self.dataset, edges=self._points, extrema=extrema, weights=self.weights,
             nmin=3, nmax=200, pad=0, refine=self._EDGE_REFINEMENT)
 
-        # If input `data` to KDE is given as 1D array, then give 1D edges (instead of `(1, E)`)
+        # If input `data` to KDE is given as 1D array, then give 1D points (instead of `(1, E)`)
         if self._squeeze:
-            edges = np.squeeze(edges)
+            points = np.squeeze(points)
 
-        self._edges = edges
-        self._check_edges_flag = False
-        return self._edges
+        self._points = points
+        self._check_points_flag = False
+        return self._points
 
     @property
     def extrema(self):

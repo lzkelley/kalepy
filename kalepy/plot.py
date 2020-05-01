@@ -16,6 +16,7 @@ import matplotlib as mpl
 import matplotlib.patheffects  # noqa
 import matplotlib.pyplot as plt
 
+import kalepy as kale
 from kalepy import utils
 from kalepy import KDE
 
@@ -60,7 +61,7 @@ class Corner:
     def __init__(self, kde_data, weights=None, labels=None, **figax_kwargs):
         kde = None
         data = None
-        if isinstance(kde_data, KDE):
+        if isinstance(kde_data, kale.KDE):
             kde = kde_data
             data = kde.dataset
             weights = None if kde._weights_uniform else kde.weights
@@ -134,6 +135,11 @@ class Corner:
         if data is None:
             data = self._data
 
+        kwargs.setdefault('contour', False)
+        kwargs.setdefault('hist2d', False)
+        kwargs.setdefault('scatter', True)
+        kwargs.setdefault('median', False)
+
         return corner_data(axes, data, weights=weights, **kwargs)
 
     def plot_kde(self, axes=None, kde=None, **kwargs):
@@ -141,6 +147,9 @@ class Corner:
             axes = self.axes
         if kde is None:
             kde = self._kde
+
+        kwargs.setdefault('hist2d', False)
+        kwargs.setdefault('median', False)
 
         return corner_kde(axes, kde, **kwargs)
 
@@ -288,7 +297,7 @@ def figax(figsize=[12, 6], nrows=1, ncols=1, scale='linear',
     return fig, axes
 
 
-def corner(kde_data, labels=None, init={}, **kwargs):
+def corner(kde_data, labels=None, data=None, kde=None, init={}, **kwargs):
     if kwargs.pop('edges', None) is not None:
         raise NotImplementedError("`edges` not yet implemented!")
     corner = Corner(kde_data, labels=labels, **init)
@@ -475,7 +484,7 @@ def dist1d_data(ax, edges=None, hist=None, data=None, weights=None,
 def dist2d_data(ax, edges=None, hist=None, data=None, weights=None, sigmas=None,
                 color='k', smap=None, cmap=None,
                 scatter=None, median=None, hist2d=True, contour=True, density=True,
-                pad=True, mask_dense=True, mask_sparse=True):
+                pad=True, mask_dense=None, mask_sparse=True):
 
     if (hist is None) and (data is None):
         raise ValueError("Either `hist` or `data` must be provided!")
@@ -509,6 +518,9 @@ def dist2d_data(ax, edges=None, hist=None, data=None, weights=None, sigmas=None,
     contour = _none_dict(
         contour, 'contour',
         dict(smap=smap, cmap=cmap, color=color, sigmas=sigmas))  # pdf_levels=pdf_levels))
+
+    if mask_dense is None:
+        mask_dense = (hist2d is not None)
 
     # smap, smap_is_log, uniform_color = _parse_smap(smap, color, cmap=cmap)
     # if not isinstance(smap, mpl.cm.ScalarMappable):
@@ -583,7 +595,7 @@ def dist2d_data(ax, edges=None, hist=None, data=None, weights=None, sigmas=None,
 # ================================
 
 
-def corner_kde(axes, kde, edges=None, reflect=None, sigmas=None, levels=None, rotate=True,
+def corner_kde(axes, kde, edges=None, reflect=None, sigmas=None, levels=None, rotate=None,
                median=True, hist2d=True, contour=None, contour1d=True, contour2d=True,
                color='k', smap=None, cmap=None, renormalize=False):
 
@@ -596,8 +608,11 @@ def corner_kde(axes, kde, edges=None, reflect=None, sigmas=None, levels=None, ro
     # if reflect is None:
     #     reflect = [None] * size
 
+    if rotate is None:
+        rotate == (size == 2)
+
     if edges is None:
-        edges = kde.edges
+        edges = kde.points
 
     if contour is not None:
         contour1d = contour
@@ -605,7 +620,7 @@ def corner_kde(axes, kde, edges=None, reflect=None, sigmas=None, levels=None, ro
 
     # pdf = kde.pdf_grid(edges, reflect=reflect)
     extr = [utils.minmax(ee) for ee in edges]
-    smap, smap_is_log, uniform_color = _parse_smap(smap, color, cmap=cmap)
+    _, smap_is_log, _ = _parse_smap(smap, color, cmap=cmap)
 
     #
     # Calculate Distributions
@@ -622,12 +637,13 @@ def corner_kde(axes, kde, edges=None, reflect=None, sigmas=None, levels=None, ro
         # Diagonals
         # ----------------------
         if ii == jj:
-            pdf1d[jj] = kde.pdf_grid(edges[jj], params=jj, reflect=reflect)
+            _, pdf1d[jj] = kde.density(edges[jj], params=jj, reflect=reflect)
 
         # Off-Diagonals
         # ----------------------
         else:
-            pdf2d[jj, ii] = kde.pdf_grid([edges[jj], edges[ii]], params=[jj, ii], reflect=reflect)
+            _, pdf2d[jj, ii] = kde.density([edges[jj], edges[ii]], params=[jj, ii],
+                                           reflect=reflect, grid=True)
             extr_hist2d = utils.minmax(pdf2d[jj, ii], prev=extr_hist2d, positive=smap_is_log)
 
     _set_corner_axes(axes, extr, rotate)
@@ -652,9 +668,9 @@ def corner_kde(axes, kde, edges=None, reflect=None, sigmas=None, levels=None, ro
         if jj >= ii:
             continue
 
-        _smap = _get_smap(pdf2d[jj, ii], **smap)
+        # _smap = _get_smap(pdf2d[jj, ii], **smap)
         dist2d_kde(ax, kde, params=(jj, ii), pdf=pdf2d[jj, ii], reflect=reflect,
-                   sigmas=sigmas, color=color, smap=_smap, cmap=cmap,
+                   sigmas=sigmas, color=color, smap=smap, cmap=cmap,
                    median=median, hist2d=hist2d, contour=contour2d)
 
     return
@@ -669,12 +685,12 @@ def dist1d_kde(ax, kde, param=None, pdf=None, reflect=None, edges=None, sigmas=T
 
         param = 0
 
-    edges = kde.edges
+    edges = kde.points
     if (not utils.really1d(edges)) or (param > 0):
         edges = edges[param]
 
     if pdf is None:
-        pdf = kde.pdf(edges, reflect=reflect, params=param)
+        _, pdf = kde.density(edges, reflect=reflect, params=param)
 
     if renormalize:
         pdf = pdf / pdf.max()
@@ -714,24 +730,25 @@ def dist2d_kde(ax, kde, params=None, pdf=None, reflect=None, color='k', smap=Non
     hist2d = _none_dict(hist2d, 'hist2d', dict())
     contour = _none_dict(contour, 'contour', dict())
 
-    edges = kde.edges
+    edges = kde.points
     edges = [edges[pp] for pp in params]
 
     if pdf is None:
-        pdf = kde.pdf_grid(edges, params=params, reflect=reflect)
+        _, pdf = kde.density(edges, params=params, reflect=reflect, grid=True)
     xx, yy = np.meshgrid(*edges, indexing='ij')
 
     sigmas, pdf_levels, _levels = _dfm_levels(pdf, sigmas=sigmas)
 
-    smap, smap_is_log, uniform_color = _parse_smap(smap, color, cmap=cmap)
-    if not isinstance(smap, mpl.cm.ScalarMappable):
-        smap = _get_smap(pdf, **smap)
+    # smap, smap_is_log, uniform_color = _parse_smap(smap, color, cmap=cmap)
+    # if not isinstance(smap, mpl.cm.ScalarMappable):
+    #     smap = _get_smap(pdf, **smap)
 
     # Draw 2D Histogram
     # -------------------------------
     if hist2d is not None:
-        hist2d.setdefault('cmap', smap.cmap)
-        hist2d.setdefault('norm', smap.norm)
+        if smap is not None:
+            hist2d.setdefault('cmap', smap.cmap)
+            hist2d.setdefault('norm', smap.norm)
         _draw_hist2d(ax, *edges, pdf, **hist2d)
 
     # Draw Median Lines (Target Style)
@@ -745,7 +762,7 @@ def dist2d_kde(ax, kde, params=None, pdf=None, reflect=None, color='k', smap=Non
         for ii, func in enumerate([ax.axvline, ax.axhline]):
             pp = params[ii]
             ee = edges[ii]
-            cdf = kde.pdf(ee, reflect=reflect, params=pp)
+            _, cdf = kde.density(ee, reflect=reflect, params=pp)
             cdf = utils.cumtrapz(cdf, ee)
             cdf /= cdf.max()
             cdf = np.interp(0.5, cdf, ee)
@@ -754,7 +771,7 @@ def dist2d_kde(ax, kde, params=None, pdf=None, reflect=None, color='k', smap=Non
     # Draw Contours
     # --------------------------------
     if contour is not None:
-        _draw_contours_2d(ax, xx, yy, pdf, smap, sigmas=sigmas, **contour)
+        _draw_contours_2d(ax, xx, yy, pdf, smap, color=color, sigmas=sigmas, **contour)
 
     return
 
@@ -915,7 +932,7 @@ def _draw_contours_1d(ax, locs, color='k', span=None, rotate=False, alpha=0.1):
 def _draw_contours_2d(ax, xx, yy, hist, smap=None, color=None, cmap=None,
                       smooth=None, upsample=2, reverse=False,
                       linewidths=1.0, alpha=0.8, colors=None, zorder=10,
-                      background=True, sigmas=None, pdf_levels=None, cdf_levels=None, **kwargs):
+                      background=False, sigmas=None, pdf_levels=None, cdf_levels=None, **kwargs):
 
     if (pdf_levels is not None) and (upsample is not None or smooth is not None):
         err = ("Cannot provide `pdf_levels` with upsampling or smoothing!  "
@@ -942,25 +959,22 @@ def _draw_contours_2d(ax, xx, yy, hist, smap=None, color=None, cmap=None,
     background = _none_dict(background, 'background', defaults=kwargs)
 
     if colors is None:
-        smap, smap_is_log, uniform_color = _parse_smap(smap, color, cmap=cmap)
-        if not isinstance(smap, mpl.cm.ScalarMappable):
-            smap = _get_smap(hist, **smap)
+        if color is not None:
+            colors = color
+        else:
+            smap, smap_is_log, uniform_color = _parse_smap(smap, color, cmap=cmap)
+            if not isinstance(smap, mpl.cm.ScalarMappable):
+                smap = _get_smap(hist, **smap)
 
-        colors = smap.to_rgba(pdf_levels)
-        colors_bg = colors[::-1]
-        if reverse:
-            colors = colors[::-1]
-            colors_bg = colors_bg[::-1]
+            colors = smap.to_rgba(pdf_levels)
+            colors_bg = colors[::-1]
+            if reverse:
+                colors = colors[::-1]
+                colors_bg = colors_bg[::-1]
 
-        # colors_bg = [0.8] * 3 + [bg_alpha]
-        # colors = smap.to_rgba(pdf_levels)
-
-        # colors_bg = smap.to_rgba(pdf_levels)
-        # colors = np.array([_invert_color(cc) for cc in colors_bg])
-
-        # Set alpha (transparency)
-        colors[:, 3] = alpha
-        colors_bg[:, 3] = bg_alpha
+            # Set alpha (transparency)
+            colors[:, 3] = alpha
+            colors_bg[:, 3] = bg_alpha
     else:
         colors_bg = ['0.5'] * 3 + [bg_alpha]
 
@@ -1119,7 +1133,10 @@ def _get_corner_axes_extrema(axes, rotate, extrema=None, pdf=None):
     return extrema, pdf
 
 
-def hist(ax, data, bins=None, weights=None, density=False, probability=False, **kwargs):
+def hist(data, bins=None, ax=None, weights=None, density=True, probability=False, **kwargs):
+    if ax is None:
+        ax = plt.gca()
+
     hist, edges = utils.histogram(data, bins=bins, weights=weights,
                                   density=density, probability=probability)
 
