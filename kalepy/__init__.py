@@ -21,8 +21,8 @@ _TRUNCATE_INFINITE_KERNELS = 1e-8
 # Default bandwidth calculation method
 _BANDWIDTH_DEFAULT = 'scott'
 
-_PATH_NB_OUT = os.path.join(_path, os.path.pardir, 'notebooks', 'output')
-
+_PATH_NB = os.path.join(_path, os.path.pardir, 'notebooks', '')
+_PATH_NB_OUT = os.path.join(_PATH_NB, 'output', '')
 
 from kalepy import kernels   # noqa
 from kalepy import utils   # noqa
