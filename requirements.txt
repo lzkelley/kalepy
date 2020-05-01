@@ -10,6 +10,7 @@ sphinx
 coverage
 memory_profiler
 nose-timer
+gitpython
 
 jupyter
 nbconvert
