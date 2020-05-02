@@ -10,6 +10,10 @@
 
 - Calculate CDF for particular parameters!
 
+- Move all checking/sanitizing functionality to `KDE` and have `kernels` (etc) assume it's correct.
+  - e.g. extrema, points, reflection, params, etc
+
+
 - `kalepy/`
     - Allow for calculating PDF and resampling in only particular dimensions/parameters.
         - FIX: Doesn't work quite right for non-fixed bandwidth, bandwidth needs to be re-calculated for different number of dimensions
