@@ -861,14 +861,22 @@ def _check_points(points, data, params=None):
     """
 
     Need to end up with (D, N) array of `N` points specified at for each of `D` parameters.
+    (N,) ==> (1, N)
+    (D,N)
+         ==> (D,N) : if `params` is None
+         ==> (P,N) : if `params` is not None, and has length 'P'
 
     """
     data = np.atleast_2d(data)
     ndim, nval = np.shape(data)
-    points = np.asarray(points)
+    # points = np.asarray(points)
     params = params if params is None else np.atleast_1d(params)
 
-    if (points.ndim == 1) and ((ndim == 1) or (params is not None and len(params) == 1)):
+    # (N,) ==> (1, N)
+    if (np.ndim(points) == 1) and ((ndim == 1) or (params is not None and len(params) == 1)):
+        if len(points) == 0:
+            raise ValueError("Empty `points` given.")
+        points = np.atleast_2d(points)
         return points
 
     if np.ndim(points) != 2:
@@ -879,7 +887,7 @@ def _check_points(points, data, params=None):
     if params is None:
         if len(points) != ndim:
             err = "`points` ({}) must have values for each of {} parameters!".format(
-                points.shape, ndim)
+                np.shape(points), ndim)
             raise ValueError(err)
     else:
         if len(points) == ndim:
