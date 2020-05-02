@@ -40,8 +40,9 @@
 
 - `gen_readme.py`  [NEW-FILE]
   - Script to automatically assemble the `README.md` file based on an input template `_README.md` and the jupyter notebook `demo.ipynb`.  Automatically takes care of image files, and updating them with git.
+- `README.md`
+  - Updated (using `gen_readme.py`) to include new, cleaner examples (primarily using top-level API).
 
-  
 
 ## v0.3.1 - 2020/04/30
 - Improved how 'edges' (both for bins and PDF evaluation) are constructed, especially in multiple dimensions.  `KDE` constructs extrema from the given data and then calls `utils.parse_edges`.
