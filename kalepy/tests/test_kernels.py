@@ -219,6 +219,81 @@ def test_check_reflect():
     return
 
 
+def _test_check_points_good(ndim, dsize=20, psize=5):
+    data = np.random.uniform(0.0, 1.0, (ndim, dsize))
+
+    points = [np.linspace(0.0, 1.0, psize) for ii in range(ndim)]
+
+    kernels._check_points(points, data, params=None)
+    for ii in range(ndim):
+        params = np.arange(ii+1)
+        pnts = kernels._check_points(points, data, params=tuple(params))
+        pnts = kernels._check_points(points, data, params=list(params))
+
+        if np.shape(pnts) != (len(params), psize):
+            err = "`kernels._check_points` returned shape {}, for {} params and {} points!".format(
+                np.shape(pnts), len(params), psize)
+            raise ValueError(err)
+
+        if not np.all([points[pp] == pnts[pp] for pp in params]):
+            raise ValueError("`kernels._check_points` returned points do not match input!")
+
+    return
+
+
+def _test_check_points_bad(ndim, dsize=20, psize=5):
+    data = np.random.uniform(0.0, 1.0, (ndim, dsize))
+
+    with tools.assert_raises(ValueError):
+        kernels._check_points(None, data)
+
+    with tools.assert_raises(ValueError):
+        kernels._check_points([], data)
+
+    if ndim > 1:
+        # Too few
+        points = [np.linspace(0.0, 1.0, psize) for ii in range(ndim-1)]
+        with tools.assert_raises(ValueError):
+            kernels._check_points(points, data)
+
+        # Jagged
+        points = [np.linspace(0.0, 1.0, psize) for ii in range(ndim)]
+        points[0] = np.linspace(0.0, 1.0, psize-1)
+        with tools.assert_raises(ValueError):
+            kernels._check_points(points, data)
+
+    # > 3d
+    points = [np.linspace(0.0, 1.0, psize) for ii in range(ndim)]
+    points = np.array(points)[..., np.newaxis]
+    with tools.assert_raises(ValueError):
+        kernels._check_points(points, data)
+
+    # Too many
+    points = [np.linspace(0.0, 1.0, psize) for ii in range(ndim+1)]
+    with tools.assert_raises(ValueError):
+        kernels._check_points(points, data)
+
+    # Too many with `params` specified
+    if ndim > 1:
+        with tools.assert_raises(ValueError):
+            kernels._check_points(points, data, params=np.arange(ndim))
+
+    return
+
+
+def test_check_points_good():
+    for ndim in range(1, 5):
+        _test_check_points_good(ndim)
+
+    return
+
+
+def test_check_points_bad():
+    for ndim in range(1, 5):
+        _test_check_points_bad(ndim)
+
+
+
 '''
 def test_kernels_resample():
     print("\n|test_kernels.py:test_kernels_resample()|")
