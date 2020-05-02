@@ -809,9 +809,15 @@ def _check_reflect(reflect, data, weights=None, helper=False):
     if reflect is None:
         return reflect
 
+    if reflect is False:
+        return None
+
     # NOTE: FIX: Should this happen in the method that calls `_check_reflect`?
     data = np.atleast_2d(data)
     ndim, nval = np.shape(data)
+    if reflect is True:
+        reflect = [True for ii in range(ndim)]
+
     if (len(reflect) == 2) and (ndim == 1):
         reflect = np.atleast_2d(reflect)
 
@@ -821,7 +827,7 @@ def _check_reflect(reflect, data, weights=None, helper=False):
         raise ValueError(err)
 
     try:
-        goods = [(ref is None) or len(ref) == 2 for ref in reflect]
+        goods = [(ref is None) or (ref is True) or (len(ref) == 2) for ref in reflect]
     except TypeError as err:
         err = "Invalid `reflect` argument: Error: '{}'".format(err)
         raise ValueError(err)
@@ -832,6 +838,14 @@ def _check_reflect(reflect, data, weights=None, helper=False):
 
     # Perform additional diagnostics
     for ii in range(ndim):
+        if (reflect[ii] is True):
+            reflect[ii] = [np.min(data[ii])*(1 - _NUM_PAD), np.max(data[ii])*(1 + _NUM_PAD)]
+        elif (reflect[ii] is not None) and (True in reflect[ii]):
+            if reflect[ii][0] is True:
+                reflect[ii][0] = np.min(data[ii])*(1 - _NUM_PAD)
+            elif reflect[ii][1] is True:
+                reflect[ii][1] = np.max(data[ii])*(1 + _NUM_PAD)
+
         if np.all(np.array(reflect[ii]) != None) and (reflect[ii][0] >= reflect[ii][1]):  # noqa
             err = "Reflect is out of order:  `reflect`[{}] = {}  !".format(ii, reflect[ii])
             raise ValueError(err)

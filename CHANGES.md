@@ -31,6 +31,15 @@
 
 
 ## Current
+- `reflect` arguments: `True` can now be given (single value, or for a particular parameter/dimension), in which case the KDE will guess the reflection points based on the data extrema (in all dimensions, or only the target ones).  This happens in `kernels._check_reflect`.
+
+- `kalepy/`
+  - `kernels.py`
+    - `_check_reflect()`
+      - Added boolean functionality for `reflect` arguments, which are then replaced with data extrema as needed.
+
+
+## v0.3.1 - 2020/04/30
 - Improved how 'edges' (both for bins and PDF evaluation) are constructed, especially in multiple dimensions.  `KDE` constructs extrema from the given data and then calls `utils.parse_edges`.
 
 - `kalepy/`

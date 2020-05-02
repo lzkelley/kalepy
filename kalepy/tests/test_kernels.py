@@ -219,6 +219,59 @@ def test_check_reflect():
     return
 
 
+def test_check_reflect_boolean():
+    np.random.seed(12456)
+    ndim = 3
+
+    data = np.random.uniform(-1.0, 1.0, (ndim, 100))
+    data[1] *= 2.0
+
+    ref = kernels._check_reflect(None, data)
+    tools.assert_true(ref is None)
+
+    ref = kernels._check_reflect(False, data)
+    tools.assert_true(ref is None)
+
+    extrema = [utils.minmax(dd) for dd in data]
+    extrema = np.asarray(extrema)
+    extrema[:, 0] *= (1 - kale._NUM_PAD)
+    extrema[:, 1] *= (1 + kale._NUM_PAD)
+
+    # If `True` is Given, values should be set to extrema
+    reflect = kernels._check_reflect(True, data)
+    tools.assert_true(np.allclose(reflect, extrema, atol=1e-10))
+
+    for ii in range(ndim):
+        # True given for a single dimension
+        reflect = [None for ii in range(ndim)]
+        reflect[ii] = True
+        ref = kernels._check_reflect(reflect, data)
+
+        tools.assert_true(np.allclose(ref[ii], extrema[ii], atol=1e-10))
+        tools.assert_true(np.all([ref[jj] is None for jj in range(ndim) if jj != ii]))
+
+        # True given as lower or upper bound for dimension
+        reflect = [None for ii in range(ndim)]
+        # val = np.random.uniform(-10.0, 10.0)
+        val = 12.34
+
+        # Fixed upper-value (must be larger than lower-value!)
+        reflect[ii] = [True, val]
+        ref = kernels._check_reflect(reflect, data)
+        tools.assert_true(np.isclose(ref[ii][0], extrema[ii][0], atol=1e-10))
+        tools.assert_true(ref[ii][1] == val)
+        tools.assert_true(np.all([ref[jj] is None for jj in range(ndim) if jj != ii]))
+
+        # Fixed lower-value (must be less than upper-value!)
+        reflect[ii] = [-val, True]
+        ref = kernels._check_reflect(reflect, data)
+        tools.assert_true(np.isclose(ref[ii][1], extrema[ii][1], atol=1e-10))
+        tools.assert_true(ref[ii][0] == -val)
+        tools.assert_true(np.all([ref[jj] is None for jj in range(ndim) if jj != ii]))
+
+    return
+
+
 def _test_check_points_good(ndim, dsize=20, psize=5):
     data = np.random.uniform(0.0, 1.0, (ndim, dsize))
 

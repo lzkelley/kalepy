@@ -386,7 +386,7 @@ def parse_edges(data, edges=None, extrema=None, weights=None,
 
     if pad is None:
         pad = 1 if extrema is None else 0
-    extrema = _parse_extrema(data, extrema=extrema, warn=True)
+    extrema = _parse_extrema(data, extrema=extrema, warn=False)
 
     # If `edges` provides a specification for each dimension, convert to npars*[edges]
     if (np.ndim(edges) == 0) or (really1d(edges) and (np.size(edges) != npars)):

@@ -228,6 +228,8 @@ class KDE(object):
             # Extra to be double sure...
             out *= 1.2
 
+        reflect = kernels._check_reflect(reflect, self.dataset)
+
         # Find the effective-extrema in each dimension, to be used if `extrema` is not specified
         _bandwidth = np.sqrt(self.kernel.matrix.diagonal())
         eff_extrema = [
@@ -238,7 +240,8 @@ class KDE(object):
         if (extrema is None) and (reflect is not None):
             extrema = reflect
 
-        extrema = utils._parse_extrema(eff_extrema, extrema, warn=helper)
+        # `eff_extrema` is, by design, outside of data limits, so don't `warn` about limits
+        extrema = utils._parse_extrema(eff_extrema, extrema, warn=False)
         self._extrema = extrema
 
         # Finish Intialization
