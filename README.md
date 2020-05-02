@@ -113,7 +113,7 @@ nbshow()
 ![png](https://raw.githubusercontent.com/lzkelley/kalepy/dev/docs/media/demo_files/demo_11_0.png)
 
 
-## Multivariate Distributions
+### Multivariate Distributions
 
 
 ```python
@@ -139,104 +139,81 @@ plt.show()
 ```
 
     /Users/lzkelley/Programs/kalepy/kalepy/utils.py:1082: RuntimeWarning: covariance is not positive-semidefinite.
-      [+0.2, -0.5, +1.0]
+      data = np.random.multivariate_normal(np.zeros_like(sigma), cov, num).T
 
 
 
 ![png](https://raw.githubusercontent.com/lzkelley/kalepy/dev/docs/media/demo_files/demo_13_1.png)
 
 
+## Fancy Usage
+
+### Reflecting Boundaries
+
+What if the distributions you're trying to capture have edges in them, like in a uniform distribution between two bounds?  Here, the KDE chooses 'reflection' locations based on the extrema of the given data.
+
 
 ```python
-# Setup Figure and Axes
-# --------------------------------------
-fig = plt.figure(figsize=[10, 6])
+# Uniform data (edges at -1 and +1)
+np.random.seed(54321)
+data = np.random.uniform(-1.0, 1.0, int(1e3))
 
-# ---- Left Axes
-gsl = mpl.gridspec.GridSpec(2, 2)
-gsl.update(left=0.08, right=0.46, wspace=0.2, hspace=0.2, top=0.9, bottom=0.07)
-axes_ll = np.empty([2, 2], dtype=object)
-ax_ref = None
-for (ii, jj), ax in np.ndenumerate(axes_ll):
-    kw = dict(sharex=ax_ref, sharey=ax_ref) if ax_ref is not None else {}
-    ax = plt.subplot(gsl[ii, jj], **kw)
-    ax.grid(alpha=0.1)
-    axes_ll[ii, jj] = ax
-    ax_ref = ax
+# Histogram the data, use fixed bin-positions
+edges = np.linspace(-1, 1, 12)
+plt.hist(data, bins=edges, density=True, alpha=0.5, label='data', color='0.65', edgecolor='k')
 
-fig.text(0.25, 0.99, "Histogram", horizontalalignment='center', verticalalignment='top', size=14)
-axes_ll[0, 0].set_ylabel('Leftward', size=12)
-axes_ll[0, 0].set_title('Coarse', size=12)
-axes_ll[0, 1].set_title('Fine', size=12)
-axes_ll[1, 0].set_ylabel('Rightward', size=12)
+# Standard KDE will undershoot just-inside the edges and overshoot outside edges
+points, pdf_basic = kale.density(data, probability=True)
+plt.plot(points, pdf_basic, 'r--', lw=4.0, alpha=0.5, label='Basic KDE')
 
-# ---- Right Axes
-gsr = mpl.gridspec.GridSpec(2, 2)
-gsr.update(left=0.54, right=0.96, wspace=0.2, hspace=0.2, top=0.9, bottom=0.07)
-axes_rr = np.empty([2, 2], dtype=object)
-ax_ref = None
-for (ii, jj), ax in np.ndenumerate(axes_ll):
-    kw = dict(sharex=ax_ref, sharey=ax_ref) if ax_ref is not None else {}
-    ax = plt.subplot(gsr[ii, jj], **kw)
-    ax.grid(alpha=0.1)
-    axes_rr[ii, jj] = ax
-    ax_ref = ax
+# Reflecting KDE keeps probability within given bounds
+points, pdf_basic = kale.density(data, reflect=True, probability=True)
+plt.plot(points, pdf_basic, 'b-', lw=3.0, alpha=0.75, label='Reflecting KDE')
 
-fig.text(0.75, 0.99, "KDE", horizontalalignment='center', verticalalignment='top', size=14)
-
-colors = ['r', 'b', 'r', 'b']
-lines = ['-', '-', '--', '--']
-
-
-# Create (semi-)Random Data
-# --------------------------------------
-NUM = 80
-np.random.seed(12345)
-a1 = np.random.normal(4.0, 1.0, NUM//2)
-a2 = np.random.lognormal(0, 0.5, size=(NUM - a1.size))
-data = np.concatenate([a1, a2])
-
-
-
-# Plot Histograms
-# ---------------------------------
-bg = dict(color='0.25', lw=4.0, alpha=0.35)
-
-starts = [-0.2, -0.2, 0.5, 0.5]
-numbers = [9, 16, 9, 16]
-
-for ii, ax in enumerate(axes_ll.flatten()):
-    edges = np.linspace(starts[ii], starts[ii]+8.0, numbers[ii])
-
-    ax.hist(data, bins=edges, histtype='step', density=True, **bg)
-    ax.hist(data, bins=edges, color=colors[ii], density=True, ls=lines[ii],
-            histtype='step', lw=2.0)
-
-    ax.plot(data, -0.02*np.ones_like(data), 'o', color='0.5', alpha=0.25, lw=0.5)
-
-
-
-# Plot KDEs
-# ---------------------------------
-
-# bandwidths = ['scott', 0.3, 'scott', 0.3]
-kernels = ['Gaussian', 'Gaussian', 'Box', 'Epanechnikov']
-# kernels = ['Gaussian', 'Parabola', 'Box', 'Triweight']
-
-bandwidths = [None] * len(kernels)
-grid = np.linspace(-0.2, 8.5, 100)
-
-for ii, ax in enumerate(axes_rr.flatten()):
-    kde = kale.KDE(data, kernel=kernels[ii], bandwidth=bandwidths[ii])
-    ax.set_title(kernels[ii])
-    pdf = kde.pdf(grid)
-    ax.plot(grid, pdf, **bg)
-    ax.plot(grid, pdf, color=colors[ii], ls=lines[ii], lw=2.0)
-
-    ax.plot(data, -0.02*np.ones_like(data), 'o', color='0.5', alpha=0.25, lw=0.5)
-
+plt.legend()
 nbshow()
 ```
 
 
-![png](https://raw.githubusercontent.com/lzkelley/kalepy/dev/docs/media/demo_files/demo_14_0.png)
+![png](https://raw.githubusercontent.com/lzkelley/kalepy/dev/docs/media/demo_files/demo_17_0.png)
+
+
+Explicit reflection locations can also be provided (in any number of dimensions).
+
+
+```python
+# Construct random data, add an artificial 'edge'
+np.random.seed(5142)
+edge = 1.0
+data = np.random.lognormal(sigma=0.5, size=int(3e3))
+data = data[data >= edge]
+
+# Histogram the data, use fixed bin-positions
+edges = np.linspace(edge, 4, 20)
+plt.hist(data, bins=edges, density=True, alpha=0.5, label='data', color='0.65', edgecolor='k')
+
+# Standard KDE with over & under estimates
+points, pdf_basic = kale.density(data, probability=True)
+plt.plot(points, pdf_basic, 'r--', lw=4.0, alpha=0.5, label='Basic KDE')
+
+# Reflecting KDE setting the lower-boundary to the known value
+#    There is no upper-boundary when `None` is given.
+points, pdf_basic = kale.density(data, reflect=[edge, None], probability=True)
+plt.plot(points, pdf_basic, 'b-', lw=3.0, alpha=0.5, label='Reflecting KDE')
+
+plt.gca().set_xlim(edge - 0.5, 3)
+plt.legend()
+nbshow()
+```
+
+
+![png](https://raw.githubusercontent.com/lzkelley/kalepy/dev/docs/media/demo_files/demo_19_0.png)
+
+
+### Multivariate Reflection
+
+### Selecting Particular Parameters/Dimensions
+
+### Resampling while 'keeping' certain parameters/dimensions
+
+### Cumulative distribution and quartiles (percent-point functions)
