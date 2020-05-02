@@ -891,7 +891,7 @@ def _draw_scatter(ax, xx, yy, color='k', alpha=0.1, s=4, **kwargs):
 
 
 def _draw_hist2d(ax, xx, yy, data, mask_below=None, color=None, smap=None, **kwargs):
-    cmap = kwargs.pop('cmap')
+    cmap = kwargs.pop('cmap', None)
     smap, smap_is_log, uniform_color = _parse_smap(smap, color, cmap=cmap)
     if not isinstance(smap, mpl.cm.ScalarMappable):
         smap = _get_smap(data, **smap)
