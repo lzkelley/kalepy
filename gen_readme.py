@@ -90,6 +90,14 @@ def main():
     if len(out_dir) == 0:
         raise ValueError("Something wrong with output path!")
     out_dir = os.path.join(os.path.abspath(OUTPUT_PATH_RESOURCES), out_dir, '')
+    # Remove previously added image files (in `out_dir`) from the git repo before deleting
+    for fil in os.listdir(out_dir):
+        if not fil.endswith('.png'):
+            raise ValueError("`out_dir` '{}' contains non-png files!".format(out_dir))
+        _fil = os.path.join(out_dir, fil)
+        logging.info("Removing '{}' from repo".format(_fil))
+        repo.index.remove([_fil])  # , working_tree = True)
+
     check_names = [out_fil_temp, out_fil, out_dir_temp, out_dir]
     check_types = [False, False, True, True]
     for dpath, isdir in zip(check_names, check_types):
@@ -178,6 +186,10 @@ def main():
     finally:
         logging.debug("Removing temporary file '{}'".format(temp))
         os.remove(temp)
+
+    # Update new README file in repo
+    logging.info("Staging new readme file for git commit")
+    repo.index.add([out_fil])
 
     return
 
