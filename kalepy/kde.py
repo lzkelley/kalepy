@@ -124,7 +124,7 @@ class KDE(object):
 
     """
 
-    _EDGE_REFINEMENT = 10.0
+    _EDGE_REFINEMENT = np.sqrt(10.0)
 
     def __init__(self, dataset, bandwidth=None, weights=None, kernel=None,
                  extrema=None, points=None, reflect=None,
@@ -282,12 +282,18 @@ class KDE(object):
             # Convert from grid-edges to flattened-grid
             grid = (self.ndim > 1)
 
+        # print("kde.py:KDE.density(): grid = {}, points.shape = {}".format(grid, np.shape(points)))
+
         if grid:
+            _points = points
             points = utils.meshgrid(*points)
             shape = np.shape(points[0])
             points = [pp.flatten() for pp in points]
 
+        # print("points.shape = ", np.shape(points), "shape = ", shape)
+
         result = self.kernel.pdf(points, self.dataset, self.weights, reflect=reflect, params=params)
+        # print("result = ", result.shape)
         if probability:
             if self.weights is None:
                 result = result / self.ndata
@@ -296,6 +302,9 @@ class KDE(object):
 
         if grid:
             result = result.reshape(shape)
+            points = _points
+
+        # print("result = ", result.shape)
 
         return points, result
 
@@ -544,8 +553,8 @@ class KDE(object):
     @property
     def points(self):
         # The values of `self._points` set during initialization can be general specifications
-        # for bin-edges instead of the bin-edges themselves.  So they need to be "checked" the
-        # first time
+        #   for bin-edges instead of the bin-edges themselves.  So they need to be "checked" the
+        #   first time
         if (self._points is not None) and (not self._check_points_flag):
             return self._points
 

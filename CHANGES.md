@@ -33,6 +33,10 @@
 ## Current
 - `reflect` arguments: `True` can now be given (single value, or for a particular parameter/dimension), in which case the KDE will guess the reflection points based on the data extrema (in all dimensions, or only the target ones).  This happens in `kernels._check_reflect`.
 
+- API
+  - `kalepy.density()`
+    - BUG: fixed issue in 'grid' mode where output points didn't match values in shape.
+
 - `kalepy/`
   - `kernels.py`
     - `_check_reflect()`
