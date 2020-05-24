@@ -43,6 +43,10 @@
     - `_check_reflect()`
       - Added boolean functionality for `reflect` arguments, which are then replaced with data extrema as needed.
 
+- `notebooks/`
+  - `api.ipynb`  [NEW-FILE]
+    - New notebook for running API tests.
+
 - `gen_readme.py`  [NEW-FILE]
   - Script to automatically assemble the `README.md` file based on an input template `_README.md` and the jupyter notebook `demo.ipynb`.  Automatically takes care of image files, and updating them with git.
 - `README.md`
