@@ -39,7 +39,7 @@ del _path
 # High Level API Functions
 # -----------------------------------
 
-def density(data, points=None, weights=None, reflect=None, probability=False, **kwargs):
+def density(data, points=None, weights=None, reflect=None, probability=False, grid=False, **kwargs):
     """Use a KDE to calculate the density of the given data.
 
     Arguments
@@ -58,7 +58,7 @@ def density(data, points=None, weights=None, reflect=None, probability=False, **
 
     """
     kde = KDE(data, weights=weights, reflect=reflect, **kwargs)
-    points, vals = kde.density(points, probability=probability)
+    points, vals = kde.density(points, probability=probability, grid=grid)
     return points, vals
 
 
@@ -90,6 +90,25 @@ def resample(data, size=None, weights=None, reflect=None, keep=None, **kwargs):
     kde = KDE(data, weights=weights, reflect=reflect, **kwargs)
     samps = kde.resample(size=size, keep=keep)
     return samps
+
+
+def _reload():
+    from importlib import reload
+    import kalepy
+    import kalepy.utils
+    import kalepy.kernels
+    import kalepy.plot
+    reload(kalepy)
+    reload(kalepy.kde)
+    reload(kalepy.utils)
+    reload(kalepy.kernels)
+    reload(kalepy.plot)
+    reload(kalepy)
+    reload(kalepy.kde)
+    reload(kalepy.utils)
+    reload(kalepy.kernels)
+    reload(kalepy.plot)
+    return
 
 
 '''

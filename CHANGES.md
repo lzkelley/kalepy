@@ -36,6 +36,7 @@
 - API
   - `kalepy.density()`
     - BUG: fixed issue in 'grid' mode where output points didn't match values in shape.
+    - Add `grid` kwarg.
 
 - `kalepy/`
   - `kernels.py`
