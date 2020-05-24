@@ -370,7 +370,7 @@ def modify_exists(path_fname):
 
 
 def parse_edges(data, edges=None, extrema=None, weights=None,
-                nmin=3, nmax=200, pad=None, refine=1.0):
+                nmin=5, nmax=1000, pad=None, refine=1.0):
     """
     """
     if np.ndim(data) not in [1, 2]:
@@ -386,6 +386,7 @@ def parse_edges(data, edges=None, extrema=None, weights=None,
 
     if pad is None:
         pad = 1 if extrema is None else 0
+
     extrema = _parse_extrema(data, extrema=extrema, warn=False)
 
     # If `edges` provides a specification for each dimension, convert to npars*[edges]
@@ -435,6 +436,11 @@ def _get_edges_1d(edges, data, extrema, ndim, nmin, nmax, pad, weights=None, ref
     _num_bins, bin_width, _span = _guess_edges(
         data, extrema=extrema, weights=weights,
         ndim=ndim, num_min=nmin, num_max=nmax, refine=refine)
+
+    # print("utils.py:_get_edges_1d():")
+    # print("\t", "num_bins = ", num_bins, "_num_bins = ", _num_bins, "refine = ", refine,
+    #       "bin_width = ", bin_width, "_span = ", _span)
+
     if num_bins is None:
         num_bins = _num_bins
 
@@ -615,10 +621,22 @@ def spacing(data, scale='log', num=None, dex=10, **kwargs):
     return spaced
 
 
-def stats(data):
-    rv = str(np.shape(data))
-    rv += " - " + array_str(data)
-    rv += " - " + stats_str(data)
+def stats(data, shape=True, sample=3, stats=True):
+    rv = ""
+    failure = True
+    if shape:
+        failure = False
+        rv += str(np.shape(data))
+    if (sample is not None) and (sample is not False):
+        failure = False
+        rv += " - " + array_str(data, num=sample)
+    if stats:
+        failure = False
+        rv += " - " + stats_str(data)
+
+    if failure:
+        raise ValueError("No stats requested!")
+
     return rv
 
 
@@ -973,6 +991,9 @@ def _parse_extrema(data, extrema=None, warn=True):
     data_extrema = [minmax(dd) for dd in data]
     if extrema is None:
         extrema = data_extrema
+
+    # Check components of given `extrema` to make sure they are valid
+    #   fill in any `None` values with extrema from the data
     else:
         # Convert from (2,) ==> (D, 2)
         if np.shape(extrema) == (2,) and really1d(extrema):
@@ -985,7 +1006,6 @@ def _parse_extrema(data, extrema=None, warn=True):
             if really1d(extrema) or not np.all([(ee is None) or (len(ee) == 2) for ee in extrema]):
                 err = "Each element of jagged `extrema` must be `None` or have length 2!"
                 raise ValueError(err)
-
         # Otherwise bad
         else:
             err = "`extrema` shape '{}' unrecognized for {} parameters!".format(
