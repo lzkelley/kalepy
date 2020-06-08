@@ -469,8 +469,12 @@ def _guess_edges(data, extrema=None, ndim=None, weights=None,
         _num_eff = num_eff / ndim**2
         num_eff = np.clip(_num_eff, 100, None)
 
-    if extrema is None:
-        extrema = [data.min(), data.max()]
+    if (extrema is None) or np.any(~np.isfinite(extrema)):
+        if np.any(~np.isfinite(extrema)):
+            err = "Given extrema ({}) contain non-finite values!  Overriding!".format(extrema)
+            logging.error(err)
+        idx = np.isfinite(data)
+        extrema = [data[idx].min(), data[idx].max()]
     span_width = np.diff(extrema)[0]
 
     # Sturges histogram bin estimator.
@@ -479,7 +483,8 @@ def _guess_edges(data, extrema=None, ndim=None, weights=None,
     iqr = iqrange(data, log=False, weights=weights)               # get interquartile range
     w2 = 2.0 * iqr * num_eff ** (-1.0 / 3.0)
 
-    bin_width = min(w1, w2) / refine
+    bin_width = min(w1, w2)
+    bin_width = bin_width / refine
     if bin_width <= 0.0:
         raise ValueError("`bin_width` is negative (w1 = {}, w2 = {})!".format(w1, w2))
 
@@ -581,6 +586,54 @@ def really1d(arr):
     if np.any(np.vectorize(np.ndim)(arr)):
         return False
     return True
+
+
+def flatten(arr):
+    """Flatten a ND array, whether jagged or not, into a 1D array.
+    """
+    # If this is not an iterable, or it's actually 1D then it's already 'flat'
+    if (not np.iterable(arr)) or really1d(arr):
+        return arr
+
+    # Flatten each component and combine recursively
+    return np.concatenate([flatten(aa) for aa in arr])
+
+
+def flatlen(arr):
+    if not np.iterable(arr):
+        return 1
+
+    if really1d(arr):
+        return len(arr)
+
+    return np.sum([flatlen(aa) for aa in arr])
+
+
+def isjagged(arr):
+    """Test if the given array is jagged.
+    """
+    # if np.isscalar(arr) or (np.size(arr) == len(flatten(arr))):
+    if np.isscalar(arr) or (np.size(arr) == flatlen(arr)):
+        return False
+    return True
+
+
+def jshape(arr, level=0, printout=False, prepend="", indent="  "):
+    """Print the complete shape (even if jagged) of the given array.
+    """
+    if printout:
+        print(prepend + indent*level + str(np.shape(arr)))
+
+    if not isjagged(arr):
+        return np.shape(arr)
+
+    shape = []
+    for aa in arr:
+        sh = jshape(aa, level+1, prepend=prepend, indent=indent, printout=printout)
+        shape.append(sh)
+
+    shape = tuple([np.shape(arr), tuple(shape)])
+    return shape
 
 
 def rem_cov(data, cov=None):
