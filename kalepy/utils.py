@@ -469,8 +469,10 @@ def _guess_edges(data, extrema=None, ndim=None, weights=None,
         _num_eff = num_eff / ndim**2
         num_eff = np.clip(_num_eff, 100, None)
 
-    if (extrema is None) or np.any(~np.isfinite(extrema)):
-        if np.any(~np.isfinite(extrema)):
+    any_inf = [0.0] if not np.iterable(extrema) else [ex for ex in extrema if ex is not None]
+    any_inf = np.any(~np.isfinite(any_inf))
+    if (extrema is None) or any_inf:
+        if any_inf:
             err = "Given extrema ({}) contain non-finite values!  Overriding!".format(extrema)
             logging.error(err)
         idx = np.isfinite(data)
