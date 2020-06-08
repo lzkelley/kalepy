@@ -44,7 +44,7 @@ class Kernel(object):
         self._norm = None
         return
 
-    def pdf(self, points, data, weights=None, reflect=None, params=None):
+    def density(self, points, data, weights=None, reflect=None, params=None):
         """Calculate the Density Function using this Kernel.
 
         Arguments
@@ -55,53 +55,43 @@ class Kernel(object):
                 or for each of target `params` dimensions of the data.
 
         """
-        points = _check_points(points, data, params=params)
-
-        # Make sure shape/values of reflect look okay
-        reflect = _check_reflect(reflect, data, weights=weights)
-
-        # Calculate PDF
-        # -----------------------
-        if reflect is None:
-            result = self._pdf_clear(points, data, weights=weights, params=params)
-        else:
-            if params is not None:
-                raise NotImplementedError("`params` argument with `reflect` is not implemented!")
-            result = self._pdf_reflect(points, data, reflect, weights=weights)
-
-        return result
-
-    def _pdf_clear(self, points, data, weights=None, params=None):
-        """
-
-        If parameters are being selected (i.e. `params` is not None):
-          - `points` should reflect only the *target* parameters.
-
-        """
         matrix_inv = self.matrix_inv
         norm = self.norm
+        points = np.atleast_2d(points)
+        npar_pnts, num_points = np.shape(points)
+
+        # ----------------    Process Arguments
 
         # Select subset of parameters
         if params is not None:
-            matrix = self.matrix
-            params, data, matrix, norm = self._params_subset(data, matrix, params)
+            params = np.atleast_1d(params)
+            matrix = self.matrix[np.ix_(params, params)]
+            # Recalculate norm & matrix-inverse
+            norm = np.sqrt(np.linalg.det(matrix))
             matrix_inv = utils.matrix_invert(matrix, helper=self._helper)
+            if npar_pnts != len(params):
+                err = "Dimensions of `points` ({}) does not match `params` ({})!".format(
+                    npar_pnts, len(params))
+                raise ValueError(err)
 
-        if len(points) == 1 and np.ndim(points) != 2 and not utils.really1d(points):
-            raise ValueError("Point must be (N,) or (D,N)!")
-
-        points = np.atleast_2d(points)
-        npar_pnts, num_points = np.shape(points)
         npar_data, num_data = np.shape(data)
         if npar_pnts != npar_data:
-            err = "`data` nparams ({}) does not match `points` ({})!  `params` = '{}'".format(
-                npar_data, npar_pnts, params)
+            err = "Dimensions of `data` ({}) does not match `points` ({})!".format(
+                npar_data, npar_pnts)
             raise ValueError(err)
 
         if (weights is not None) and (np.shape(weights) != (num_data,)):
             err = "Shape of `weights` ({}) does not match number of data points ({})!".format(
                 np.shpae(weights), num_data)
             raise ValueError(err)
+
+        # if (reflect is not None) and (len(reflect) != npar_data):
+        #     err = "Length of `reflect` ({}) does not much data dimensions ({})!".format(
+        #         len(reflect), npar_data)
+        #     raise ValueError(err)
+        reflect = _check_reflect(reflect, data, weights=weights)
+
+        # -----------------    Calculate Density
 
         whitening = sp.linalg.cholesky(matrix_inv)
 
@@ -114,38 +104,18 @@ class Kernel(object):
 
         # NOTE: optimize: can the for-loop be sped up?
         if weights is None:
-            for ii in range(num_data):
-                yy = white_points - white_dataset[:, ii, np.newaxis]
-                result += self.distribution.evaluate(yy).squeeze()
-        else:
-            for ii in range(num_data):
-                yy = white_points - white_dataset[:, ii, np.newaxis]
-                temp = weights[ii] * self.distribution.evaluate(yy)
-                result += temp.squeeze()
-
-        result = result / norm
-        return result
-
-    def _pdf_reflect(self, points, data, reflect, weights=None):
-        matrix_inv = self.matrix_inv
-        norm = self.norm
-
-        ndim, num_data = np.shape(data)
-        ndim, num_points = np.shape(points)
-        result = np.zeros((num_points,), dtype=float)
-
-        whitening = sp.linalg.cholesky(matrix_inv)
-        # Construct the 'whitened' (independent) dataset
-        white_dataset = np.dot(whitening, data)
-        # Construct the whitened sampling points
-        white_points = np.dot(whitening, points)
-
-        if weights is None:
-            weights = np.ones(num_data, dtype=np.float)
+            weights = np.ones(num_data)
 
         for ii in range(num_data):
             yy = white_points - white_dataset[:, ii, np.newaxis]
-            result += weights[ii] * self.distribution.evaluate(yy)
+            temp = weights[ii] * self.distribution.evaluate(yy)
+            result += temp.squeeze()
+
+        if reflect is None:
+            result = result / norm
+            return result
+
+        # -------------------   Perform Reflection
 
         for ii, reflect_dim in enumerate(reflect):
             if reflect_dim is None:

@@ -6,8 +6,6 @@
 - Differences between covariance-matrix elements of numerous orders of magnitude can cause spurious results, in particular in the PDF marginalized over parameters.  See "KDE::Dynamic Range" docstrings.  Currently this is checked for in the `KDE._finalize()` method, at the end of initialization, and a warning is given if the dynamic range seems too large.
 - BUG: calculating marginalized PDF's by integrating over dimensions differs from calculating them directly!
 
-- Implement reflection with target parameters!
-
 - Calculate CDF for particular parameters!
 
 - Move all checking/sanitizing functionality to `KDE` and have `kernels` (etc) assume it's correct.
@@ -17,12 +15,12 @@
 - `kalepy/`
     - Allow for calculating PDF and resampling in only particular dimensions/parameters.
         - FIX: Doesn't work quite right for non-fixed bandwidth, bandwidth needs to be re-calculated for different number of dimensions
-    - Re-enable the `Kernel.pdf_grid` method, and have `KDE.pdf_grid` call that.
     - `tests/`
         - No tests currently check that proper errors are raised.
         - Make sure tests check both cases of `num_points > num_data` and visa-versa (e.g. in PDF calculation).
     - `kernels.py`
         - Use meta-classes to register subclasses of `Distribution`.
+        - See if `_resample_clear` and `_resample_reflect` can be combined.
     - `kde.py`
       - `KDE`
         - Explore more efficient ways of calculating the CDF using the underlying kernels instead of integrating the PDF.
@@ -32,7 +30,22 @@
 
 ## Current
 
+- API:
+  - Removed `KDE.pdf_grid` method, instead use `KDE.pdf(... grid=True)`.
+  - `KDE.pdf(...)` just calls `KDE.density(..., probability=True)`
+    - NOTE: this means that, like `density` the `pdf()` function now returns a (2,) tuple of the evaluation points in addition to the density values!
+  - The arguments `reflect` and `params` can now be used in tandem.
 
+- `kalepy/`
+  - `kde.py`
+    - `KDE`
+      - `pdf(...)` is now identical to `density(..., probability=True)`
+      - `pdf_grid()` [DELETED]
+        - Call `pdf(..., grid=True)` instead.
+  - `kernels.py`
+    - `Kernel`
+      - `density()` <== `pdf`, `_pdf_clear`, and `_pdf_reflect`
+        - Combined latter functions into single new method.
 
 
 ## v0.3.2 - 2020/06/08

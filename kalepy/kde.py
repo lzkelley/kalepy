@@ -94,7 +94,7 @@ class KDE(object):
 
     >>> xx = np.linspace(-3, 3, 400)
     >>> pdf_tru = np.exp(-xx*xx/2) / np.sqrt(2*np.pi)
-    >>> pdf_kde = kde.pdf(xx)
+    >>> xx, pdf_kde = kde.density(xx, probability=True)
 
     >>> import matplotlib.pyplot as plt
     >>> ll = plt.plot(xx, pdf_tru, 'k--', label='Normal PDF')
@@ -276,14 +276,35 @@ class KDE(object):
             See class docstrings:`Projection` for more information.
 
         """
+        ndim = self.ndim
+        data = self.dataset
         if reflect is None:
             reflect = self._reflect
+
+        squeeze = False
+        if params is not None:
+            squeeze = np.isscalar(params)
+            params = np.atleast_1d(params)
+            if reflect is not None:
+                if len(reflect) == ndim:
+                    reflect = [reflect[pp] for pp in params]
+                elif len(reflect) != len(params):
+                    err = "length of `reflect` ({}) does not match `params` ({})!".format(
+                        len(reflect), len(params))
+                    raise ValueError(err)
+
+            data = data[params, :]
+
         if points is None:
             points = self.points
-            # Convert from grid-edges to flattened-grid
-            grid = (self.ndim > 1)
-
-        # print("kde.py:KDE.density(): grid = {}, points.shape = {}".format(grid, np.shape(points)))
+            if params is not None:
+                points = [points[pp] for pp in params]
+                grid = (len(points) > 1)
+            else:
+                grid = (self.ndim > 1)
+        elif utils.really1d(points):
+            points = np.atleast_2d(points)
+            squeeze = True
 
         if grid:
             _points = points
@@ -291,10 +312,8 @@ class KDE(object):
             shape = np.shape(points[0])
             points = [pp.flatten() for pp in points]
 
-        # print("points.shape = ", np.shape(points), "shape = ", shape)
+        result = self.kernel.density(points, data, self.weights, reflect=reflect, params=params)
 
-        result = self.kernel.pdf(points, self.dataset, self.weights, reflect=reflect, params=params)
-        # print("result = ", result.shape)
         if probability:
             if self.weights is None:
                 result = result / self.ndata
@@ -305,90 +324,15 @@ class KDE(object):
             result = result.reshape(shape)
             points = _points
 
-        # print("result = ", result.shape)
+        if squeeze:
+            points = points[0]
+            result = result.squeeze()
 
         return points, result
 
-    def pdf(self, points, reflect=None, params=None):
-        """Evaluate the kernel-density-estimate PDF at the given data-points.
-
-        This method acts as an API to the `Kernel.pdf` method for this instance's `kernel`.
-
-        Arguments
-        ---------
-        points : ([D,]M,) array_like of float
-            The locations at which the PDF should be evaluated.  The number of dimensions `D` must
-            match that of the `dataset` that initialized this class' instance.
-            NOTE: If the `params` kwarg (see below) is given, then only those dimensions of the
-            target parameters should be specified in `pnts`.
-
-        reflect : (D,) array_like, None (default)
-            Locations at which reflecting boundary conditions should be imposed.
-            For each dimension `D`, a pair of boundary locations (for: lower, upper) must be
-            specified, or `None`.  `None` can also be given to specify no boundary at that
-            location.  See class docstrings:`Reflection` for more information.
-        params : int, array_like of int, None (default)
-            Only calculate the PDF for certain parameters (dimensions).
-            See class docstrings:`Projection` for more information.
-
-        """
-        points, pdf = self.density(points=points, reflect=reflect, params=params, probability=True)
-        return pdf
-
-    def pdf_grid(self, edges, reflect=None, params=None):
-        """Convenience method to compute the PDF given the edges of a grid in each dimension.
-
-        Arguments
-        ---------
-        edges : (D,) arraylike of arraylike
-            The edges defining a regular grid to use as points when calculating PDF values.
-            These edges are used with `numpy.meshgrid` to construct the grid points.
-
-            Example:
-            If the KDE is initialized with a 3-parameter dataset [i.e. (3,N)], then `edges`
-            must be a list of three arrays, each specifying the grid-points along the corresponding
-            parameter.  Define the lengths of each array as: A, B, C; then the grid and the
-            returned PDF will have a shape (A, B, C).
-
-        reflect : (D,) array_like, None (default)
-            Locations at which reflecting boundary conditions should be imposed.
-            For each dimension `D`, a pair of boundary locations (for: lower, upper) must be
-            specified, or `None`.  `None` can also be given to specify no boundary at that
-            location.  See class docstrings:`Reflection` for more information.
-
-        params : int, array_like of int, None (default)
-            Only calculate the PDF for certain parameters (dimensions).
-            See class docstrings:`Projection` for more information.
-
-        NOTE: optimize: there are likely much faster methods than broadcasting and flattening,
-                        use a different method to calculate cdf on a grid.
-
-        """
-        ndim = self.ndim
-        # If `edges` is 1D (and not "jagged") then expand to 2D
-        if utils.really1d(edges):
-            edges = np.atleast_2d(edges)
-
-        # Check shape if unput `edges`
-        if (params is None):
-            # Should be edges for all parameters
-            if len(edges) != ndim:
-                err = "`edges` must be (D,)=({},): an arraylike of edges for each dim/param!"
-                err = err.format(ndim)
-                raise ValueError(err)
-        else:
-            # Should only be as many edges as target parameters
-            if np.size(params) != len(edges):
-                err = "`params` = '{}' (length {}), but length of `edges` = {}!".format(
-                    params, len(params), len(edges))
-                raise ValueError(err)
-
-        coords = np.meshgrid(*edges, indexing='ij')
-        shp = np.shape(coords)[1:]
-        coords = np.vstack([xx.ravel() for xx in coords])
-        pdf = self.pdf(coords, reflect=reflect, params=params)
-        pdf = pdf.reshape(shp)
-        return pdf
+    def pdf(self, *args, **kwargs):
+        kwargs['probability'] = True
+        return self.density(*args, **kwargs)
 
     def cdf(self, pnts, params=None, reflect=None):
         """Cumulative Distribution Function based on KDE smoothed data.
@@ -414,7 +358,7 @@ class KDE(object):
             points = self.points
 
             # Calculate PDF at grid locations
-            pdf = self.pdf_grid(points)
+            pdf = self.pdf(points, grid=True)[1]
             # Convert to CDF using trapezoid rule
             cdf = utils.cumtrapz(pdf, points)
             # Normalize to the maximum value

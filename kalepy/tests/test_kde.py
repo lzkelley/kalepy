@@ -35,7 +35,15 @@ class Test_KDE_PDF(object):
         classes = [lambda xx, bw: sp.stats.gaussian_kde(xx, bw_method=bw),
                    lambda xx, bw: kale.KDE(xx, bandwidth=bw, kernel=kernel)]
         for mm in methods:
-            kde_list = [cc(aa, mm).pdf(grid) for cc in classes]
+            kde_list = []
+            for cc in classes:
+                try:
+                    test = cc(aa, mm).density(grid, probability=True)[1]
+                except AttributeError:
+                    test = cc(aa, mm).pdf(grid)
+
+                kde_list.append(test)
+
             print("method: {}".format(mm))
             print("\t" + utils.stats_str(kde_list[0]))
             print("\t" + utils.stats_str(kde_list[1]))
@@ -66,8 +74,15 @@ class Test_KDE_PDF(object):
         classes = [lambda xx, bw: sp.stats.gaussian_kde(xx, bw_method=bw),
                    lambda xx, bw: kale.KDE(xx, bandwidth=bw, kernel=kernel)]
         for mm in methods:
-            kdes_list = [cc(data, mm).pdf(grid).reshape(xc.shape).T
-                         for cc in classes]
+            kdes_list = []
+            for cc in classes:
+                try:
+                    test = cc(data, mm).density(grid, probability=True)[1].reshape(xc.shape).T
+                except AttributeError:
+                    test = cc(data, mm).pdf(grid).reshape(xc.shape).T
+
+                kdes_list.append(test)
+                
             assert_true(np.allclose(kdes_list[0], kdes_list[1]))
 
         return
@@ -87,7 +102,7 @@ class Test_KDE_PDF(object):
         boundaries = [None, EXTR]
         for bnd in boundaries:
             kde = kale.KDE(aa, kernel=kernel)
-            pdf = kde.pdf(cgrid, reflect=bnd)
+            pdf = kde.density(cgrid, reflect=bnd, probability=True)[1]
 
             # If the kernel's support is infinite, then all points outside of boundaries should be
             # nonzero; if it's finite-supported, then only some of them (near edges) will be
@@ -150,7 +165,7 @@ class Test_KDE_PDF(object):
             None
         ]
         for jj, reflect in enumerate(reflections):
-            pdf_1d = kde.pdf(grid, reflect=reflect)
+            pdf_1d = kde.density(grid, reflect=reflect, probability=True)[1]
             pdf = pdf_1d.reshape(hist.shape)
 
             inside = np.ones_like(pdf_1d, dtype=bool)
@@ -220,9 +235,9 @@ class Test_KDE_PDF(object):
 
         for par in range(2):
             xx = cents[par]
-            pdf_2d = kde.pdf(xx, params=par)
+            pdf_2d = kde.density(xx, params=par, probability=True)[1]
             kde_1d = kale.KDE(data[par, :], bandwidth=bandwidth, kernel=kernel)
-            pdf_1d = kde_1d.pdf(xx)
+            pdf_1d = kde_1d.density(xx, probability=True)[1]
             # print("matrix : ", kde.bandwidth.matrix, kde_1d.bandwidth.matrix)
             assert_true(np.allclose(pdf_2d, pdf_1d, rtol=1e-3))
 
