@@ -125,7 +125,7 @@ class Corner:
 
         return
 
-    def plot_data(self, axes=None, data=None, weights=None, **kwargs):
+    def plot_data(self, data=None, axes=None, weights=None, **kwargs):
         if axes is None:
             axes = self.axes
         # Only use stored `weights` if we're also using stored `data`
@@ -142,7 +142,7 @@ class Corner:
 
         return corner_data(axes, data, weights=weights, **kwargs)
 
-    def plot_kde(self, axes=None, kde=None, **kwargs):
+    def plot_kde(self, kde=None, axes=None, **kwargs):
         if axes is None:
             axes = self.axes
         if kde is None:
