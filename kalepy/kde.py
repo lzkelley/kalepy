@@ -2,6 +2,7 @@
 """
 import logging
 import six
+import copy
 
 import numpy as np
 import scipy as sp
@@ -238,7 +239,7 @@ class KDE(object):
         ]
 
         if (extrema is None) and (reflect is not None):
-            extrema = reflect
+            extrema = copy.deepcopy(reflect)
 
         # `eff_extrema` is, by design, outside of data limits, so don't `warn` about limits
         extrema = utils._parse_extrema(eff_extrema, extrema, warn=False)
@@ -482,6 +483,11 @@ class KDE(object):
             `D` is one, then the returned array will have shape (L,).
 
         """
+        if reflect is False:
+            reflect = None
+        elif reflect is None:
+            reflect = self._reflect
+
         samples = self.kernel.resample(
             self.dataset, self.weights,
             size=size, keep=keep, reflect=reflect, squeeze=squeeze)
@@ -519,16 +525,18 @@ class KDE(object):
                 logging.warning("All matrix elements are less than 1e{}!".format(WARN_ALL_BELOW))
                 warn = True
 
-            d_extr = utils.minmax(d_vals[d_vals > EXTR_ABOVE])
-            o_extr = utils.minmax(o_vals[o_vals > EXTR_ABOVE])
-
-            ratio = np.fabs(d_extr[:, np.newaxis] - o_extr[np.newaxis, :])
-            if np.any(ratio >= log_ratio_tol):
-                logging.warning("Covariance matrix:\n" + str(mat))
-                msg = "(log) Ratio of covariance elements ({}) exceeds tolerance ({})!".format(
-                    ratio, log_ratio_tol)
-                logging.warning(msg)
-                warn = True
+            d_vals = d_vals[d_vals > EXTR_ABOVE]
+            o_vals = o_vals[o_vals > EXTR_ABOVE]
+            if len(d_vals) > 0 and len(o_vals) > 0:
+                d_extr = utils.minmax(d_vals)
+                o_extr = utils.minmax(o_vals)
+                ratio = np.fabs(d_extr[:, np.newaxis] - o_extr[np.newaxis, :])
+                if np.any(ratio >= log_ratio_tol):
+                    logging.warning("Covariance matrix:\n" + str(mat))
+                    msg = "(log) Ratio of covariance elements ({}) exceeds tolerance ({})!".format(
+                        ratio, log_ratio_tol)
+                    logging.warning(msg)
+                    warn = True
 
         if warn:
             msg = "Recommend rescaling input data, or using a diagonal covariance matrix"
