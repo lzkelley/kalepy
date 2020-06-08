@@ -31,7 +31,15 @@
 
 
 ## Current
+
+
+
+
+## v0.3.2 - 2020/06/08
+
 - `reflect` arguments: `True` can now be given (single value, or for a particular parameter/dimension), in which case the KDE will guess the reflection points based on the data extrema (in all dimensions, or only the target ones).  This happens in `kernels._check_reflect`.
+- General bug fixes.
+- Improve kwarg handling in plotting.
 
 - API
   - `kalepy.density()`
@@ -42,6 +50,11 @@
   - `kernels.py`
     - `_check_reflect()`
       - Added boolean functionality for `reflect` arguments, which are then replaced with data extrema as needed.
+  - `plot.py`
+    - General bug fixes, improvements in kwarg handling.
+    - Return `handles` from plotting functions to allow for legends.
+  - `utils.py`
+    - New methods for checking / handling jagged arrays (`flatten()`, `flatlen()`, `isjagged()` and `jshape`)
 
 - `notebooks/`
   - `api.ipynb`  [NEW-FILE]
