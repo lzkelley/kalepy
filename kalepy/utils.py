@@ -1164,5 +1164,78 @@ def _random_data_3d_01(num=1e3):
     noise = [np.random.uniform(*ex, num//5) for ex in extr]
     data = np.append(data, noise, axis=1)
 
-    # data[0, :] = np.fabs(data[0, :])
+    return data
+
+
+def _random_data_3d_02(num=1e3, noise=0.2):
+    num = int(num)
+
+    sigma = [1.0, 0.2, 1.5]
+    corr = [
+        [+1.4, +0.8, +0.4],
+        [+0.8, +1.0, -0.5],
+        [+0.2, -0.5, +1.0]
+    ]
+
+    cov = np.zeros_like(corr)
+    for (ii, jj), cc in np.ndenumerate(corr):
+        cov[ii, jj] = cc * sigma[ii] * sigma[jj]
+
+    data = np.random.multivariate_normal(np.zeros_like(sigma), cov, num).T
+    dd = data[1, :]
+    dd = (dd - dd.min())/dd.max()
+    data *= np.sqrt(dd)[np.newaxis, :]
+
+    nn = int(num*noise)
+    noise = [np.random.normal(data[ii, :].mean(), 2*ss, nn) for ii, ss in enumerate(sigma)]
+    sel = np.random.choice(num, nn, replace=False)
+    data[:, sel] = np.array(noise)
+    return data
+
+
+def _random_data_2d_01(num=1e3, noise=0.2):
+    num = int(num)
+
+    sigma = [1.0, 0.2]
+    corr = [
+        [+1.5, -0.5],
+        [-0.5, +1.0]
+    ]
+
+    cov = np.zeros_like(corr)
+    for (ii, jj), cc in np.ndenumerate(corr):
+        cov[ii, jj] = cc * sigma[ii] * sigma[jj]
+
+    data = np.random.multivariate_normal(np.zeros_like(sigma), cov, num).T
+    dd = data[1, :]
+    dd = (dd - dd.min())/dd.max()
+    data *= np.sqrt(dd)[np.newaxis, :]
+
+    nn = int(num*noise)
+    noise = [np.random.normal(data[ii, :].mean(), 2*ss, nn) for ii, ss in enumerate(sigma)]
+    sel = np.random.choice(num, nn, replace=False)
+    data[:, sel] = np.array(noise)
+    return data
+
+
+def _random_data_2d_02(num=1e3, noise=0.2):
+    num = int(num)
+
+    xx = np.random.normal(1.0, 0.5, num)
+    yy = np.random.uniform(0.0, 2.0, num)
+    data = [xx, yy]
+    data = [np.sort(aa) for aa in data]
+    xx, yy = data
+    idx = np.arange(num)
+    sel = np.random.choice(num, num//4, replace=False)
+    idx[sel] = np.random.choice(num, num//4, replace=False)
+    # np.random.shuffle(yy[np.random.choice(num, num//2, replace=False)])
+    data = [xx, yy[idx]]
+
+    # idx = np.arange(num)
+    # np.random.shuffle(idx)
+    # data = [zz[idx] for zz in data]
+    # idx = np.random.choice(num, num//2, replace=False)
+    # np.random.shuffle(np.array(data)[:, idx])
+
     return data
