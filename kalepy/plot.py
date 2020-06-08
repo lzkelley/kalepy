@@ -533,7 +533,7 @@ def dist2d_data(ax, edges=None, hist=None, data=None, weights=None, sigmas=None,
 
     sigmas, pdf_levels, _levels = _dfm_levels(hist, sigmas=sigmas)
 
-    kwargs.setdefault('color', 'k')
+    color = kwargs.setdefault('color', 'k')
     kwargs.setdefault('lw', 2.0)
     kwargs.setdefault('alpha', 0.5)
     hist2d = _none_dict(
@@ -964,8 +964,8 @@ def _draw_hist2d(ax, xx, yy, data, mask_below=None, color=None, smap=None, **kwa
     return ax.pcolormesh(xx, yy, data.T, **kwargs)
 
 
-def _draw_contours_1d(ax, locs, color='k', span=None, rotate=False, alpha=0.1):
-    kw = dict(facecolor=color, alpha=alpha, edgecolor='none')
+def _draw_contours_1d(ax, locs, color='k', span=None, rotate=False, alpha=0.1, **kwargs):
+    kw = udict(dict(facecolor=color, alpha=alpha, edgecolor='none'), kwargs)
 
     for lo, hi in locs:
         # If median is included (sigma=0, cdf=0.5), lo will equal hi
@@ -975,7 +975,7 @@ def _draw_contours_1d(ax, locs, color='k', span=None, rotate=False, alpha=0.1):
 
         if span is None:
             span_func = ax.axhspan if rotate else ax.axvspan
-            span_func(lo, hi, **kw)
+            handle = span_func(lo, hi, **kw)
         else:
             center = [lo, span[0]]
             extent = [hi - lo, span[1] - span[0]]
