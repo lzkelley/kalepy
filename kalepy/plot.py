@@ -435,13 +435,13 @@ def dist1d_data(ax, edges=None, hist=None, data=None, weights=None,
     if median is None:
         median = carpet
 
-    kwargs.setdefault('color', 'k')
+    color = kwargs.setdefault('color', 'k')
     kwargs.setdefault('lw', 2.0)
     kwargs.setdefault('alpha', 0.8)
     # _def_dict = dict(color=color, lw=lw, alpha=alpha)
     hist1d = _none_dict(hist1d, 'hist1d', kwargs)
     carpet = _none_dict(carpet, 'carpet', kwargs)
-    contour = _none_dict(contour, 'contour', kwargs)
+    contour = _none_dict(contour, 'contour')
 
     if data is not None:
         edges = utils.parse_edges(data, edges=edges)
@@ -485,7 +485,7 @@ def dist1d_data(ax, edges=None, hist=None, data=None, weights=None,
         # Reshape to (sigmas, 2)
         locs = np.interp(percs, cdf, data).reshape(2, len(sigmas)).T
 
-        handle_contour = _draw_contours_1d(ax, locs, rotate=rotate, **contour)
+        handle_contour = _draw_contours_1d(ax, locs, rotate=rotate, color=color)
 
     # Draw Carpet Plot
     # ------------------------------------
@@ -736,7 +736,7 @@ def dist1d_kde(ax, kde, param=None, pdf=None, reflect=None, edges=None, sigmas=T
     if renormalize:
         pdf = pdf / pdf.max()
 
-    kwargs.setdefault('color', 'k')
+    color = kwargs.setdefault('color', 'k')
     kwargs.setdefault('lw', 2.0)
     kwargs.setdefault('alpha', 0.8)
     contour = _none_dict(contour, 'contour', kwargs)
@@ -760,7 +760,8 @@ def dist1d_kde(ax, kde, param=None, pdf=None, reflect=None, edges=None, sigmas=T
         # Reshape to (sigmas, 2)
         locs = np.interp(percs, cdf, edges).reshape(2, len(sigmas)).T
 
-        handle_contour = _draw_contours_1d(ax, locs, rotate=rotate, **contour)
+        # handle_contour = _draw_contours_1d(ax, locs, rotate=rotate, **contour)
+        handle_contour = _draw_contours_1d(ax, locs, rotate=rotate, color=color)
 
     handles = dict()
     handles['density'] = handle_density
