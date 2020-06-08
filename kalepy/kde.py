@@ -420,7 +420,11 @@ class KDE(object):
             # Normalize to the maximum value
             cdf /= cdf.max()
 
-            points = np.atleast_2d(points)
+            ndim = np.ndim(cdf)
+            # points = np.atleast_2d(points)
+            if ndim == 1 and np.ndim(points) == 1:
+                points = np.atleast_2d(points)
+
             self._cdf_grid = (points, cdf)
             self._cdf_func = sp.interpolate.RegularGridInterpolator(
                 *self._cdf_grid, bounds_error=False, fill_value=None)
