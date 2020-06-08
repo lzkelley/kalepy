@@ -843,7 +843,7 @@ def _check_reflect(reflect, data, weights=None, helper=False):
         elif (reflect[ii] is not None) and (True in reflect[ii]):
             if reflect[ii][0] is True:
                 reflect[ii][0] = np.min(data[ii])*(1 - _NUM_PAD)
-            elif reflect[ii][1] is True:
+            if reflect[ii][1] is True:
                 reflect[ii][1] = np.max(data[ii])*(1 + _NUM_PAD)
 
         if np.all(np.array(reflect[ii]) != None) and (reflect[ii][0] >= reflect[ii][1]):  # noqa
