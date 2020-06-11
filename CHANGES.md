@@ -48,6 +48,7 @@
         - Combined latter functions into single new method.
 
 
+
 ## v0.3.2 - 2020/06/08
 
 - `reflect` arguments: `True` can now be given (single value, or for a particular parameter/dimension), in which case the KDE will guess the reflection points based on the data extrema (in all dimensions, or only the target ones).  This happens in `kernels._check_reflect`.

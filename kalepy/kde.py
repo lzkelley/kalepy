@@ -288,6 +288,8 @@ class KDE(object):
             if reflect is not None:
                 if len(reflect) == ndim:
                     reflect = [reflect[pp] for pp in params]
+                elif len(reflect) == 2 and len(params) == 1:
+                    pass
                 elif len(reflect) != len(params):
                     err = "length of `reflect` ({}) does not match `params` ({})!".format(
                         len(reflect), len(params))
