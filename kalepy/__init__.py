@@ -27,6 +27,7 @@ _PATH_NB_OUT = os.path.join(_PATH_NB, 'output', '')
 from kalepy import kernels   # noqa
 from kalepy import utils   # noqa
 from kalepy.kde import KDE  # noqa
+import kalepy.plot  # noqa
 from kalepy.plot import corner, Corner  # noqa
 
 del os
