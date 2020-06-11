@@ -783,8 +783,9 @@ def _check_reflect(reflect, data, weights=None, helper=False):
         return None
 
     # NOTE: FIX: Should this happen in the method that calls `_check_reflect`?
-    data = np.atleast_2d(data)
-    ndim, nval = np.shape(data)
+    # data = np.atleast_2d(data)
+    # ndim, nval = np.shape(data)
+    ndim, nval = data.shape
     if reflect is True:
         reflect = [True for ii in range(ndim)]
 
@@ -792,8 +793,8 @@ def _check_reflect(reflect, data, weights=None, helper=False):
         reflect = np.atleast_2d(reflect)
 
     if (len(reflect) != ndim):  # and not ((len(reflect) == 2) and (ndim == 1)):
-        err = "`reflect` ({},) must match the data with ({}) parameters!".format(
-            len(reflect), ndim)
+        err = "`reflect` ({},) must match the data with shape ({}) parameters!".format(
+            len(reflect), data.shape)
         raise ValueError(err)
 
     try:
