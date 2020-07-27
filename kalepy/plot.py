@@ -311,7 +311,8 @@ def corner(kde_data, labels=None, data=None, kde=None, init={}, **kwargs):
 
 def corner_data(axes, data, weights=None, edges=None,
                 levels=None, hist=None, pad=True, rotate=None,
-                mask_dense=True, mask_sparse=True, median=True, sigmas=None, density=True,
+                mask_dense=True, mask_sparse=True, median=True, sigmas=None,
+                density=True, probability=False,
                 hist1d=True, hist2d=True, scatter=True, carpet=True,
                 contour=None, contour1d=True, contour2d=True, renormalize=False,
                 smap=None, cmap=None, **kwargs):
@@ -356,7 +357,7 @@ def corner_data(axes, data, weights=None, edges=None,
     # Calculate Distributions
     # ================================
     #
-
+    tot_weight = np.sum(weights) if weights is not None else len(data[0])
     data_hist1d = np.empty(size, dtype=object)
     data_hist2d = np.empty(shp, dtype=object)
     extr_hist2d = None
@@ -372,6 +373,8 @@ def corner_data(axes, data, weights=None, edges=None,
                 xx, bins=edges[jj], weights=weights, density=False)  # density=density)
             if density:
                 data_hist1d[jj] = data_hist1d[jj] / np.diff(edges[jj])
+            if probability:
+                data_hist1d[jj] /= tot_weight
 
         # Off-Diagonals
         # ----------------------
@@ -383,6 +386,8 @@ def corner_data(axes, data, weights=None, edges=None,
             if density:
                 area = np.diff(bins[0])[:, np.newaxis] * np.diff(bins[1])[np.newaxis, :]
                 data_hist2d[ii, jj] = data_hist2d[ii, jj] / area
+            if probability:
+                data_hist2d[ii, jj] /= tot_weight
 
             extr_hist2d = utils.minmax(
                 data_hist2d[ii, jj], prev=extr_hist2d, positive=smap_is_log)
