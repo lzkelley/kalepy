@@ -785,6 +785,7 @@ def _check_reflect(reflect, data, weights=None, helper=False):
     # NOTE: FIX: Should this happen in the method that calls `_check_reflect`?
     # data = np.atleast_2d(data)
     # ndim, nval = np.shape(data)
+    data = np.asarray(data)
     ndim, nval = data.shape
     if reflect is True:
         reflect = [True for ii in range(ndim)]
