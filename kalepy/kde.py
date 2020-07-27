@@ -176,7 +176,7 @@ class KDE(object):
         self._check_points_flag = True
         self._points = points
         if ndata < 2:
-            raise ValueError(f"ERROR: Cannot construct KDE from {ndata} data point(s)!")
+            raise ValueError("ERROR: Cannot construct KDE from {} data point(s)!".format(ndata))
 
         # Set `weights`
         # --------------------------------
