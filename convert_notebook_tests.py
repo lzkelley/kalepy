@@ -35,6 +35,11 @@ TEST_PREFIX = "test_"
 # This is the temporary directory to place converted notebooks for testing
 PATH_NOTEBOOK_TESTS = os.path.join(PATH_TESTS, 'test_notebooks')
 
+PREPEND = """
+    def get_ipython():
+        return type('Dummy', (object,), dict(run_line_magic=lambda *args, **kwargs: None))
+"""
+
 
 def main():
     logging.info("Path: '{}'".format(PATH))
@@ -88,6 +93,11 @@ def convert_notebooks():
         subprocess.run(args, timeout=500, check=True,
                        stderr=subprocess.PIPE, stdout=subprocess.PIPE)
         shutil.move(src_py, dst_py)
+
+        with open(dst_py, 'r') as original:
+            data = original.read()
+        with open(dst_py, 'w') as modified:
+            modified.write(PREPEND.strip() + "\n# `convert_notebook_tests.py` appended\n" + data)
 
     return
 
