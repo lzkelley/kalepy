@@ -30,6 +30,10 @@
 
 ## Current
 
+
+
+## v0.3.3 - 2020/07/27
+
 - API:
   - Removed `KDE.pdf_grid` method, instead use `KDE.pdf(... grid=True)`.
   - `KDE.pdf(...)` just calls `KDE.density(..., probability=True)`
