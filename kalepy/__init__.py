@@ -1,4 +1,6 @@
 """
+
+Copyright (C) 2020 Luke Zoltan Kelley and Contributors.
 """
 
 import os
@@ -10,7 +12,7 @@ with open(_vers_path) as inn:
 
 __version__ = _version
 __author__ = "Luke Zoltan Kelley <lzkelley@northwestern.edu>"
-__copyright__ = "Copyright 2019 - Luke Zoltan Kelley and contributors"
+__copyright__ = "Copyright (C) 2020 Luke Zoltan Kelley and Contributors"
 # __contributors__ = []
 # __bibtex__ = ""
 
