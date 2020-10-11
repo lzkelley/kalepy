@@ -1,8 +1,3 @@
-# NOTE: This is for when the notebook is converted to a python script
-# NOTE: this MUST precede the magic functions
-def get_ipython():
-    return type('Dummy', (object,), dict(run_line_magic=lambda *args, **kwargs: None))
-    
 %reload_ext autoreload
 %autoreload 2
 
