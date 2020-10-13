@@ -1,5 +1,5 @@
 ---
-title: 'kalepy: A Python package for kernel density estimation and sampling'
+title: 'kalepy: a python package for kernel density estimation and sampling'
 tags:
   - Python
   - astronomy
@@ -48,8 +48,10 @@ Resampling from the derived PDF can be done much more efficiently in the KDE fra
 
 ![Data drawn from a log-normal distribution is used to estimate the underlying PDF using histgrams (upper) and KDEs (lower).  The true distribution is shown in magenta.  In the upper panel, the default bins chosen by `matplotlib` are especially uninsightful (blue), while custom bins misrepresent the distributions position when the initial edge is poorly chosen (red).  The data is also included as a 'carpet' plot.  In the lower panel, a Gaussian KDE with no reflection (blue) is compared to one with a reflection at $x=0$, which better reproduces the true PDF.  Data resampled from the reflecting-KDE PDF is shown as the blue 'carpet' points which closely resemble the input data. \label{fig:one}](fig_one.png){width=75%}
 
+`kalepy` has recently been used in astronomy and astrophysics, particularly in @Siwek+2020, @Kelley-2020, @Andrews-2020.
+
 # Acknowledgements
 
-We acknowledge very helpful consultations on statistical nuances from Christopher Berry and Diego Muñoz.  The support and 'beta-testing' performed by Magda Siwek and Jeff Andrews is also much appreciated.
+We acknowledge very helpful consultations on statistical nuances from Christopher Berry and Diego Muñoz.  The support and 'beta-testing' performed by Magda Siwek and Jeff Andrews is also much appreciated.  `kalepy` utilizes tools and functionality from `numpy` [@numpy-2020], `matplotlib` [@matplotlib-2007], `scipy` [@SciPy-2020], `jupyter` notebooks [ipython-2007; @jupyter-2016], and `corner` [@Foreman-Mackey-2016].
 
 # References
