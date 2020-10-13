@@ -1,0 +1,2 @@
+# pandoc --filter pandoc-citeproc --bibliography=paper.bib --variable classoption=twocolumn --pdf-engine=xelatex -s paper.md -o paper.pdf
+pandoc --filter pandoc-citeproc --bibliography=paper.bib --pdf-engine=xelatex -s paper.md -o paper.pdf

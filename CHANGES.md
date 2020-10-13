@@ -31,6 +31,10 @@
 ## Current
 
 
+## v0.4 - 2020/10/12
+
+- Added paper submitted to JOSS
+
 
 ## v0.3.3 - 2020/07/27
 
