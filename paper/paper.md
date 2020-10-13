@@ -6,7 +6,7 @@ tags:
   - statistics
   - monte carlo methods
 authors:
-  - name: Luke Zoltan Kelley^[lzkelley@northwestern.edu]
+  - name: Luke Zoltan Kelley
     orcid: 0000-0002-6625-6450
     affiliation: "1, 2" # (Multiple affiliations must be quoted)
 affiliations:
