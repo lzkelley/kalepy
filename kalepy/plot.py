@@ -858,8 +858,8 @@ def _get_def_sigmas(sigmas, contour=True, median=True):
 # ==============================
 
 
-def draw_carpet(xx, weights=None, ax=None, ystd=None, yave=None, fancy=False, random='normal',
-                rotate=False, **kwargs):
+def draw_carpet(xx, weights=None, ax=None, ystd=None, yave=None, shift=0.0,
+                fancy=False, random='normal', rotate=False, **kwargs):
     """Draw a carpet plot on the given axis in the 'fuzz' style.
 
     Arguments
@@ -939,6 +939,9 @@ def draw_carpet(xx, weights=None, ax=None, ystd=None, yave=None, fancy=False, ra
 
     extr = utils.minmax(yy)
     trans = [ax.transData, ax.transAxes]
+    if shift is not None:
+        yy += shift
+
     if rotate:
         temp = xx
         xx = yy
