@@ -21,7 +21,7 @@ bibliography: paper.bib
 
 # Summary
 
-'Kernel Density Estimation' or 'KDE' [@Rosenblatt-1956; @Parzen-1962] is a type of non-parametric density estimation [@Scott-2015] that improves upon the traditional 'histogram' approach by, for example, i) utilizing the exact location of each data point (instead of 'binning'), ii) being able to produce smooth distributions with continuous and meaningful derivatives, and iii) removing the arbitrary offset of an initial bin edge.  The `kalepy` package presents a python KDE implementation designed for broad applicability by including numerous features absent in other packages.  In particular, `kalepy` provides optional weightings, reflecting boundary conditions, an arbitrary number of dimensions, numerous (and extensible) kernel (i.e. window) functions, built-in plotting, and built-in resampling over all or a subset of dimensions.
+'Kernel Density Estimation' or 'KDE' [@Rosenblatt-1956; @Parzen-1962] is a type of non-parametric density estimation [@Scott-2015] that improves upon the traditional 'histogram' approach by, for example, i) utilizing the exact location of each data point (instead of 'binning'), ii) being able to produce smooth distributions with continuous and meaningful derivatives, and iii) removing the arbitrary offset of an initial bin edge.  The `kalepy` package presents a python KDE implementation designed for broad applicability by including numerous features absent in other packages presented in a class-based structure designed for extensibility.  `kalepy` provides optional weightings, reflecting boundary conditions, an arbitrary number of dimensions, numerous (and extensible) kernel (i.e. window) functions, built-in plotting, and built-in resampling.
 
 # Statement of need
 
