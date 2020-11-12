@@ -870,6 +870,7 @@ def draw_carpet(xx, weights=None, ax=None, ystd=None, yave=None, shift=0.0,
         Passed to `matplotlib.axes.Axes.scatter()`
 
     """
+    xx = np.asarray(xx)
     if ax is None:
         ax = plt.gca()
 
