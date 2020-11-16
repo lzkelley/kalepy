@@ -5,7 +5,7 @@ import os
 import sys
 import shutil
 import re
-import git
+# import git
 import subprocess
 import logging
 
