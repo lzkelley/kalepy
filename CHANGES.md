@@ -30,6 +30,12 @@
 
 ## Current
 
+- BUG: `weights` was not being passed correctly during resampling (without reflection).
+
+- `kalepy/`
+    - `plot.py`
+        - DEPRECATION: `carpet()` <== `draw_carpet()`
+
 
 ## v0.4 - 2020/10/12
 

@@ -176,7 +176,7 @@ class Kernel(object):
         # Perform resampling
         # -------------------------------
         if reflect is None:
-            samples = self._resample_clear(data, size, weights=None, keep=keep)
+            samples = self._resample_clear(data, size, weights=weights, keep=keep)
         else:
             samples = self._resample_reflect(data, size, reflect, weights=weights, keep=keep)
 
@@ -208,6 +208,9 @@ class Kernel(object):
             keep = np.atleast_1d(keep)
             for pp in keep:
                 norm[pp, :] = 0.0
+
+        if weights is not None:
+            weights = np.asarray(weights) / np.sum(weights)
 
         indices = np.random.choice(nvals, size=size, p=weights)
         means = data[:, indices]
