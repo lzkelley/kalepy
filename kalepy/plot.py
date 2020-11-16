@@ -496,7 +496,7 @@ def dist1d_data(ax, edges=None, hist=None, data=None, weights=None,
     # ------------------------------------
     handle_carpet = None
     if carpet is not None:
-        handle_carpet, _extr = draw_carpet(data, weights=weights, ax=ax, rotate=rotate, **carpet)
+        handle_carpet, _extr = carpet(data, weights=weights, ax=ax, rotate=rotate, **carpet)
 
     handles = dict()
     handles['carpet'] = handle_carpet
@@ -858,8 +858,8 @@ def _get_def_sigmas(sigmas, contour=True, median=True):
 # ==============================
 
 
-def draw_carpet(xx, weights=None, ax=None, ystd=None, yave=None, shift=0.0,
-                fancy=False, random='normal', rotate=False, **kwargs):
+def carpet(xx, weights=None, ax=None, ystd=None, yave=None, shift=0.0,
+           fancy=False, random='normal', rotate=False, **kwargs):
     """Draw a carpet plot on the given axis in the 'fuzz' style.
 
     Arguments
@@ -1383,6 +1383,11 @@ def udict(*args, copy_vals=True):
         else:
             rv.update(aa)
     return rv
+
+
+def draw_carpet(*args, **kwargs):
+    # utils.dep_warn("draw_carpet", new_name="carpet")
+    return carpet(*args, **kwargs)
 
 
 '''

@@ -31,10 +31,11 @@
 ## Current
 
 - BUG: `weights` was not being passed correctly during resampling (without reflection).
+- For carpet plotting, use `kalepy.plot.carpet()`  (instad of `draw_carpet()`)
 
 - `kalepy/`
     - `plot.py`
-        - DEPRECATION: `carpet()` <== `draw_carpet()`
+        - Use `carpet()` as the primary API for what was `draw_carpet()` before; leave the latter for internal use (to simplify other functions parameters).
 
 
 ## v0.4 - 2020/10/12

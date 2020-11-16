@@ -1090,6 +1090,21 @@ def _parse_extrema(data, extrema=None, warn=True):
     return extrema
 
 
+def _dep_warn(old_name, new_name=None, msg=None, lvl=3, type='function'):
+    """Standardized deprecation warning for `zcode` package.
+    """
+    import warnings
+    warnings.simplefilter('always', DeprecationWarning)
+    warn = "WARNING: {} `{}` is deprecated.".format(type, old_name)
+    if new_name is not None:
+        warn += "  Use `{}` instead.".format(new_name)
+    if msg is not None:
+        warn += "  '{}'".format(msg)
+
+    warnings.warn(warn, DeprecationWarning, stacklevel=lvl)
+    return
+
+
 '''
 # NOTE: this is SLOWER
 def _bound_indices(data, bounds, outside=False):
@@ -1138,6 +1153,21 @@ def ave_std(values, weights=None, **kwargs):
     variance = np.average((values - average)**2, weights=weights, **kwargs)
     return average, np.sqrt(variance)
 '''
+
+
+def _random_data_1d_01(num=1e4):
+    num = int(num)
+    np.random.seed(12345)
+    _d1 = np.random.normal(4.0, 1.0, num//2)
+    _d2 = np.random.lognormal(0, 0.5, size=num - num//2)
+    data = np.concatenate([_d1, _d2])
+
+    xx = np.linspace(0.0, 7.0, 200)[1:]
+    yy = 0.5*np.exp(-(xx - 4.0)**2/2) / np.sqrt(2*np.pi)
+    yy += 0.5 * np.exp(-np.log(xx)**2/(2*0.5**2)) / (0.5*xx*np.sqrt(2*np.pi))
+
+    truth = [xx, yy]
+    return data, truth
 
 
 def _random_data_3d_01(num=1e3):
