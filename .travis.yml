@@ -16,7 +16,7 @@ matrix:
 
 # command to install dependencies
 install:
-  - pip install -r requirements.txt
+  - pip install -r dev-requirements.txt
   - pip install numpy --upgrade
   - pip install .
 
