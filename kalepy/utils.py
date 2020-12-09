@@ -144,7 +144,7 @@ def check_path(fname):
 
 def cov_from_var_cor(var, corr):
     var = np.atleast_1d(var)
-    assert np.ndim(var) == 1, "`var` should be 1D!"
+    assert _ndim(var) == 1, "`var` should be 1D!"
     ndim = len(var)
     # Covariance matrix diagonals should be the variance (of each parameter)
     cov = np.identity(ndim) * var
@@ -183,7 +183,7 @@ def cumsum(vals, axis=None):
     """
 
     vals = np.asarray(vals)
-    nd = np.ndim(vals)
+    nd = _ndim(vals)
     if (axis is not None) or (nd == 1):
         return np.cumsum(vals, axis=axis)
 
@@ -226,7 +226,7 @@ def cumtrapz(pdf, edges, prepend=True, axis=None):
 
     # Prepend zeros to output array
     if prepend:
-        ndim = np.ndim(cdf)
+        ndim = _ndim(cdf)
         temp = [1, 0] if axis is None else [0, 0]
         padding = [temp for ii in range(ndim)]
         if axis is not None:
@@ -373,14 +373,14 @@ def parse_edges(data, edges=None, extrema=None, weights=None,
                 nmin=5, nmax=1000, pad=None, refine=1.0):
     """
     """
-    if np.ndim(data) not in [1, 2]:
+    if _ndim(data) not in [1, 2]:
         err = (
             "`data` (shape: {}) ".format(np.shape(data)) +
             "must have shape (N,) or (D, N) for `N` data points and `D` parameters!"
         )
         raise ValueError(err)
 
-    squeeze = (np.ndim(data) == 1)
+    squeeze = (_ndim(data) == 1)
     data = np.atleast_2d(data)
     npars = np.shape(data)[0]
 
@@ -390,7 +390,7 @@ def parse_edges(data, edges=None, extrema=None, weights=None,
     extrema = _parse_extrema(data, extrema=extrema, warn=False)
 
     # If `edges` provides a specification for each dimension, convert to npars*[edges]
-    if (np.ndim(edges) == 0) or (really1d(edges) and (np.size(edges) != npars)):
+    if (_ndim(edges) == 0) or (really1d(edges) and (np.size(edges) != npars)):
         edges = [edges] * npars
     elif len(edges) != npars:
         err = "length of `edges` ({}) does not match number of data dimensions ({})!".format(
@@ -424,7 +424,7 @@ def _get_edges_1d(edges, data, extrema, ndim, nmin, nmax, pad, weights=None, ref
 
     """
 
-    if np.ndim(edges) == 0:
+    if _ndim(edges) == 0:
         num_bins = edges
     elif really1d(edges):
         return edges
@@ -534,7 +534,7 @@ def quantiles(values, percs=None, sigmas=None, weights=None, axis=None, values_s
     if percs is None:
         percs = sp.stats.norm.cdf(sigmas)
 
-    if np.ndim(values) > 1:
+    if _ndim(values) > 1:
         if axis is None:
             values = values.flatten()
 
@@ -580,13 +580,18 @@ def really1d(arr):
         Whether `arr` is purely 1D.
 
     """
-    if np.ndim(arr) != 1:
+    if _ndim(arr) != 1:
         return False
     # Empty list or array
     if len(arr) == 0:
         return True
-    if np.any(np.vectorize(np.ndim)(arr)):
+    # if np.any(np.vectorize(_ndim)(arr)):
+    #     return False
+    # if len(arr) != flatlen(arr):
+    #     return False
+    if np.any([np.shape(tt) != () for tt in arr]):
         return False
+
     return True
 
 
@@ -623,6 +628,7 @@ def isjagged(arr):
 def jshape(arr, level=0, printout=False, prepend="", indent="  "):
     """Print the complete shape (even if jagged) of the given array.
     """
+    arr = np.asarray(arr, dtype=object)
     if printout:
         print(prepend + indent*level + str(np.shape(arr)))
 
@@ -858,7 +864,7 @@ def trapz_dens_to_mass(pdf, edges, axis=None):
         widths.append(temp)
 
     # Multiply the widths along each dimension to get the volume of each grid cell
-    volumes = np.product(widths, axis=0)
+    volumes = np.product(np.array(widths, dtype=object), axis=0).astype(float)
     # NOTE
     assert np.all(np.shape(volumes) == shp_out), "BAD `volume` shape!"
 
@@ -877,6 +883,8 @@ def trapz_dens_to_mass(pdf, edges, axis=None):
         cut = [slice(0, -1, None) if ii == 0 else slice(1, None, None) if ii == 1 else slice(None)
                for ii in inds]
         temp = pdf[tuple(cut)]
+        print(np.shape(mass), np.shape(temp), np.shape(volumes))
+        print(mass.dtype, temp.dtype, volumes.dtype)
         mass += (temp * volumes)
         # Store each left/right approximation, in each dimension
         # mass.append(temp * volumes)
@@ -995,6 +1003,13 @@ def _python_environment():
         return 'script'
 
 
+def _ndim(vals):
+    import warnings
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        return np.ndim(vals)
+
+
 class _DummyError(Exception):
     pass
 
@@ -1037,7 +1052,7 @@ def _parse_extrema(data, extrema=None, warn=True):
     """
 
     # `data` must be shaped as (D, N)
-    if np.ndim(data) != 2:
+    if _ndim(data) != 2:
         err = "`data` must be shaped (D, N) for `D` dimensions/parameters and `N` data points!"
         raise ValueError(err)
 
@@ -1176,8 +1191,8 @@ def _random_data_3d_01(num=1e3):
     sigma = [1.0, 0.2, 1.5]
     corr = [
         [+1.4, +0.8, +0.4],
-        [+0.8, +1.0, -0.5],
-        [+0.2, -0.5, +1.0]
+        [+0.8, +1.0, -0.25],
+        [+0.4, -0.25, +1.0]
     ]
 
     cov = np.zeros_like(corr)
@@ -1203,8 +1218,8 @@ def _random_data_3d_02(num=1e3, noise=0.2):
     sigma = [1.0, 0.2, 1.5]
     corr = [
         [+1.4, +0.8, +0.4],
-        [+0.8, +1.0, -0.5],
-        [+0.2, -0.5, +1.0]
+        [+0.8, +1.0, -0.25],
+        [+0.4, -0.25, +1.0]
     ]
 
     cov = np.zeros_like(corr)

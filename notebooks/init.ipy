@@ -27,3 +27,6 @@ def _save_fig(fig, fname, **kwargs):
     return kale.plot._save_fig(fig, fname, **kwargs)
     
 save_fig = _save_fig
+
+import warnings
+warnings.simplefilter("error")

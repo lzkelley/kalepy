@@ -496,7 +496,7 @@ def dist1d_data(ax, edges=None, hist=None, data=None, weights=None,
     # ------------------------------------
     handle_carpet = None
     if carpet is not None:
-        handle_carpet, _extr = carpet(data, weights=weights, ax=ax, rotate=rotate, **carpet)
+        handle_carpet, _extr = draw_carpet(data, weights=weights, ax=ax, rotate=rotate, **carpet)
 
     handles = dict()
     handles['carpet'] = handle_carpet
@@ -968,6 +968,7 @@ def _draw_hist2d(ax, xx, yy, data, mask_below=None, color=None, smap=None, **kwa
 
     kwargs.setdefault('cmap', smap.cmap)
     kwargs.setdefault('norm', smap.norm)
+    kwargs.setdefault('shading', 'auto')
 
     if (mask_below is not None) and (mask_below is not False):
         data = np.ma.masked_less_equal(data, mask_below)
@@ -1247,6 +1248,8 @@ def _get_smap(args=[0.0, 1.0], cmap=None, log=False, norm=None, under='w', over=
         if isinstance(cmap, six.string_types):
             cmap = plt.get_cmap(cmap)
 
+    import copy
+    cmap = copy.copy(cmap)
     if under is not None:
         cmap.set_under(under)
     if over is not None:

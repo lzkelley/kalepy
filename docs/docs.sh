@@ -1,4 +1,4 @@
 # Generate documentation from in-package docstrings
-sphinx-apidoc -o ./source ../kalepy
 make clean
+sphinx-apidoc -o ./source ../kalepy
 make html

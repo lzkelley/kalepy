@@ -1,5 +1,5 @@
-kalepy API
-==========
+Top-Level API
+=============
 
 Kernel Density Estimation
 -------------------------
@@ -13,7 +13,7 @@ kalepy.density(data, points=None, ...):
     - `points` : the locations at which the density function is sampled.
     - `density` : the values of the density function at the sample points.
 
- kalepy.resample(data, size=None, ...):
+kalepy.resample(data, size=None, ...):
      This function 1) constructs a kernel-density estimate of the distribution function from which the given `data` were sampled; then, 2) resamples `size` data points from that function.  If `size` is not given, then the same number of points are returned as in the input `data`.
      
      Returns:

@@ -519,7 +519,7 @@ class Test_Trapz_Dens_To_Mass(utils.Test_Base):
                 temp = wid[tuple(cut)]
                 widths.append(temp)
 
-            wids = np.product(widths, axis=0)
+            wids = np.product(np.array(widths, dtype=object), axis=0).astype(float)
 
             pdf = np.ones_like(grid[0]) * norm
             pmf = utils.trapz_dens_to_mass(pdf, edges, axis=axis)
@@ -668,7 +668,7 @@ class Test_Cumsum(utils.Test_Base):
 class Test_Really1D(utils.Test_Base):
 
     def _test_vals(self, vals, truth):
-        print("`vv` should be: {} :: shape = {} :: '{}'".format(truth, np.shape(vals), vals))
+        print("`vv` should be: {} :: shape = {} :: '{}'".format(truth, utils.jshape(vals), vals))
         assert_true(utils.really1d(vals) == truth)
         return
 

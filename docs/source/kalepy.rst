@@ -1,5 +1,5 @@
-kalepy package
-==============
+package
+=======
 
 Submodules
 ----------

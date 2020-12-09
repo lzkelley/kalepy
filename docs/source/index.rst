@@ -23,6 +23,8 @@ or from source, for development:
 Quickstart
 ----------
 
+`Top-level API functions are documented here <api.html>`_.
+
 One dimensional kernel density estimation:
 ******************************************
 
@@ -30,10 +32,7 @@ One dimensional kernel density estimation:
 
    import kalepy as kale
    import matplotlib.pyplot as plt
-   # For a one-dimensional data-set:
-   #   If the evaluation `points` aren't provided then `kalepy` automatically generates them
    points, density = kale.density(data, points=None)
-
    plt.plot(points, density, 'k-', lw=2.0, alpha=0.8, label='KDE')
 
 .. image:: https://raw.githubusercontent.com/lzkelley/kalepy/dev/docs/media/demo_files/demo_8_0.png
@@ -47,8 +46,6 @@ One dimensional resampling:
 
     # Draw new samples from the KDE reconstructed PDF
     samples = kale.resample(data)
-
-    # Plot new samples
     plt.hist(samples, density=True, alpha=0.5, label='new samples', color='0.65', edgecolor='b')
 
 .. image:: https://raw.githubusercontent.com/lzkelley/kalepy/dev/docs/media/demo_files/demo_11_0.png
@@ -61,7 +58,6 @@ Multi-dimensional kernel density estimation:
 
     # Construct a KDE instance from data, shaped (N, 3) for `N` data points, and 3 dimensions
     kde = kale.KDE(data)
-
     # Build a corner plot using the `kalepy` plotting submodule
     corner = kale.plot.Corner(kde, figsize=[10, 10])
 
@@ -74,13 +70,6 @@ Documentation
 
 A number of examples are included in `the package notebooks <https://github.com/lzkelley/kalepy/tree/master/notebooks>`_, and the `readme file <https://github.com/lzkelley/kalepy/blob/master/README.md>`_.  Some background information and references are included in `the JOSS paper <>`_.
 
-.. toctree::
-   :maxdepth: 2
-   :caption: Contents:
-   
-  api
-
-* :ref:`modindex`
 
 
 Development & Contributions
