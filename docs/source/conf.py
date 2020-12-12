@@ -31,6 +31,7 @@ release = '0.4'
 # extensions coming with Sphinx (named 'sphinx.ext.*') or your custom
 # ones.
 extensions = [
+    'nbsphinx',
     'sphinx.ext.napoleon',     # allow numpy/google style docstrings
     'sphinx.ext.autodoc',      # auto-generate documentation from docstrings
     'sphinx.ext.mathjax'       # render math in html using mathjax

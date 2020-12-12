@@ -1,5 +1,5 @@
-kalepy
-======
+Introduction
+============
 
 *Multidimensional kernel density estimation for calculating distribution functions and resampling.*
 
@@ -70,6 +70,14 @@ Documentation
 
 A number of examples are included in `the package notebooks <https://github.com/lzkelley/kalepy/tree/master/notebooks>`_, and the `readme file <https://github.com/lzkelley/kalepy/blob/master/README.md>`_.  Some background information and references are included in `the JOSS paper <>`_.
 
+.. toctree::
+   :maxdepth: 1
+   :caption: Contents:
+   
+   index
+   api
+   kalepy
+   modules
 
 
 Development & Contributions
