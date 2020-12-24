@@ -491,7 +491,8 @@ def _guess_edges(data, extrema=None, ndim=None, weights=None,
         raise ValueError("`bin_width` is negative (w1 = {}, w2 = {})!".format(w1, w2))
 
     num_bins = int(np.ceil(span_width / bin_width))
-    num_bins = np.clip(num_bins, num_min, num_max)
+    if (num_min is not None) or (num_max is not None):
+        num_bins = np.clip(num_bins, num_min, num_max)
 
     return num_bins, bin_width, extrema
 
@@ -883,8 +884,6 @@ def trapz_dens_to_mass(pdf, edges, axis=None):
         cut = [slice(0, -1, None) if ii == 0 else slice(1, None, None) if ii == 1 else slice(None)
                for ii in inds]
         temp = pdf[tuple(cut)]
-        print(np.shape(mass), np.shape(temp), np.shape(volumes))
-        print(mass.dtype, temp.dtype, volumes.dtype)
         mass += (temp * volumes)
         # Store each left/right approximation, in each dimension
         # mass.append(temp * volumes)
@@ -1185,6 +1184,82 @@ def _random_data_1d_01(num=1e4):
     return data, truth
 
 
+def _random_data_2d_01(num=1e3, noise=0.2):
+    num = int(num)
+
+    sigma = [1.0, 0.2]
+    corr = [
+        [+1.5, -0.5],
+        [-0.5, +1.0]
+    ]
+
+    cov = np.zeros_like(corr)
+    for (ii, jj), cc in np.ndenumerate(corr):
+        cov[ii, jj] = cc * sigma[ii] * sigma[jj]
+
+    data = np.random.multivariate_normal(np.zeros_like(sigma), cov, num).T
+    dd = data[1, :]
+    dd = (dd - dd.min())/dd.max()
+    data *= np.sqrt(dd)[np.newaxis, :]
+
+    nn = int(num*noise)
+    noise = [np.random.normal(data[ii, :].mean(), 2*ss, nn) for ii, ss in enumerate(sigma)]
+    sel = np.random.choice(num, nn, replace=False)
+    data[:, sel] = np.array(noise)
+    return data
+
+
+def _random_data_2d_02(num=1e3, noise=0.2):
+    num = int(num)
+
+    xx = np.random.normal(1.0, 0.5, num)
+    yy = np.random.uniform(0.0, 2.0, num)
+    data = [xx, yy]
+    data = [np.sort(aa) for aa in data]
+    xx, yy = data
+    idx = np.arange(num)
+    sel = np.random.choice(num, num//4, replace=False)
+    idx[sel] = np.random.choice(num, num//4, replace=False)
+    # np.random.shuffle(yy[np.random.choice(num, num//2, replace=False)])
+    data = [xx, yy[idx]]
+
+    # idx = np.arange(num)
+    # np.random.shuffle(idx)
+    # data = [zz[idx] for zz in data]
+    # idx = np.random.choice(num, num//2, replace=False)
+    # np.random.shuffle(np.array(data)[:, idx])
+
+    return data
+
+
+def _random_data_2d_03(num=1e3):
+    num = int(num)
+
+    aa = np.random.lognormal(0.0, 0.3, size=3*num) - 1
+    aa += np.random.uniform(-1.0, 1.0, aa.size)
+    aa = aa[aa > 0.0]
+    aa = np.random.choice(aa, size=num, replace=False)
+    cc = np.random.power(2, size=num)
+
+    # Make `aa` and `cc` strongly covariant
+    COV = 0.1    # the smaller the value, the stronger the covariance
+    aa = np.sort(aa)
+    c1 = cc / cc.max()
+    a1 = (aa / aa.max())**(1/4)
+    xx = a1**2 + c1**2 + np.random.normal(0.0, COV, size=a1.size)
+    idx = np.argsort(xx)
+    cc = cc[idx]
+
+    #    unsort `aa` and keep covariance
+    idx = np.arange(aa.size)
+    np.random.shuffle(idx)
+    aa = aa[idx]
+    cc = cc[idx]
+
+    data = [aa, cc]
+    return data
+
+
 def _random_data_3d_01(num=1e3):
     num = int(num)
 
@@ -1238,49 +1313,29 @@ def _random_data_3d_02(num=1e3, noise=0.2):
     return data
 
 
-def _random_data_2d_01(num=1e3, noise=0.2):
+def _random_data_3d_03(num=1e3):
     num = int(num)
 
-    sigma = [1.0, 0.2]
-    corr = [
-        [+1.5, -0.5],
-        [-0.5, +1.0]
-    ]
+    aa = np.random.lognormal(0.0, 0.5, size=3*num) - 1
+    aa = aa[aa > 0.0]
+    aa = np.random.choice(aa, size=num, replace=False)
+    bb = np.random.normal(size=num)
+    cc = np.random.power(2, size=num)
 
-    cov = np.zeros_like(corr)
-    for (ii, jj), cc in np.ndenumerate(corr):
-        cov[ii, jj] = cc * sigma[ii] * sigma[jj]
+    # Make `aa` and `cc` strongly covariant
+    COV = 0.1    # the smaller the value, the stronger the covariance
+    aa = np.sort(aa)
+    c1 = cc / cc.max()
+    a1 = (aa / aa.max())**(1/4)
+    xx = a1**2 + c1**2 + np.random.normal(0.0, COV, size=a1.size)
+    idx = np.argsort(xx)
+    cc = cc[idx]
 
-    data = np.random.multivariate_normal(np.zeros_like(sigma), cov, num).T
-    dd = data[1, :]
-    dd = (dd - dd.min())/dd.max()
-    data *= np.sqrt(dd)[np.newaxis, :]
+    #    unsort `aa` and keep covariance
+    idx = np.arange(aa.size)
+    np.random.shuffle(idx)
+    aa = aa[idx]
+    cc = cc[idx]
 
-    nn = int(num*noise)
-    noise = [np.random.normal(data[ii, :].mean(), 2*ss, nn) for ii, ss in enumerate(sigma)]
-    sel = np.random.choice(num, nn, replace=False)
-    data[:, sel] = np.array(noise)
-    return data
-
-
-def _random_data_2d_02(num=1e3, noise=0.2):
-    num = int(num)
-
-    xx = np.random.normal(1.0, 0.5, num)
-    yy = np.random.uniform(0.0, 2.0, num)
-    data = [xx, yy]
-    data = [np.sort(aa) for aa in data]
-    xx, yy = data
-    idx = np.arange(num)
-    sel = np.random.choice(num, num//4, replace=False)
-    idx[sel] = np.random.choice(num, num//4, replace=False)
-    # np.random.shuffle(yy[np.random.choice(num, num//2, replace=False)])
-    data = [xx, yy[idx]]
-
-    # idx = np.arange(num)
-    # np.random.shuffle(idx)
-    # data = [zz[idx] for zz in data]
-    # idx = np.random.choice(num, num//2, replace=False)
-    # np.random.shuffle(np.array(data)[:, idx])
-
+    data = [aa, bb, cc]
     return data
