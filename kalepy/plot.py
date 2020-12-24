@@ -1,12 +1,9 @@
 """
-
-BUG: `density` is being used differently in `corner_data` than in `dist1d_data` and `dist2d_data`!
-
 """
 
 # import warnings
 import logging
-import os
+# import os
 import six
 
 import numpy as np
@@ -29,80 +26,118 @@ _COLOR_CMAP = {
     'o': 'Oranges',
     'p': 'Purples',
 }
-_DEF_SIGMAS = np.arange(0.5, 2.1, 0.5)
+# _DEF_SIGMAS = np.arange(0.5, 2.1, 0.5)
+_DEF_SIGMAS = [0.5, 1.0, 1.5, 2.0]
 _MASK_CMAP = mpl.colors.LinearSegmentedColormap.from_list(
     "white_cmap", [(1, 1, 1), (1, 1, 1)], N=2)
 
-
-class plot_control:
-
-    def __init__(self, fname, *args, **kwargs):
-        self.fname = fname
-        self.args = args
-        self.kwargs = kwargs
-        return
-
-    def __enter__(self):
-        plt.close('all')
-        return self
-
-    def __exit__(self, type, value, traceback):
-        plt.savefig(self.fname, *self.args, **self.kwargs)
-        if utils._is_notebook():
-            plt.show()
-        else:
-            plt.close('all')
-
-        return
+_OUTLINE = ([
+    mpl.patheffects.Stroke(linewidth=2.0, foreground='white', alpha=0.85),
+    mpl.patheffects.Normal()
+])
 
 
 class Corner:
 
-    def __init__(self, kde_data, weights=None, labels=None, **figax_kwargs):
+    _LW = 2.0
+    _LIMITS_STRETCH = 0.1
+
+    def __init__(self, kde_data, weights=None, labels=None, limits=None, rotate=None, **kwfig):
+        """Construct a figure and axes for creating a 'corner' plot.
+
+        Arguments
+        ---------
+        kde_data : object, one of the following
+            * instance of `kalepy.kde.KDE`, including the data to be plotted,
+            * array_like scalar (D,N) of data with `D` parameters and `N` data points,
+            * int D, the number of parameters to construct a DxD corner plot.
+
+        weights : array_like scalar (N,) or None
+            The weights for each data point.
+            NOTE: only applicable when `kde_data` is a (D,N) dataset.
+
+        labels : array_like string (N,) of labels/names for each parameters.
+
+        limits : None or (2,) or (D,) of [None or (2,)]
+            Specification for the limits of each axes (for each of `D` parameters):
+            * None : the limits are determined automatically,
+            * (2,) : limits to be applied to all axes,
+            * (3,) : limits for each axis, where each entry can be either 'None' or (2,)
+
+        **kwfig : keyword-arguments passed to `_figax()` for constructing figure and axes.
+            See `kalepy.plot._figax()` for specifications.
+
+        """
+
+        # --- Parse the given `kde_data` and store parameters accordingly --
         kde = None
         data = None
+        # If a KDE instance is given, take all parameters from there
         if isinstance(kde_data, kale.KDE):
+            if weights is not None:
+                raise ValueError("`weights` must be used from given `KDE` instance!")
             kde = kde_data
             data = kde.dataset
             weights = None if kde._weights_uniform else kde.weights
             size = len(data)
+        # If an integer is given, it's the number of parameters/variables
         elif np.isscalar(kde_data):
+            if not isinstance(kde_data, int):
+                err = ("If `kde_data` is a scalar, it must be an integer "
+                       "specifying the number of parameters!")
+                raise ValueError(err)
             size = kde_data
+        # If the raw data is given, construct a KDE from it
         else:
-            kde = KDE(kde_data, weights=weights)
+            try:
+                kde = KDE(kde_data, weights=weights)
+            except:
+                err = "Failed to construct `KDE` instance from given data!"
+                logging.error(err)
+                raise
+
             data = kde_data
             size = len(data)
 
-        # _def_figsize = [10, 10]
-        _def_figsize = np.clip(4 * size, 6, 20)
-        _def_figsize = [_def_figsize for ii in range(2)]
+        if limits is None:
+            limits = [None] * size
 
-        last = size - 1
-        figax_kwargs.setdefault('figsize', _def_figsize)
-        figax_kwargs.setdefault('hspace', 0.1)
-        figax_kwargs.setdefault('wspace', 0.1)
-        fig, axes = figax(nrows=size, ncols=size, **figax_kwargs)
+        if rotate is None:
+            # rotate = (size == 2)
+            rotate = (size in [2, 3])
+
+        # -- Construct figure and axes using `_figax()`
+        fig, axes = _figax(size, **kwfig)
         self.fig = fig
         self.axes = axes
+
+        # -- Setup axes
+        last = size - 1
         if labels is None:
             labels = [''] * size
 
         for (ii, jj), ax in np.ndenumerate(axes):
+            # Set upper-right plots to invisible
             if jj > ii:
                 ax.set_visible(False)
                 continue
             ax.grid(True)
 
+            # Bottom row
             if ii == last:
                 ax.set_xlabel(labels[jj])
+            # Non-bottom row
             else:
                 ax.set_xlabel('')
                 for tlab in ax.xaxis.get_ticklabels():
                     tlab.set_visible(False)
 
+            # First column
             if jj == 0:
+                # Not-first rows
                 if ii != 0:
                     ax.set_ylabel(labels[ii])
+            # Not-first columns
             else:
                 ax.set_ylabel('')
                 for tlab in ax.yaxis.get_ticklabels():
@@ -118,85 +153,66 @@ class Corner:
             else:
                 pass
 
-            self.size = size
-            self._data = data
-            self._weights = weights
-            self._kde = kde
+        # --- Store key parameters
+        self.size = size
+        self._data = data
+        self._weights = weights
+        self._kde = kde
+        self._limits = limits
+        self._rotate = rotate
 
         return
 
-    def plot_data(self, data=None, axes=None, weights=None, **kwargs):
-        if axes is None:
-            axes = self.axes
-        # Only use stored `weights` if we're also using stored `data`
-        if weights is None:
-            if data is None:
-                weights = self._weights
-        if data is None:
-            data = self._data
-
-        kwargs.setdefault('contour', False)
-        kwargs.setdefault('hist2d', False)
-        kwargs.setdefault('scatter', True)
-        kwargs.setdefault('median', False)
-
-        return corner_data(axes, data, weights=weights, **kwargs)
-
-    def plot_kde(self, kde=None, axes=None, **kwargs):
-        if axes is None:
-            axes = self.axes
-        if kde is None:
-            kde = self._kde
-
-        kwargs.setdefault('hist2d', False)
-        kwargs.setdefault('median', False)
-
-        return corner_kde(axes, kde, **kwargs)
-
-    def plot(self, kde=None, data=None, kde_kwargs=None, data_kwargs=None, **kwargs):
+    def plot(self, kde=None, data=None, kwkde=None, kwdata=None, **kwargs):
         axes = self.axes
         npar = self.size
 
         rotate = kwargs.setdefault('rotate', npar == 2)
 
-        if kde is None:
+        if (kde is None) or (kde is True):
             kde = self._kde
+        elif (kde is False):
+            kde = None
 
-        if kde is None:
-            raise ValueError("No `kde` given or stored!")
+        if (data is None) or (data is True):
+            if kde is not None:
+                data = kde.dataset
+            elif self._kde is not None:
+                data = self._kde.dataset
 
-        if data is None:
-            data = kde.dataset
+        elif (data is False):
+            data = None
 
-        if kde_kwargs is None:
-            kde_kwargs = kwargs.copy()
-        if data_kwargs is None:
-            data_kwargs = kwargs.copy()
+        if (data is None) and (kde is None):
+            raise ValueError("Neither `kde` nor `data` is being plotted!")
 
-        kde_kwargs.setdefault('hist2d', False)
-        kde_kwargs.setdefault('rotate', rotate)
-        data_kwargs.setdefault('contour', False)
-        data_kwargs.setdefault('rotate', rotate)
+        if kwkde is None:
+            kwkde = kwargs.copy()
+        if kwdata is None:
+            kwdata = kwargs.copy()
+
+        '''
+        kwkde.setdefault('hist2d', False)
+        kwkde.setdefault('rotate', rotate)
+        kwdata.setdefault('contour', False)
+        kwdata.setdefault('rotate', rotate)
 
         for kk, vv in kwargs.items():
-            kde_kwargs.setdefault(kk, vv)
-            data_kwargs.setdefault(kk, vv)
+            kwkde.setdefault(kk, vv)
+            kwdata.setdefault(kk, vv)
+        '''
 
-        corner_kde(axes, kde, **kde_kwargs)
-        extrema, pdf = _get_corner_axes_extrema(axes, rotate)
+        extrema = None
+        pdf = None
+        if kde is not None:
+            corner_kde(axes, kde, **kwkde)
+            extrema, pdf = _get_corner_axes_extrema(axes, rotate)
+        if data is not None:
+            self._plot_data(axes, data, **kwdata)
+            extrema, pdf = _get_corner_axes_extrema(axes, rotate, extrema=extrema, pdf=pdf)
 
-        corner_data(axes, data, **data_kwargs)
-        extrema, pdf = _get_corner_axes_extrema(axes, rotate, extrema=extrema, pdf=pdf)
+        _set_corner_axes_extrema(axes, extrema, rotate, pdf=None)
 
-        _set_corner_axes(axes, extrema, rotate, pdf=None)
-
-        return
-
-    def savefig(self, fname, **kwargs):
-        return _save_fig(self.fig, fname, **kwargs)
-
-    def set_axes(self, labels=None, extrema=None, rotate=False):
-        _set_corner_axes(self.axes, extrema, rotate, pdf=None)
         return
 
     def legend(self, handles=None, labels=None, index=None,
@@ -237,241 +253,251 @@ class Corner:
                          borderaxespad=borderaxespad, loc=loc, **kwargs)
         return leg
 
+    def hist(self, **kw):
+        return self.plot_data(scatter=False, carpet=False, dist1d=dict(contour=False), **kw)
 
-def figax(figsize=[12, 6], nrows=1, ncols=1, scale='linear',
-          xlabel='', xlim=None, xscale=None,
-          ylabel='', ylim=None, yscale=None,
-          left=None, bottom=None, right=None, top=None, hspace=None, wspace=None,
-          grid=True, squeeze=True, **kwargs):
+    def plot_data(self, data=None, edges=None, weights=None, **kwdata):
+        if data is None:
+            data = self._data
+        if weights is None:
+            weights = self._weights
 
-    if scale is not None:
-        xscale = scale
-        yscale = scale
+        limits = self._plot_data(self.axes, data, weights=weights, rotate=self._rotate, **kwdata)
 
-    fig, axes = plt.subplots(figsize=figsize, squeeze=False, ncols=ncols, nrows=nrows,
-                             **kwargs)
+        for ii in range(self.size):
+            if self._limits[ii] is None:
+                self._limits[ii] = utils.minmax(limits[ii], prev=self._limits[ii])
 
-    plt.subplots_adjust(
-        left=left, bottom=bottom, right=right, top=top, hspace=hspace, wspace=wspace)
+        _set_corner_axes_extrema(self.axes, self._limits, self._rotate)
+        return
 
-    if ylim is not None:
-        shape = (nrows, ncols, 2)
-        if np.shape(ylim) == (2,):
-            ylim = np.array(ylim)[np.newaxis, np.newaxis, :]
-    else:
-        shape = (nrows, ncols,)
+    @classmethod
+    def _plot_data(cls, axes, data, weights=None, edges=None, quantiles=None, sigmas=None,
+                   rotate=True, scatter=True, hist=True, carpet=True,
+                   dist1d={}, dist2d={}, **kwargs):
 
-    ylim = np.broadcast_to(ylim, shape)
+        if np.ndim(data) != 2:
+            err = "`data` (shape: {}) must be 2D with shape (parameters, data-points)!".format(
+                np.shape(data))
+            raise ValueError(err)
 
-    if xlim is not None:
-        shape = (nrows, ncols, 2)
-        if np.shape(xlim) == (2,):
-            xlim = np.array(xlim)[np.newaxis, np.newaxis, :]
-    else:
-        shape = (nrows, ncols)
+        size = np.shape(data)[0]
+        shp = np.shape(axes)
+        if (np.ndim(axes) != 2) or (shp[0] != shp[1]) or (shp[0] != size):
+            raise ValueError("`axes` (shape: {}) does not match data dimension {}!".format(shp, size))
 
-    xlim = np.broadcast_to(xlim, shape)
+        last = size - 1
+        if rotate is None:
+            rotate = (size == 2)
 
-    _, xscale, xlabel = np.broadcast_arrays(axes, xscale, xlabel)
-    _, yscale, ylabel = np.broadcast_arrays(axes, yscale, ylabel)
+        kwargs.setdefault('color', 'k')
+        kwargs.setdefault('lw', cls._LW)
+        kwargs.setdefault('alpha', 0.8)
 
-    for idx, ax in np.ndenumerate(axes):
-        ax.set(xscale=xscale[idx], xlabel=xlabel[idx],
-               yscale=yscale[idx], ylabel=ylabel[idx])
-        if xlim[idx] is not None:
-            ax.set_xlim(xlim[idx])
-        if ylim[idx] is not None:
-            ax.set_ylim(ylim[idx])
+        dist1d = _none_dict(dist1d, 'dist1d', kwargs)
+        dist2d = _none_dict(dist2d, 'dist2d', kwargs)
 
-        if grid is not None:
-            if grid in [True, False]:
-                ax.grid(grid)
-            else:
-                ax.grid(True, **grid)
-
-    if squeeze:
-        axes = np.squeeze(axes)
-        if np.ndim(axes) == 0:
-            axes = axes[()]
-
-    return fig, axes
-
-
-def corner(kde_data, labels=None, data=None, kde=None, init={}, **kwargs):
-    if kwargs.pop('edges', None) is not None:
-        raise NotImplementedError("`edges` not yet implemented!")
-    corner = Corner(kde_data, labels=labels, **init)
-    corner.plot(**kwargs)
-    return corner
-
-
-# ======  API Data Methods  ======
-# ================================
-
-
-def corner_data(axes, data, weights=None, edges=None,
-                levels=None, hist=None, pad=True, rotate=None,
-                mask_dense=True, mask_sparse=True, median=True, sigmas=None,
-                density=True, probability=False,
-                hist1d=True, hist2d=True, scatter=True, carpet=True,
-                contour=None, contour1d=True, contour2d=True, renormalize=False,
-                smap=None, cmap=None, **kwargs):
-
-    shp = np.shape(axes)
-    if (np.ndim(axes) != 2) or (shp[0] != shp[1]):
-        raise ValueError("`axes` (shape: {}) must be an NxN arrays!".format(shp))
-
-    size = shp[0]
-    last = size - 1
-    if np.ndim(data) != 2 or np.shape(data)[0] != size:
-        err = "`data` (shape: {}) must be 2D with shape (parameters, data-points)!".format(
-            np.shape(data))
-        raise ValueError(err)
-
-    if rotate is None:
-        rotate == (size == 2)
-
-    kwargs.setdefault('color', 'k')
-    kwargs.setdefault('lw', 2.0)
-    kwargs.setdefault('alpha', 0.8)
-
-    if hist is not None:
-        hist1d = hist
-        hist2d = hist
-
-    if contour is not None:
-        contour1d = contour
-        contour2d = contour
-
-    edges = utils.parse_edges(data, edges=edges)
-
-    extr = [utils.minmax(dd) for dd in data]
-
-    if carpet and not hist1d:
-        logging.warning("Cannot `carpet` without `hist1d`!")
-        carpet = False
-
-    smap, smap_is_log, uniform_color = _parse_smap(smap, kwargs['color'], cmap=cmap)
-
-    #
-    # Calculate Distributions
-    # ================================
-    #
-    tot_weight = np.sum(weights) if weights is not None else len(data[0])
-    data_hist1d = np.empty(size, dtype=object)
-    data_hist2d = np.empty(shp, dtype=object)
-    extr_hist2d = None
-    for (ii, jj), ax in np.ndenumerate(axes):
-        if jj > ii:
-            continue
-
-        # Diagonals
-        # ----------------------
-        xx = data[jj]
-        if ii == jj:
-            data_hist1d[jj], _ = np.histogram(
-                xx, bins=edges[jj], weights=weights, density=False)  # density=density)
-            if density:
-                data_hist1d[jj] = data_hist1d[jj] / np.diff(edges[jj])
-            if probability:
-                data_hist1d[jj] /= tot_weight
-
-        # Off-Diagonals
-        # ----------------------
-        else:
-            yy = data[ii]
-            bins = [edges[jj], edges[ii]]
-            data_hist2d[ii, jj], *_ = np.histogram2d(
-                xx, yy, bins=bins, weights=weights, density=False)  # density=density)
-            if density:
-                area = np.diff(bins[0])[:, np.newaxis] * np.diff(bins[1])[np.newaxis, :]
-                data_hist2d[ii, jj] = data_hist2d[ii, jj] / area
-            if probability:
-                data_hist2d[ii, jj] /= tot_weight
-
-            extr_hist2d = utils.minmax(
-                data_hist2d[ii, jj], prev=extr_hist2d, positive=smap_is_log)
-
-    _set_corner_axes(axes, extr, rotate)
-
-    #
-    # Draw / Plot Data
-    # ===========================
-    #
-
-    # Draw 1D Histograms & Carpets
-    # -----------------------------------------
-    for jj, ax in enumerate(axes.diagonal()):
-        rot = (rotate and (jj == last))
-
-        handles1d = dist1d_data(
-            ax, edges[jj], hist=data_hist1d[jj], data=data[jj], weights=weights,
-            sigmas=sigmas, density=density,
-            rotate=rot, renormalize=renormalize,
-            median=median, hist1d=hist1d, carpet=carpet, contour=contour1d, **kwargs)
-
-    # Draw 2D Histograms and Contours
-    # -----------------------------------------
-    # smap = _get_smap(extr_hist2d, **smap)
-
-    for (ii, jj), ax in np.ndenumerate(axes):
-        if jj >= ii:
-            continue
-
-        handles2d = dist2d_data(
-            ax, [edges[jj], edges[ii]],
-            hist=data_hist2d[ii, jj], data=[data[jj], data[ii]], weights=weights,
-            sigmas=sigmas, smap=smap, cmap=cmap,
-            median=median, hist2d=hist2d, contour=contour2d, scatter=scatter, **kwargs)
-
-    return edges, data_hist1d, data_hist2d, handles1d, handles2d
-
-
-def dist1d_data(ax, edges=None, hist=None, data=None, weights=None,
-                sigmas=None, density=True, rotate=False, renormalize=False,
-                contour=True, median=None, hist1d=True, carpet=None, **kwargs):
-
-    if (hist is None) and (data is None):
-        raise ValueError("Either `hist` or `data` must be provided!")
-
-    if carpet is None:
-        carpet = (data is not None)
-
-    if median is None:
-        median = carpet
-
-    color = kwargs.setdefault('color', 'k')
-    kwargs.setdefault('lw', 2.0)
-    kwargs.setdefault('alpha', 0.8)
-    # _def_dict = dict(color=color, lw=lw, alpha=alpha)
-    hist1d = _none_dict(hist1d, 'hist1d', kwargs)
-    carpet = _none_dict(carpet, 'carpet', kwargs)
-    contour = _none_dict(contour, 'contour')
-
-    if data is not None:
         edges = utils.parse_edges(data, edges=edges)
-    elif (edges is None) or not utils.really1d(edges):
-        raise ValueError("When `data` is not provided, `edges` must be bin-edges explicitly!")
+        # extr = [utils.minmax(dd) for dd in data]
+        # smap = None
+        # cmap = None
+        # smap, smap_is_log, uniform_color = _parse_smap(smap, kwargs['color'], cmap=cmap)
+        if weights is not None:
+            logging.warning("WARNING: `weights` not being accounted for in contour locations")
+        sigmas, levels, quantiles = _dfm_levels(data, quantiles=quantiles, sigmas=sigmas)
 
-    # Draw Histogram
-    # --------------------------
-    handle_hist1d = None
-    if hist1d is not None:
-        if hist is None:
-            hist, _ = np.histogram(data, bins=edges, weights=weights, density=density)
+        #
+        # Draw / Plot Data
+        # ===========================
 
-        if np.shape(hist) != (len(edges) - 1,):
-            raise ValueError("Shape of `hist` ({}) does not match edges ({})!".format(
-                np.shape(hist), len(edges)))
+        # Draw 1D Histograms & Carpets
+        # -----------------------------------------
+        limits = [None] * size
+        for jj, ax in enumerate(axes.diagonal()):
+            rot = (rotate and (jj == last))
+            cls.dist1d_data(
+                ax, edges[jj], data[jj], weights=weights, quantiles=quantiles,
+                rotate=rot, carpet=carpet, **dist1d
+            )
+            limits[jj] = utils.minmax(data[jj], stretch=cls._LIMITS_STRETCH)
 
-        handle_hist1d = _draw_hist1d(
-            ax, edges, hist, renormalize=renormalize, rotate=rotate, **hist1d)
+        # Draw 2D Histograms and Contours
+        # -----------------------------------------
+        for (ii, jj), ax in np.ndenumerate(axes):
+            if jj >= ii:
+                continue
 
-    # Draw Contours and Median Line
-    # ------------------------------------
-    handle_contour = None
-    if (contour or median) and (data is not None):
-        sigmas = _get_def_sigmas(sigmas, contour=contour, median=median)
+            cls.dist2d_data(
+                ax, [edges[jj], edges[ii]], data=[data[jj], data[ii]], weights=weights,
+                quantiles=quantiles, scatter=scatter, hist=hist, **dist2d
+            )
+
+        return limits
+
+    @classmethod
+    def dist1d_data(cls, ax, edges, data, weights=None, quantiles=None, median=True,
+                    rotate=False, contour=True, hist=True, carpet=True, **kwargs):
+
+        color = kwargs.setdefault('color', 'k')
+        kwargs.setdefault('lw', 1.0)
+        kwargs.setdefault('alpha', 0.8)
+
+        hist = _none_dict(hist, 'hist', kwargs)
+        carpet = _none_dict(carpet, 'carpet', kwargs)
+        contour = _none_dict(contour, 'contour', dict(quantiles=quantiles, median=median))
+
+        # Draw Histogram
+        # --------------------------
+        if (hist is not None):
+            cls._hist1d(ax, edges, data, weights=weights, rotate=rotate, **hist)
+
+        # Draw Contours and Median Line
+        # ------------------------------------
+        if (contour is not None):
+            cls._contour1d(ax, data, rotate=rotate, color=color, **contour)
+
+        # Draw Carpet Plot
+        # ------------------------------------
+        if (carpet is not None):
+            _draw_carpet(data, weights=weights, ax=ax, rotate=rotate, **carpet)
+
+        return
+
+    @classmethod
+    def dist2d_data(cls, ax, edges, data, weights=None, quantiles=None,
+                    scatter=True, hist=True, contour=True,
+                    median=True, pad=True, mask_dense=None, mask_sparse=True, **kwargs):
+
+        color = kwargs.setdefault('color', 'k')
+        kwargs.setdefault('lw', 2.0)
+        kwargs.setdefault('alpha', 0.5)
+
+        hist = _none_dict(hist, 'hist', kwargs)
+        scatter = _none_dict(scatter, 'scatter', kwargs)
+        contour = _none_dict(contour, 'contour', kwargs)
+
+        if mask_dense is None:
+            mask_dense = (hist is not None) and (scatter is not None)
+
+        # Draw Scatter Points
+        # -------------------------------
+        if scatter is not None:
+            cls._scatter2d(ax, *data, **scatter)
+
+        # Draw Median Lines (Target Style)
+        # -----------------------------------------
+        if median:
+            for dd, func in zip(data, [ax.axvline, ax.axhline]):
+                if weights is None:
+                    med = np.median(dd)
+                else:
+                    med = utils.quantiles(dd, percs=0.5, weights=weights)
+
+                func(med, color=color, ls='-', alpha=0.25, lw=1.0, path_effects=_OUTLINE)
+
+        hh, *_ = np.histogram2d(*data, bins=edges, weights=weights, density=True)
+        # Pad Histogram for Smoother Contour Edges
+        if pad:
+            hh = np.pad(hh, 2, mode='constant', constant_values=hh.min())
+            tf = np.arange(1, 3)  # [+1, +2]
+            tr = - tf[::-1]    # [-2, -1]
+            edges = [
+                [ee[0] + tr * np.diff(ee[:2]), ee, ee[-1] + tf * np.diff(ee[-2:])]
+                for ee in edges
+            ]
+            edges = [np.concatenate(ee) for ee in edges]
+
+        xc, yc = [utils.midpoints(ee, axis=-1) for ee in edges]
+        xc, yc = np.meshgrid(xc, yc, indexing='ij')
+        _, levels, quantiles = _dfm_levels(hh, quantiles=quantiles)
+
+        # Mask dense scatter-points
+        if mask_dense:
+            span = [levels.min(), hh.max()]
+            ax.contourf(xc, yc, hh, span, cmap=_MASK_CMAP, antialiased=True)
+
+        # Draw 2D Histogram
+        # -------------------------------
+        cont_col_rev = False
+        if hist is not None:
+            cont_col_rev = True
+            if mask_sparse is True:
+                mask_sparse = levels.min()
+            cls._hist2d(ax, edges, hh, mask_below=mask_sparse, **hist)
+
+        # Draw Contours
+        # --------------------------------
+        if (contour is not None):
+            cls._contour2d(ax, xc, yc, hh, quantiles, reverse=cont_col_rev, **contour)
+
+        return
+
+    @classmethod
+    def _hist1d(cls, ax, edges, hist, weights=None, renormalize=False,
+                joints=True, nonzero=False, positive=False, rotate=False, **kwargs):
+
+        # hist, edges = np.histogram(data, bins=edges, weights=weights, density=True)
+
+        # Construct plot points to manually create a step-plot
+        xval = np.hstack([[edges[jj], edges[jj+1]] for jj in range(len(edges)-1)])
+        yval = np.hstack([[hh, hh] for hh in hist])
+
+        if not joints:
+            size = len(xval)
+            half = size // 2
+
+            outs = []
+            for zz in [xval, yval]:
+                zz = np.atleast_2d(zz).T
+                zz = np.reshape(zz, [half, 2], order='C')
+                zz = np.pad(zz, [[0, 0], [0, 1]], constant_values=np.nan)
+                zz = zz.reshape(size + half)
+                outs.append(zz)
+
+            xval, yval = outs
+
+        # Select nonzero values
+        if nonzero:
+            xval = np.ma.masked_where(yval == 0.0, xval)
+            yval = np.ma.masked_where(yval == 0.0, yval)
+
+        # Select positive values
+        if positive:
+            xval = np.ma.masked_where(yval < 0.0, xval)
+            yval = np.ma.masked_where(yval < 0.0, yval)
+
+        if rotate:
+            temp = np.array(xval)
+            xval = yval
+            yval = temp
+
+        # Plot Histogram
+        if renormalize:
+            yval = yval / yval[np.isfinite(yval)].max()
+
+        line, = ax.plot(xval, yval, **kwargs)
+
+        return line
+
+    @classmethod
+    def _hist2d(cls, ax, edges, hist, mask_below=None, color=None, smap=None, **kwargs):
+        cmap = kwargs.pop('cmap', None)
+        smap, smap_is_log, uniform_color = _parse_smap(smap, color, cmap=cmap)
+        if not isinstance(smap, mpl.cm.ScalarMappable):
+            smap = _get_smap(hist, **smap)
+
+        kwargs.setdefault('cmap', smap.cmap)
+        kwargs.setdefault('norm', smap.norm)
+        kwargs.setdefault('shading', 'auto')
+
+        if (mask_below is not None) and (mask_below is not False):
+            hist = np.ma.masked_less_equal(hist, mask_below)
+        return ax.pcolormesh(*edges, hist.T, **kwargs)
+
+    @classmethod
+    def _contour1d(cls, ax, data, quantiles, weights=None, median=True, rotate=False,
+                   color='k', alpha=0.1, **kwargs):
+        kw = udict(dict(facecolor=color, alpha=alpha, edgecolor='none'), kwargs)
 
         # Calculate Cumulative Distribution Function
         if weights is None:
@@ -484,151 +510,112 @@ def dist1d_data(ax, edges=None, hist=None, data=None, weights=None,
             cdf = np.cumsum(weights) / np.sum(weights)
 
         # Convert from standard-deviations to percentiles
-        percs = sp.stats.norm.cdf(sigmas)
+        # percs = sp.stats.norm.cdf(sigmas)
         # Get both the lower (left) and upper (right) values
-        percs = np.append(1 - percs, percs)
+        qnts = np.append(1 - quantiles, quantiles)
         # Reshape to (sigmas, 2)
-        locs = np.interp(percs, cdf, data).reshape(2, len(sigmas)).T
+        locs = np.interp(qnts, cdf, data).reshape(2, len(quantiles)).T
 
-        handle_contour = _draw_contours_1d(ax, locs, rotate=rotate, color=color)
+        if median:
+            mm = np.interp(0.5, cdf, data)
+            line_func = ax.axhline if rotate else ax.axvline
+            line_func(mm, ls='--', color=color, alpha=0.25)
 
-    # Draw Carpet Plot
-    # ------------------------------------
-    handle_carpet = None
-    if carpet is not None:
-        handle_carpet, _extr = draw_carpet(data, weights=weights, ax=ax, rotate=rotate, **carpet)
+        for lo, hi in locs:
+            span_func = ax.axhspan if rotate else ax.axvspan
+            handle = span_func(lo, hi, **kw)
 
-    handles = dict()
-    handles['carpet'] = handle_carpet
-    handles['contour'] = handle_contour
-    handles['hist1d'] = handle_hist1d
-    return handles
+        return handle
+
+    @classmethod
+    def _contour2d(cls, ax, xx, yy, hist, quantiles, smooth=None, upsample=2,
+                   outline=True, colors=None, color=None, reverse=False, **kwargs):
+
+        if (upsample is not None):
+            xx = sp.ndimage.zoom(xx, upsample)
+            yy = sp.ndimage.zoom(yy, upsample)
+            hist = sp.ndimage.zoom(hist, upsample)
+        if (smooth is not None):
+            if upsample is not None:
+                smooth *= upsample
+            hist = sp.ndimage.filters.gaussian_filter(hist, smooth)
+
+        _, levels, quantiles = _dfm_levels(hist, quantiles=quantiles)
+
+        alpha = kwargs.setdefault('alpha', 0.8)
+        if colors is None:
+            # if color is not None:
+            #     colors = color
+            # else:
+            smap, smap_is_log, uniform_color = _parse_smap(None, color, cmap=None)
+            if not isinstance(smap, mpl.cm.ScalarMappable):
+                smap = _get_smap(hist, **smap)
+
+            colors = smap.to_rgba(levels)
+            if reverse:
+                colors = colors[::-1]
+
+            # Set alpha (transparency)
+            colors[:, 3] = alpha
+
+        kwargs['colors'] = colors
+        kwargs.setdefault('linewidths', kwargs.pop('lw', cls._LW))
+        # kwargs['linewidths'] = cls._LW
+        kwargs.setdefault('linestyles', kwargs.pop('ls', '-'))
+        kwargs.setdefault('zorder', 10)
+        cont = ax.contour(xx, yy, hist, levels=levels, **kwargs)
+        if (outline is True):
+            outline = _get_outline_effects(2*cls._LW, alpha=1 - np.sqrt(1 - alpha))
+            plt.setp(cont.collections, path_effects=outline)
+        elif (outline is not False):
+            raise ValueError("`outline` must be either 'True' or 'False'!")
+
+        return
+
+    @classmethod
+    def _scatter2d(cls, ax, xx, yy, color='k', alpha=0.1, s=4, **kwargs):
+        kwargs.setdefault('facecolor', color)
+        kwargs.setdefault('edgecolor', 'none')
+        kwargs.setdefault('alpha', alpha)
+        kwargs.setdefault('s', s)
+        return ax.scatter(xx, yy, **kwargs)
 
 
-def dist2d_data(ax, edges=None, hist=None, data=None, weights=None, sigmas=None,
-                smap=None, cmap=None,
-                scatter=None, median=None, hist2d=True, contour=True, density=True,
-                pad=True, mask_dense=None, mask_sparse=True, **kwargs):
+def _figax(size, grid=True, left=None, bottom=None, right=None, top=None, hspace=None, wspace=None,
+           **kwfig):
 
-    if (hist is None) and (data is None):
-        raise ValueError("Either `hist` or `data` must be provided!")
+    _def_figsize = np.clip(4 * size, 6, 20)
+    _def_figsize = [_def_figsize for ii in range(2)]
 
-    if scatter is None:
-        scatter = (data is not None)
-    if median is None:
-        median = scatter
+    figsize = kwfig.pop('figsize', _def_figsize)
+    if not np.iterable(figsize):
+        figsize = [figsize, figsize]
 
-    if data is not None:
-        edges = utils.parse_edges(data, edges=edges)
-    elif (edges is None) or (len(edges) != 2) or not np.all([utils.really1d(ee) for ee in edges]):
-        raise ValueError("When `data` is not provided, `edges` must be bin-edges explicitly!")
+    if hspace is None:
+        hspace = 0.1
+    if wspace is None:
+        wspace = 0.1
 
-    extr = [[ee.min(), ee.max()] for ee in edges]
-    gsh = tuple([len(ee)-1 for ee in edges])
+    fig, axes = plt.subplots(figsize=figsize, squeeze=False, ncols=size, nrows=size, **kwfig)
 
-    if hist is None:
-        hist, *_ = np.histogram2d(*data, bins=edges, weights=weights, density=density)
+    plt.subplots_adjust(
+        left=left, bottom=bottom, right=right, top=top, hspace=hspace, wspace=wspace)
+    if grid is True:
+        grid = dict(alpha=0.2, color='0.5', lw=0.5)
+    elif grid is False:
+        grid = None
 
-    if np.shape(hist) != gsh:
-        raise ValueError("Shape of `hist` ({}) does not match edges ({})!".format(
-            np.shape(hist), gsh))
+    for idx, ax in np.ndenumerate(axes):
+        if grid is not None:
+            ax.grid(True, **grid)
 
-    if sigmas is None:
-        sigmas = _DEF_SIGMAS
+    return fig, axes
 
-    sigmas, pdf_levels, _levels = _dfm_levels(hist, sigmas=sigmas)
 
-    color = kwargs.setdefault('color', 'k')
-    kwargs.setdefault('lw', 2.0)
-    kwargs.setdefault('alpha', 0.5)
-    hist2d = _none_dict(
-        hist2d, 'hist2d', udict(dict(smap=smap, cmap=cmap), kwargs))
-    # dict(smap=smap, cmap=cmap, color=color, lw=lw, alpha=alpha))
-    scatter = _none_dict(
-        scatter, 'scatter', kwargs)
-    contour = _none_dict(
-        contour, 'contour',
-        udict(dict(smap=smap, cmap=cmap, sigmas=sigmas), kwargs))
-    # dict(smap=smap, cmap=cmap, sigmas=sigmas, color=color, lw=lw, alpha=alpha))
-
-    if mask_dense is None:
-        mask_dense = (hist2d is not None)
-
-    # smap, smap_is_log, uniform_color = _parse_smap(smap, color, cmap=cmap)
-    # if not isinstance(smap, mpl.cm.ScalarMappable):
-    #     smap = _get_smap(hist, **smap)
-
-    # Draw Scatter Points
-    # -------------------------------
-    # NOTE: `weights` not used for scatter points
-    scatter_handle = None
-    if scatter is not None:
-        scatter_handle = _draw_scatter(ax, *data, **scatter)
-
-    # Draw Median Lines (Target Style)
-    # -----------------------------------------
-    if median:
-        effects = ([
-            mpl.patheffects.Stroke(linewidth=2.0, foreground='0.75', alpha=0.75),
-            mpl.patheffects.Normal()
-        ])
-
-        for dd, func in zip(data, [ax.axvline, ax.axhline]):
-            if weights is None:
-                med = np.median(dd)
-            else:
-                med = utils.quantiles(dd, percs=0.5, weights=weights)
-
-            func(med, color=color, ls='-', alpha=0.5, lw=1.0, path_effects=effects)
-
-    # Pad Histogram for Smoother Contour Edges
-    # -----------------------------------------------
-    if pad:
-        hist = np.pad(hist, 2, mode='edge')
-        tf = np.arange(2)  # [+1, +2]
-        tr = - tf[::-1]    # [-2, -1]
-        edges = [
-            [ee[0] + tr * np.diff(ee[:2]), ee, ee[-1] + tf * np.diff(ee[-2:])]
-            for ee in edges
-        ]
-        edges = [np.concatenate(ee) for ee in edges]
-
-    xc, yc = [utils.midpoints(ee, axis=-1) for ee in edges]
-    xc, yc = np.meshgrid(xc, yc, indexing='ij')
-
-    # Mask dense scatter-points
-    if mask_dense and (scatter is not None):
-        span = [pdf_levels.min(), hist.max()]
-        ax.contourf(xc, yc, hist, span,
-                    cmap=_MASK_CMAP, antialiased=True)
-
-    # Draw 2D Histogram
-    # -------------------------------
-    cont_col_rev = False
-    hist2d_handle = None
-    if hist2d is not None:
-        cont_col_rev = True
-        # hist2d.setdefault('cmap', smap.cmap)
-        # hist2d.setdefault('norm', smap.norm)
-        if mask_sparse is True:
-            mask_sparse = pdf_levels.min()
-        hist2d_handle = _draw_hist2d(ax, *edges, hist, mask_below=mask_sparse, **hist2d)
-
-    # Draw Contours
-    # --------------------------------
-    handle_contour = None
-    if contour is not None:
-        handle_contour = _draw_contours_2d(ax, xc, yc, hist, reverse=cont_col_rev, **contour)
-
-    for ex, lim_func in zip(extr, [ax.set_xlim, ax.set_ylim]):
-        lim_func(ex)
-
-    handles = dict()
-    handles['scatter'] = scatter_handle
-    handles['hist2d'] = hist2d_handle
-    handles['contour'] = handle_contour
-
-    return handles
+def corner(kde_data, labels=None, kwcorner={}, kwplot={}):
+    corner = Corner(kde_data, labels=labels, **kwcorner)
+    corner.plot(**kwplot)
+    return corner
 
 
 # ======  API KDEs Methods  ======
@@ -663,7 +650,7 @@ def corner_kde(axes, kde, edges=None, reflect=None, sigmas=None, levels=None, ro
     kwargs.setdefault('alpha', 0.8)
 
     # pdf = kde.pdf_grid(edges, reflect=reflect)
-    extr = [utils.minmax(ee) for ee in edges]
+    extr = [utils.minmax(ee, stretch=0.1) for ee in edges]
     _, smap_is_log, _ = _parse_smap(smap, color, cmap=cmap)
 
     #
@@ -690,7 +677,7 @@ def corner_kde(axes, kde, edges=None, reflect=None, sigmas=None, levels=None, ro
                                            reflect=reflect, grid=True)
             extr_hist2d = utils.minmax(pdf2d[jj, ii], prev=extr_hist2d, positive=smap_is_log)
 
-    _set_corner_axes(axes, extr, rotate)
+    _set_corner_axes_extrema(axes, extr, rotate)
 
     #
     # Draw / Plot Data
@@ -766,7 +753,7 @@ def dist1d_kde(ax, kde, param=None, pdf=None, reflect=None, edges=None, sigmas=T
         locs = np.interp(percs, cdf, edges).reshape(2, len(sigmas)).T
 
         # handle_contour = _draw_contours_1d(ax, locs, rotate=rotate, **contour)
-        handle_contour = _draw_contours_1d(ax, locs, rotate=rotate, color=color)
+        handle_contour = Corner._contour1d(ax, locs, rotate=rotate, color=color)
 
     handles = dict()
     handles['density'] = handle_density
@@ -815,10 +802,10 @@ def dist2d_kde(ax, kde, params=None, pdf=None, reflect=None, smap=None, cmap=Non
     # Draw Median Lines (Target Style)
     # -----------------------------------------
     if median:
-        effects = ([
-            mpl.patheffects.Stroke(linewidth=2.0, foreground='0.75', alpha=0.75),
-            mpl.patheffects.Normal()
-        ])
+        # effects = ([
+        #     mpl.patheffects.Stroke(linewidth=2.0, foreground='0.75', alpha=0.75),
+        #     mpl.patheffects.Normal()
+        # ])
 
         for ii, func in enumerate([ax.axvline, ax.axhline]):
             pp = params[ii]
@@ -827,7 +814,7 @@ def dist2d_kde(ax, kde, params=None, pdf=None, reflect=None, smap=None, cmap=Non
             cdf = utils.cumtrapz(cdf, ee)
             cdf /= cdf.max()
             cdf = np.interp(0.5, cdf, ee)
-            func(cdf, color=kwargs['color'], ls='-', alpha=0.5, lw=1.0, path_effects=effects)
+            func(cdf, color=kwargs['color'], ls='-', alpha=0.5, lw=1.0, path_effects=_OUTLINE)
 
     # Draw Contours
     # --------------------------------
@@ -952,195 +939,7 @@ def carpet(xx, weights=None, ax=None, ystd=None, yave=None, shift=0.0,
     return ax.scatter(xx, yy, **kwargs), extr
 
 
-def _draw_scatter(ax, xx, yy, color='k', alpha=0.1, s=4, **kwargs):
-    kwargs.setdefault('facecolor', color)
-    kwargs.setdefault('edgecolor', 'none')
-    kwargs.setdefault('alpha', alpha)
-    kwargs.setdefault('s', s)
-    return ax.scatter(xx, yy, **kwargs)
-
-
-def _draw_hist2d(ax, xx, yy, data, mask_below=None, color=None, smap=None, **kwargs):
-    cmap = kwargs.pop('cmap', None)
-    smap, smap_is_log, uniform_color = _parse_smap(smap, color, cmap=cmap)
-    if not isinstance(smap, mpl.cm.ScalarMappable):
-        smap = _get_smap(data, **smap)
-
-    kwargs.setdefault('cmap', smap.cmap)
-    kwargs.setdefault('norm', smap.norm)
-    kwargs.setdefault('shading', 'auto')
-
-    if (mask_below is not None) and (mask_below is not False):
-        data = np.ma.masked_less_equal(data, mask_below)
-    return ax.pcolormesh(xx, yy, data.T, **kwargs)
-
-
-def _draw_contours_1d(ax, locs, color='k', span=None, rotate=False, alpha=0.1, **kwargs):
-    kw = udict(dict(facecolor=color, alpha=alpha, edgecolor='none'), kwargs)
-
-    for lo, hi in locs:
-        # If median is included (sigma=0, cdf=0.5), lo will equal hi
-        if lo == hi:
-            line_func = ax.axhline if rotate else ax.axvline
-            line_func(lo, ls='--', color=color, alpha=0.5)
-
-        if span is None:
-            span_func = ax.axhspan if rotate else ax.axvspan
-            handle = span_func(lo, hi, **kw)
-        else:
-            center = [lo, span[0]]
-            extent = [hi - lo, span[1] - span[0]]
-            if rotate:
-                center = center[::-1]
-                extent = span[::-1]
-            rect = mpl.patches.Rectangle(center, *extent, **kw)
-            handle = ax.add_patch(rect)
-
-    return handle
-
-
-def _draw_contours_2d(ax, xx, yy, hist, smap=None, color=None, cmap=None,
-                      smooth=None, upsample=2, reverse=False,
-                      linewidths=1.0, colors=None, zorder=10,
-                      background=False, sigmas=None, pdf_levels=None, cdf_levels=None, **kwargs):
-
-    if (pdf_levels is not None) and (upsample is not None or smooth is not None):
-        err = ("Cannot provide `pdf_levels` with upsampling or smoothing!  "
-               "Provide `sigmas` or `cdf_levels` instead!")
-        raise ValueError(err)
-
-    if (upsample is not None) and (upsample > 0):
-        xx = sp.ndimage.zoom(xx, upsample)
-        yy = sp.ndimage.zoom(yy, upsample)
-        hist = sp.ndimage.zoom(hist, upsample)
-    if (smooth is not None) and (smooth > 0.0):
-        if upsample is not None:
-            smooth *= upsample
-        hist = sp.ndimage.filters.gaussian_filter(hist, smooth)
-
-    if pdf_levels is None:
-        sigmas, pdf_levels, cdf_levels = _dfm_levels(hist, cdf_levels=cdf_levels, sigmas=sigmas)
-
-    lw = kwargs.pop('lw', None)
-    alpha = kwargs.setdefault('alpha', 0.8)
-    bg_alpha = alpha  # /2
-    if lw is not None:
-        linewidths = lw
-    kwargs['levels'] = pdf_levels
-    background = _none_dict(background, 'background', defaults=kwargs)
-
-    if colors is None:
-        if color is not None:
-            colors = color
-        else:
-            smap, smap_is_log, uniform_color = _parse_smap(smap, color, cmap=cmap)
-            if not isinstance(smap, mpl.cm.ScalarMappable):
-                smap = _get_smap(hist, **smap)
-
-            colors = smap.to_rgba(pdf_levels)
-            colors_bg = colors[::-1]
-            if reverse:
-                colors = colors[::-1]
-                colors_bg = colors_bg[::-1]
-
-            # Set alpha (transparency)
-            colors[:, 3] = alpha
-            colors_bg[:, 3] = bg_alpha
-    else:
-        colors_bg = ['0.5'] * 3 + [bg_alpha]
-
-    kwargs['colors'] = colors
-    kwargs['linewidths'] = linewidths
-    kwargs.setdefault('linestyles', kwargs.pop('ls', '-'))
-    kwargs['zorder'] = zorder
-
-    if background is not None:
-        background.setdefault('colors', colors_bg)
-        background.setdefault('alpha', bg_alpha)
-        background.setdefault('linewidths', background.pop('lw', 2*linewidths))
-        background.setdefault('linestyles', background.pop('ls', '-'))
-        background.setdefault('zorder', zorder - 1)
-
-        ax.contour(xx, yy, hist, **background)
-
-    handle = ax.contour(xx, yy, hist, **kwargs)
-
-    # TEST ---------------------------------------------------------------
-    '''
-    from skimage import measure
-
-    # Find contours at a constant value of 0.8
-    for cc, lev in zip(colors, pdf_levels):
-        contours = measure.find_contours(hist, lev)
-
-        _x = xx[:, 0]
-        _y = yy[0, :]
-        for n, contour in enumerate(contours):
-            uu = contour[:, 0]
-            vv = contour[:, 1]
-            # uu = np.around(uu)
-            # vv = np.around(vv)
-
-            uu = np.interp(uu, np.arange(_x.size), _x)
-            vv = np.interp(vv, np.arange(_y.size), _y)
-            ax.plot(uu, vv, linewidth=3.0, color=cc, ls='--', alpha=0.5)
-    '''
-    # --------------------------------------------------------------------
-
-    return handle
-
-
-def _draw_hist1d(ax, edges, hist, joints=True,
-                 nonzero=False, positive=False, extend=None, renormalize=False,
-                 rotate=False, **kwargs):
-
-    # Check shape of edges
-    if len(edges) != len(hist)+1:
-        raise RuntimeError("``edges`` must have length hist+1!")
-
-    # Construct plot points to manually create a step-plot
-    xval = np.hstack([[edges[jj], edges[jj+1]] for jj in range(len(edges)-1)])
-    yval = np.hstack([[hh, hh] for hh in hist])
-
-    if not joints:
-        size = len(xval)
-        half = size // 2
-
-        outs = []
-        for zz in [xval, yval]:
-            zz = np.atleast_2d(zz).T
-            zz = np.reshape(zz, [half, 2], order='C')
-            zz = np.pad(zz, [[0, 0], [0, 1]], constant_values=np.nan)
-            zz = zz.reshape(size + half)
-            outs.append(zz)
-
-        xval, yval = outs
-
-    # Select nonzero values
-    if nonzero:
-        xval = np.ma.masked_where(yval == 0.0, xval)
-        yval = np.ma.masked_where(yval == 0.0, yval)
-
-    # Select positive values
-    if positive:
-        xval = np.ma.masked_where(yval < 0.0, xval)
-        yval = np.ma.masked_where(yval < 0.0, yval)
-
-    if rotate:
-        temp = np.array(xval)
-        xval = yval
-        yval = temp
-
-    # Plot Histogram
-    if renormalize:
-        yval = yval / yval[np.isfinite(yval)].max()
-
-    line, = ax.plot(xval, yval, **kwargs)
-
-    return line
-
-
-def _set_corner_axes(axes, extrema, rotate, pdf=None):
+def _set_corner_axes_extrema(axes, extrema, rotate, pdf=None):
     npar = len(axes)
     last = npar - 1
     if not np.all([sh == npar for sh in np.shape(axes)]):
@@ -1211,7 +1010,7 @@ def hist(data, bins=None, ax=None, weights=None, density=True, probability=False
     hist, edges = utils.histogram(data, bins=bins, weights=weights,
                                   density=density, probability=probability)
 
-    return hist, edges, _draw_hist1d(ax, edges, hist, **kwargs)
+    return hist, edges, Corner._hist1d(ax, edges, hist, **kwargs)
 
 
 # ====  Utility Methods  ====
@@ -1220,23 +1019,6 @@ def hist(data, bins=None, ax=None, weights=None, density=True, probability=False
 
 def nbshow():
     return utils.run_if_notebook(plt.show, otherwise=lambda: plt.close('all'))
-
-
-def _save_fig(fig, fname, path=None, subdir=None, quiet=False, rename=True, **kwargs):
-    """Save the given figure to the given filename, with some added niceties.
-    """
-    if path is None:
-        path = os.path.abspath(os.path.curdir)
-    if subdir is not None:
-        path = os.path.join(path, subdir, '')
-    fname = os.path.join(path, fname)
-    utils.check_path(fname)
-    if rename:
-        fname = utils.modify_exists(fname)
-    fig.savefig(fname, **kwargs)
-    if not quiet:
-        print("Saved to '{}'".format(fname))
-    return fname
 
 
 def _get_smap(args=[0.0, 1.0], cmap=None, log=False, norm=None, under='w', over='w'):
@@ -1297,10 +1079,8 @@ def _parse_smap(smap, color, cmap=None, defaults=dict(log=False)):
 
     smap_is_log = smap['log']
     if cmap is None:
-        # cmap = _COLOR_CMAP.get(color[0], 'Greys')
-        if color in _COLOR_CMAP.keys():
-            cmap = _COLOR_CMAP[color]
-        else:
+        cmap = _COLOR_CMAP.get(color[0].lower(), None)
+        if cmap is None:
             cmap = 'Greys'
             uniform = True
 
@@ -1332,47 +1112,40 @@ def _none_dict(val, name, defaults={}):
     return val
 
 
-def _dfm_levels(hist, cdf_levels=None, sigmas=None):
-    if cdf_levels is None:
+def _dfm_levels(data, quantiles=None, sigmas=None):
+    if quantiles is None:
         if sigmas is None:
             sigmas = _DEF_SIGMAS
         # Convert from standard-deviations to CDF values
-        cdf_levels = 1.0 - np.exp(-0.5 * np.square(sigmas))
+        quantiles = 1.0 - np.exp(-0.5 * np.square(sigmas))
     elif sigmas is None:
-        sigmas = np.sqrt(-2.0 * np.log(1.0 - cdf_levels))
+        sigmas = np.sqrt(-2.0 * np.log(1.0 - quantiles))
 
     # Compute the density levels.
-    hflat = hist.flatten()
-    inds = np.argsort(hflat)[::-1]
-    hflat = hflat[inds]
-    sm = np.cumsum(hflat)
+    data = np.asarray(data).flatten()
+    inds = np.argsort(data)[::-1]
+    data = data[inds]
+    sm = np.cumsum(data)
     sm /= sm[-1]
-    pdf_levels = np.empty(len(cdf_levels))
-    for i, v0 in enumerate(cdf_levels):
+    levels = np.empty(len(quantiles))
+    for i, v0 in enumerate(quantiles):
         try:
-            pdf_levels[i] = hflat[sm <= v0][-1]
+            levels[i] = data[sm <= v0][-1]
         except:
-            pdf_levels[i] = hflat[0]
+            levels[i] = data[0]
 
-    pdf_levels.sort()
-    bad = (np.diff(pdf_levels) == 0)
-    bad = np.pad(bad, [1, 0], constant_values=False)
+    levels.sort()
 
     # -- Remove Bad Levels
-    pdf_levels = np.delete(pdf_levels, np.where(bad)[0])
-    if np.any(bad):
-        _levels = cdf_levels
-        cdf_levels = np.array(cdf_levels)[~bad]
-        logging.warning("Removed bad levels: '{}' ==> '{}'".format(_levels, cdf_levels))
+    # bad = (np.diff(levels) == 0)
+    # bad = np.pad(bad, [1, 0], constant_values=False)
+    # levels = np.delete(levels, np.where(bad)[0])
+    # if np.any(bad):
+    #     _levels = quantiles
+    #     quantiles = np.array(quantiles)[~bad]
+    #     logging.warning("Removed bad levels: '{}' ==> '{}'".format(_levels, quantiles))
 
-    # -- Adjust Bad Levels:
-    # if np.any(bad) and not quiet:
-    #     logging.warning("Too few points to create valid contours")
-    # while np.any(bad):
-    #     V[np.where(bad)[0][0]] *= 1.0 - 1e-4
-    #     m = np.diff(V) == 0
-    pdf_levels.sort()
-    return sigmas, pdf_levels, cdf_levels
+    return sigmas, levels, quantiles
 
 
 def udict(*args, copy_vals=True):
@@ -1388,9 +1161,16 @@ def udict(*args, copy_vals=True):
     return rv
 
 
-def draw_carpet(*args, **kwargs):
-    # utils.dep_warn("draw_carpet", new_name="carpet")
+def _draw_carpet(*args, **kwargs):
     return carpet(*args, **kwargs)
+
+
+def _get_outline_effects(lw=2.0, fg='0.75', alpha=0.8):
+    outline = ([
+        mpl.patheffects.Stroke(linewidth=lw, foreground=fg, alpha=alpha),
+        mpl.patheffects.Normal()
+    ])
+    return outline
 
 
 '''
