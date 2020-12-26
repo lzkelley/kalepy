@@ -1,14 +1,9 @@
 """
 """
 
-# import warnings
 import logging
-# import os
-# import six
 
 import numpy as np
-import scipy as sp
-import scipy.stats  # noqa
 import matplotlib as mpl
 import matplotlib.patheffects  # noqa
 import matplotlib.pyplot as plt
@@ -18,6 +13,13 @@ from kalepy import utils
 from kalepy import KDE
 
 _DEF_SIGMAS = [0.5, 1.0, 1.5, 2.0]
+_PAD = 1
+
+# Define functions for module level import
+__all__ = [
+    "carpet", "contour", "confidence", "Corner", "corner", "dist1d", "dist2d", "hist1d", "hist2d",
+    "plot_clean", "plot_data", "plot_hist", "plot_kde",
+]
 
 
 class Corner:
@@ -145,7 +147,7 @@ class Corner:
         kde, data, weights = _parse_kde_data(kde_data, weights=weights)
 
         dist1d.setdefault('density', True)
-        dist1d.setdefault('contour', True)
+        dist1d.setdefault('confidence', True)
         dist1d.setdefault('carpet', True)
         dist1d.setdefault('hist', False)
 
@@ -173,7 +175,7 @@ class Corner:
         kde, data, weights = _parse_kde_data(kde_data, weights=weights)
 
         dist1d.setdefault('density', True)
-        dist1d.setdefault('contour', False)
+        dist1d.setdefault('confidence', False)
         dist1d.setdefault('carpet', False)
         dist1d.setdefault('hist', False)
 
@@ -196,7 +198,7 @@ class Corner:
         kde, data, weights = _parse_kde_data(kde_data, weights=weights)
 
         dist1d.setdefault('density', False)
-        dist1d.setdefault('contour', False)
+        dist1d.setdefault('confidence', False)
         dist1d.setdefault('carpet', False)
         dist1d.setdefault('hist', True)
 
@@ -279,7 +281,7 @@ class Corner:
 
     def _data1d(self, ax, edge, data, color=None, **dist1d):
         dist1d.setdefault('density', False)
-        dist1d.setdefault('contour', False)
+        dist1d.setdefault('confidence', False)
         dist1d.setdefault('carpet', True)
         dist1d.setdefault('hist', True)
         rv = _dist1d(data, ax=ax, edges=edge, color=color, **dist1d)
@@ -361,7 +363,7 @@ class Corner:
 
     def _kde1d(self, ax, edge, kde, param, color=None, **dist1d):
         dist1d.setdefault('density', True)
-        dist1d.setdefault('contour', True)
+        dist1d.setdefault('confidence', True)
         dist1d.setdefault('carpet', False)
         dist1d.setdefault('hist', False)
         # This is identical to `kalepy.plot.dist1d` (just used for naming convenience)
@@ -418,8 +420,38 @@ class Corner:
     '''
 
 
-# ======  API Methods  ======
-# ================================
+def corner(kde_data, labels=None, kwcorner={}, **kwplot):
+    corner = Corner(kde_data, labels=labels, **kwcorner)
+    corner.plot(**kwplot)
+    return corner
+
+
+def plot_clean(kde_data, labels=None, kwcorner={}, **kwplot):
+    corner = Corner(kde_data, labels=labels, **kwcorner)
+    corner.clean(**kwplot)
+    return corner
+
+
+def plot_data(data, labels=None, kwcorner={}, **kwplot):
+    corner = Corner(data, labels=labels, **kwcorner)
+    corner.plot_data(**kwplot)
+    return corner
+
+
+def plot_hist(kde_data, labels=None, kwcorner={}, **kwplot):
+    corner = Corner(kde_data, labels=labels, **kwcorner)
+    corner.hist(**kwplot)
+    return corner
+
+
+def plot_kde(kde, labels=None, kwcorner={}, **kwplot):
+    corner = Corner(kde, labels=labels, **kwcorner)
+    corner.plot_kde(**kwplot)
+    return corner
+
+
+# ======  Additional API Methods  ======
+# ======================================
 
 
 def carpet(xx, weights=None, ax=None, ystd=None, yave=None, shift=0.0,
@@ -508,10 +540,150 @@ def carpet(xx, weights=None, ax=None, ystd=None, yave=None, shift=0.0,
     return ax.scatter(xx, yy, **kwargs), extr
 
 
-def corner(kde_data, labels=None, kwcorner={}, **kwplot):
-    corner = Corner(kde_data, labels=labels, **kwcorner)
-    corner.plot(**kwplot)
-    return corner
+def confidence(data, ax=None, quantiles=[0.5, 0.9], weights=None,
+               median=True, rotate=False, **kwargs):
+    """Plot 1D Confidence intervals at the given quantiles.
+
+    For each quantile `q`, a shaded range is plotted that includes a fration `q` of data values
+    around the median.
+
+    Parameters
+    ----------
+
+
+    Returns
+    -------
+
+
+    """
+
+    if ax is None:
+        ax = plt.gca()
+
+    color = kwargs.pop('color', _get_next_color(ax))
+    kwargs['facecolor'] = color
+    kwargs['edgecolor'] = 'none'
+    kwargs.setdefault('alpha', 0.1)
+
+    # Calculate Cumulative Distribution Function
+    if weights is None:
+        data = np.sort(data)
+        cdf = np.arange(data.size) / (data.size - 1)
+    else:
+        idx = np.argsort(data)
+        data = data[idx]
+        weights = weights[idx]
+        cdf = np.cumsum(weights) / np.sum(weights)
+
+    # Get both the lower (left) and upper (right) values
+    quantiles = np.asarray(quantiles) / 2
+    qnts = np.append(0.5 - quantiles, 0.5 + quantiles)
+    # Reshape to (sigmas, 2)
+    locs = np.interp(qnts, cdf, data).reshape(2, len(quantiles)).T
+
+    if median:
+        mm = np.interp(0.5, cdf, data)
+        line_func = ax.axhline if rotate else ax.axvline
+        line_func(mm, ls='--', color=color, alpha=0.25)
+
+    for lo, hi in locs:
+        span_func = ax.axhspan if rotate else ax.axvspan
+        handle = span_func(lo, hi, **kwargs)
+
+    return handle
+
+
+def contour(data, edges=None, ax=None, weights=None,
+            color=None, cmap=None, quantiles=None, smooth=1, upsample=2, pad=1, **kw):
+
+    if ax is None:
+        ax = plt.gca()
+
+    color, cmap = _parse_color_cmap(ax=ax, color=color, cmap=cmap)
+
+    edges = utils.parse_edges(data, edges=edges)
+    hist, *_ = np.histogram2d(*data, bins=edges, weights=weights, density=True)
+    rv = draw_contour2d(
+        ax, edges, hist,
+        cmap=cmap, quantiles=quantiles, smooth=smooth, upsample=upsample, pad=pad, **kw
+    )
+    return rv
+
+
+def dist1d(kde_data, ax=None, edges=None, weights=None, probability=True, param=0, rotate=False,
+           density=None, confidence=False, hist=None, carpet=True, color=None, quantiles=None):
+
+    if ax is None:
+        ax = plt.gca()
+
+    if isinstance(kde_data, kale.KDE):
+        if weights is not None:
+            raise ValueError("`weights` of given `KDE` instance cannot be overridden!")
+        kde = kde_data
+        data = kde.dataset
+        if np.ndim(data) > 1:
+            data = data[param]
+
+        weights = None if kde._weights_uniform else kde.weights
+    else:
+        data = kde_data
+        kde = None
+
+    if color is None:
+        color = _get_next_color(ax)
+
+    # Default: plot KDE-density curve if KDE is given (data not given explicitly)
+    if density is None:
+        density = (kde is not None)
+
+    # Default: plot histogram if data is given (KDE is *not* given)
+    if hist is None:
+        hist = (kde is None)
+
+    ls = '--' if hist and density else '-'
+
+    # Draw PDF from KDE
+    # -----------------
+    handle = None
+    if density:
+        if kde is None:
+            try:
+                kde = KDE(data, weights=weights)
+            except:
+                logging.error(f"Failed to construct KDE from given data!")
+                raise
+
+        points, pdf = kde.density(probability=probability, params=param)
+        if rotate:
+            handle, = ax.plot(pdf, points, color=color, ls=ls)
+        else:
+            handle, = ax.plot(points, pdf, color=color, ls=ls)
+
+    # Draw Histogram
+    # --------------------------
+    if hist:
+        _, _, hh = hist1d(
+            data, ax=ax, edges=edges, weights=weights, color=color,
+            density=True, probability=probability, joints=True, rotate=rotate
+        )
+        if handle is None:
+            handle = hh
+
+    # Draw Contours and Median Line
+    # ------------------------------------
+    if confidence:
+        hh = _confidence(data, ax=ax, color=color, quantiles=quantiles, rotate=rotate)
+        if handle is None:
+            handle = hh
+
+    # Draw Carpet Plot
+    # ------------------------------------
+    if carpet:
+        hh = _draw_carpet(data, weights=weights, ax=ax, color=color, rotate=rotate)
+        if handle is None:
+            handle = hh
+
+    return handle
 
 
 def dist2d(kde_data, ax=None, edges=None, weights=None,
@@ -599,7 +771,7 @@ def dist2d(kde_data, ax=None, edges=None, weights=None,
 
         points, pdf = kde.density(params=params, probability=probability)
         _ee, _hh, _ = draw_contour2d(
-            ax, points, pdf, quantiles=quantiles, smooth=smooth, upsample=upsample, pad=1,
+            ax, points, pdf, quantiles=quantiles, smooth=smooth, upsample=upsample,
             cmap=contour_cmap, zorder=20,
         )
 
@@ -620,126 +792,6 @@ def dist2d(kde_data, ax=None, edges=None, weights=None,
         ax.contourf(*ee, hh, span, cmap=mask_cmap, antialiased=True, zorder=9)
 
     return
-
-
-def dist1d(kde_data, ax=None, edges=None, weights=None, probability=True, param=0, rotate=False,
-           density=None, contour=False, hist=None, carpet=True, color=None, quantiles=None):
-
-    if ax is None:
-        ax = plt.gca()
-
-    if isinstance(kde_data, kale.KDE):
-        if weights is not None:
-            raise ValueError("`weights` of given `KDE` instance cannot be overridden!")
-        kde = kde_data
-        data = kde.dataset
-        if np.ndim(data) > 1:
-            data = data[param]
-
-        weights = None if kde._weights_uniform else kde.weights
-    else:
-        data = kde_data
-        kde = None
-
-    if color is None:
-        color = _get_next_color(ax)
-
-    # Default: plot KDE-density curve if KDE is given (data not given explicitly)
-    if density is None:
-        density = (kde is not None)
-
-    # Default: plot histogram if data is given (KDE is *not* given)
-    if hist is None:
-        hist = (kde is None)
-
-    ls = '--' if hist and density else '-'
-
-    # Draw PDF from KDE
-    # -----------------
-    if density:
-        if kde is None:
-            try:
-                kde = KDE(data, weights=weights)
-            except:
-                logging.error(f"Failed to construct KDE from given data!")
-                raise
-
-        points, pdf = kde.density(probability=probability, params=param)
-        if rotate:
-            ax.plot(pdf, points, color=color, ls=ls)
-        else:
-            ax.plot(points, pdf, color=color, ls=ls)
-
-    # Draw Histogram
-    # --------------------------
-    if hist:
-        hist1d(data, ax=ax, edges=edges, weights=weights, color=color,
-               density=True, probability=probability, joints=True, rotate=rotate)
-
-    # Draw Contours and Median Line
-    # ------------------------------------
-    if contour:
-        contour1d(data, ax=ax, color=color, quantiles=quantiles, rotate=rotate)
-
-    # Draw Carpet Plot
-    # ------------------------------------
-    if carpet:
-        _draw_carpet(data, weights=weights, ax=ax, color=color, rotate=rotate)
-
-    return
-
-
-def contour1d(data, ax=None, quantiles=[0.5, 0.9], weights=None, median=True, rotate=False,
-              **kwargs):
-    """Plot 1D Confidence intervals at the given quantiles.
-
-    For each quantile `q`, a shaded range is plotted that includes a fration `q` of data values
-    around the median.
-
-    Parameters
-    ----------
-
-
-    Returns
-    -------
-
-
-    """
-
-    if ax is None:
-        ax = plt.gca()
-
-    color = kwargs.pop('color', _get_next_color(ax))
-    kwargs['facecolor'] = color
-    kwargs['edgecolor'] = 'none'
-    kwargs.setdefault('alpha', 0.1)
-
-    # Calculate Cumulative Distribution Function
-    if weights is None:
-        data = np.sort(data)
-        cdf = np.arange(data.size) / (data.size - 1)
-    else:
-        idx = np.argsort(data)
-        data = data[idx]
-        weights = weights[idx]
-        cdf = np.cumsum(weights) / np.sum(weights)
-
-    # Get both the lower (left) and upper (right) values
-    quantiles = np.asarray(quantiles) / 2
-    qnts = np.append(0.5 - quantiles, 0.5 + quantiles)
-    # Reshape to (sigmas, 2)
-    locs = np.interp(qnts, cdf, data).reshape(2, len(quantiles)).T
-
-    if median:
-        mm = np.interp(0.5, cdf, data)
-        line_func = ax.axhline if rotate else ax.axvline
-        line_func(mm, ls='--', color=color, alpha=0.25)
-
-    for lo, hi in locs:
-        span_func = ax.axhspan if rotate else ax.axvspan
-        handle = span_func(lo, hi, **kwargs)
-
-    return handle
 
 
 def hist1d(data, edges=None, ax=None, weights=None, density=False, probability=False, **kwargs):
@@ -763,16 +815,6 @@ def hist2d(data, edges=None, ax=None, weights=None, mask_below=False, **kw):
         mask_below = 0.9 / len(data[0])
 
     return draw_hist2d(ax, edges, hist, mask_below=mask_below, **kw)
-
-
-def contour2d(data, edges=None, ax=None, weights=None, **kw):
-
-    if ax is None:
-        ax = plt.gca()
-
-    edges = utils.parse_edges(data, edges=edges)
-    hist, *_ = np.histogram2d(*data, bins=edges, weights=weights, density=True)
-    return draw_contour2d(ax, edges, hist, **kw)
 
 
 # ======  Drawing Methods  =====
@@ -837,7 +879,6 @@ def draw_hist2d(ax, edges, hist, mask_below=None, **kwargs):
 def draw_contour2d(ax, edges, hist, quantiles=None, smooth=None, upsample=None, pad=True,
                    outline=True, **kwargs):
 
-    _PAD = 2
     LW = 1.5
 
     # ---- (Pre-)Process histogram and bin edges
@@ -855,12 +896,14 @@ def draw_contour2d(ax, edges, hist, quantiles=None, smooth=None, upsample=None, 
     xx, yy = np.meshgrid(xx, yy, indexing='ij')
 
     if (upsample not in [None, False]):
+        import scipy as sp
         if upsample is True:
             upsample = 2
         xx = sp.ndimage.zoom(xx, upsample)
         yy = sp.ndimage.zoom(yy, upsample)
         hist = sp.ndimage.zoom(hist, upsample)
-    if (smooth is not None):
+    if (smooth not in [None, False]):
+        import scipy as sp
         if upsample is not None:
             smooth *= upsample
         hist = sp.ndimage.filters.gaussian_filter(hist, smooth)
@@ -917,6 +960,10 @@ def draw_scatter(ax, xx, yy, alpha=None, s=4, **kwargs):
 
 # ====  Utility Methods  ====
 # ===========================
+
+
+def _confidence(*args, **kwargs):
+    return confidence(*args, **kwargs)
 
 
 def _dist1d(*args, **kwargs):
