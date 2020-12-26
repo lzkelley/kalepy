@@ -285,19 +285,29 @@ class KDE(object):
 
         squeeze = False
         if params is not None:
-            squeeze = np.isscalar(params)
-            params = np.atleast_1d(params)
-            if reflect is not None:
-                if len(reflect) == ndim:
-                    reflect = [reflect[pp] for pp in params]
-                elif len(reflect) == 2 and len(params) == 1:
-                    pass
-                elif len(reflect) != len(params):
-                    err = "length of `reflect` ({}) does not match `params` ({})!".format(
-                        len(reflect), len(params))
+            if (ndim == 1):
+                if params == 0:
+                    params = None
+                else:
+                    err = "Cannot specify `params` ('{}') > 0 for 1D data!".format(params)
                     raise ValueError(err)
 
-            data = data[params, :]
+            if params is not None:
+                squeeze = np.isscalar(params)
+                params = np.atleast_1d(params)
+                if reflect is not None:
+                    if len(reflect) == ndim:
+                        reflect = [reflect[pp] for pp in params]
+                    elif len(reflect) == 2 and len(params) == 1:
+                        pass
+                    elif len(reflect) != len(params):
+                        err = (
+                            "length of `reflect` ({}) ".format(len(reflect)),
+                            "does not match `params` ({})!".format(len(params))
+                        )
+                        raise ValueError(err)
+
+                data = data[params, :]
 
         if points is None:
             points = self.points
