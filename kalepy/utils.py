@@ -1313,21 +1313,21 @@ def _random_data_3d_02(num=1e3, noise=0.2):
     return data
 
 
-def _random_data_3d_03(num=1e3):
+def _random_data_3d_03(num=1e3, par=[0.0, 0.5], cov=0.1):
     num = int(num)
 
-    aa = np.random.lognormal(0.0, 0.5, size=3*num) - 1
+    aa = np.random.lognormal(*par, size=3*num) - 1
     aa = aa[aa > 0.0]
     aa = np.random.choice(aa, size=num, replace=False)
-    bb = np.random.normal(size=num)
+    bb = np.random.normal(scale=par[1], size=num)
     cc = np.random.power(2, size=num)
 
     # Make `aa` and `cc` strongly covariant
-    COV = 0.1    # the smaller the value, the stronger the covariance
+    # cov = 0.1    # the smaller the value, the stronger the covariance
     aa = np.sort(aa)
     c1 = cc / cc.max()
     a1 = (aa / aa.max())**(1/4)
-    xx = a1**2 + c1**2 + np.random.normal(0.0, COV, size=a1.size)
+    xx = a1**2 + c1**2 + np.random.normal(0.0, cov, size=a1.size)
     idx = np.argsort(xx)
     cc = cc[idx]
 
