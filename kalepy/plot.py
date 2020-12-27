@@ -169,6 +169,7 @@ class Corner:
 
             # Diagonals
             if ii == jj:
+                # not top-left
                 if ii != 0:
                     ax.yaxis.set_label_position('right')
                     ax.yaxis.set_ticks_position('right')
@@ -177,12 +178,14 @@ class Corner:
             else:
                 pass
 
-        if limits is None:
-            limits = [None] * size
-            limit_flag = True
-        else:
+        # If axes limits are given, set axes to them
+        if limits is not None:
             limit_flag = False
             _set_corner_axes_extrema(self.axes, limits, rotate)
+        # Otherwise, prepare to calculate limits during plotting
+        else:
+            limits = [None] * size
+            limit_flag = True
 
         # --- Store key parameters
         self.size = size
@@ -223,20 +226,25 @@ class Corner:
                 err = "kde or data required either during initialization or here!"
                 raise ValueError(err)
 
+        # If data is given, convert to KDE as needed
         kde, data, weights = _parse_kde_data(kde_data, weights=weights)
 
+        # Set default 1D parameters
         dist1d.setdefault('density', True)
         dist1d.setdefault('confidence', False)
         dist1d.setdefault('carpet', False)
         dist1d.setdefault('hist', False)
 
+        # Set default 2D parameters
         dist2d.setdefault('hist', False)
         dist2d.setdefault('contour', True)
         dist2d.setdefault('scatter', False)
         dist2d.setdefault('mask_dense', False)
         dist2d.setdefault('mask_below', False)
 
-        return self.plot_kde(kde, dist1d=dist1d, dist2d=dist2d, **kwargs)
+        # Plot
+        rv = self.plot_kde(kde, dist1d=dist1d, dist2d=dist2d, **kwargs)
+        return rv
 
     def hist(self, kde_data=None, weights=None, dist1d={}, dist2d={}, **kwargs):
         """Wrapper for `plot_data` that sets parameters to only plot 1D and 2D histograms of data.
@@ -266,20 +274,25 @@ class Corner:
                 err = "kde or data required either during initialization or here!"
                 raise ValueError(err)
 
+        # If KDE is given, retrieve the dataset from it
         kde, data, weights = _parse_kde_data(kde_data, weights=weights)
 
+        # Set default 1D parameters
         dist1d.setdefault('density', False)
         dist1d.setdefault('confidence', False)
         dist1d.setdefault('carpet', False)
         dist1d.setdefault('hist', True)
 
+        # Set default 2D parameters
         dist2d.setdefault('hist', True)
         dist2d.setdefault('contour', False)
         dist2d.setdefault('scatter', False)
         dist2d.setdefault('mask_dense', False)
         dist2d.setdefault('mask_below', False)
 
-        return self.plot_data(data, dist1d=dist1d, dist2d=dist2d, **kwargs)
+        # Plot
+        rv = self.plot_data(data, dist1d=dist1d, dist2d=dist2d, **kwargs)
+        return rv
 
     def plot(self, kde_data=None, edges=None, weights=None, quantiles=None,
              limit=None, color=None, cmap=None, dist1d={}, dist2d={}):
@@ -343,19 +356,23 @@ class Corner:
                 err = "kde or data required either during initialization or here!"
                 raise ValueError(err)
 
+        # If data is given, construct KDE
         kde, data, weights = _parse_kde_data(kde_data, weights=weights)
 
+        # Set default 1D parameters
         dist1d.setdefault('density', True)
         dist1d.setdefault('confidence', True)
         dist1d.setdefault('carpet', True)
         dist1d.setdefault('hist', False)
 
+        # Set default 2D parameters
         dist2d.setdefault('hist', True)
         dist2d.setdefault('scatter', True)
         dist2d.setdefault('contour', True)
         dist2d.setdefault('mask_dense', True)
         dist2d.setdefault('mask_below', True)
 
+        # Plot
         rv = self.plot_kde(
             kde, edges=edges, quantiles=quantiles, limit=limit, color=color, cmap=cmap,
             dist1d=dist1d, dist2d=dist2d
@@ -369,6 +386,7 @@ class Corner:
         This function coordinates the drawing of a corner plot that ultimately uses the
         `kalepy.plot.dist1d` and `kalepy.plot.dist2d` methods to draw parameter distributions
         using an instance of `kalepy.kde.KDE`.
+
 
         Arguments
         ---------
@@ -423,6 +441,7 @@ class Corner:
                 err = "kde or data required either during initialization or here!"
                 raise ValueError(err)
 
+        # If data is given, construct KDE
         kde, data, weights = _parse_kde_data(kde, weights=weights)
 
         # ---- Sanitize
@@ -451,7 +470,7 @@ class Corner:
         # ----------------------------------
 
         # ---- Draw 1D
-        limits = [None] * size
+        limits = [None] * size    # variable to store the limits of the plotted data
         for jj, ax in enumerate(axes.diagonal()):
             rot = (rotate and (jj == last))
             self._kde1d(
@@ -469,10 +488,13 @@ class Corner:
                 color=color, cmap=cmap, **dist2d
             )
 
+        # If we are dynamically setting the axes limits
         if limit:
+            # Update stored limits
             for ii in range(self.size):
                 self._limits[ii] = utils.minmax(limits[ii], prev=self._limits[ii])
 
+            # Set axes to limits
             _set_corner_axes_extrema(self.axes, self._limits, self._rotate)
 
         return
@@ -540,6 +562,7 @@ class Corner:
                 err = "kde or data required either during initialization or here!"
                 raise ValueError(err)
 
+        # If a KDE is given, extract the dataset
         kde, data, weights = _parse_kde_data(data, weights=weights)
 
         # ---- Sanitize
@@ -572,7 +595,7 @@ class Corner:
         # ----------------------------------
 
         # ---- Draw 1D Histograms & Carpets
-        limits = [None] * size
+        limits = [None] * size      # variable to store the data extrema
         for jj, ax in enumerate(axes.diagonal()):
             rot = (rotate and (jj == last))
             self._data1d(
@@ -590,10 +613,13 @@ class Corner:
                 color=color, cmap=cmap, quantiles=quantiles, **dist2d
             )
 
+        # If we are setting the axes limits dynamically
         if limit:
+            # Update any stored values
             for ii in range(self.size):
                 self._limits[ii] = utils.minmax(limits[ii], prev=self._limits[ii])
 
+            # Set axes to limits
             _set_corner_axes_extrema(self.axes, self._limits, self._rotate)
 
         return
@@ -601,6 +627,7 @@ class Corner:
     def _data1d(self, ax, edge, data, color=None, **dist1d):
         """Wrapper for `kalepy.plot.dist1d` that sets default parameters appropriate for 1D data.
         """
+        # Set default parameters
         dist1d.setdefault('density', False)
         dist1d.setdefault('confidence', False)
         dist1d.setdefault('carpet', True)
@@ -612,6 +639,7 @@ class Corner:
     def _data2d(self, ax, edges, data, cmap=None, **dist2d):
         """Wrapper for `kalepy.plot.dist2d` that sets default parameters appropriate for 2D data.
         """
+        # Set default parameters
         dist2d.setdefault('hist', True)
         dist2d.setdefault('contour', False)
         dist2d.setdefault('scatter', True)
@@ -624,6 +652,7 @@ class Corner:
     def _kde1d(self, ax, edge, kde, param, color=None, **dist1d):
         """Wrapper for `kalepy.plot.dist1d` that sets parameters appropriate for KDE distributions.
         """
+        # Set default parameters
         dist1d.setdefault('density', True)
         dist1d.setdefault('confidence', True)
         dist1d.setdefault('carpet', False)
@@ -635,6 +664,7 @@ class Corner:
     def _kde2d(self, ax, edges, kde, params, cmap=None, **dist2d):
         """Wrapper for `kalepy.plot.dist2d` that sets parameters appropriate for KDE distributions.
         """
+        # Set default parameters
         dist2d.setdefault('hist', False)
         dist2d.setdefault('contour', True)
         dist2d.setdefault('scatter', False)
@@ -686,6 +716,25 @@ class Corner:
 
 
 def corner(kde_data, labels=None, kwcorner={}, **kwplot):
+    """Simple wrapper function to construct a `Corner` instance and plot the given data.
+
+    See `kalepy.plot.Corner` and `kalepy.plot.Corner.plot` for more information.
+
+    Arguments
+    ---------
+    kde_data : `kalepy.KDE` instance, or (D,N) array_like of scalars
+        * instance of `kalepy.kde.KDE`, providing the data and KDE to be plotted.
+            In this case the `param` argument selects which dimension/parameter is plotted if
+            numerous are included in the `KDE`.
+        * array_like scalar (D,N) of data with `D` parameters and `N` data points.
+
+    labels : `None` or (D,) array_like of string, names of each parameter being plotted.
+
+    kwcorner : dict, keyword-arguments passed to `Corner` constructor.
+
+    **kwplot : additional keyword-arguments passed to `Corner.plot` method.
+
+    """
     corner = Corner(kde_data, labels=labels, **kwcorner)
     corner.plot(**kwplot)
     return corner
@@ -764,7 +813,9 @@ def carpet(xx, weights=None, ax=None, ystd=None, yave=None, shift=0.0,
 
     kwargs : additional keyword-arguments passed to `matplotlib.axes.Axes.scatter()`
 
+
     """
+
     xx = np.asarray(xx)
     if ax is None:
         ax = plt.gca()
@@ -806,6 +857,7 @@ def carpet(xx, weights=None, ax=None, ystd=None, yave=None, shift=0.0,
     size = 300 * ww / np.sqrt(xx.size)
     size = np.clip(size, 5, 100)
 
+    # Try to make point sizes proportional to 'outlier'-ness... EXPERIMENTAL
     if fancy:
         # Estimate the deviation of each point from the median
         dev = np.fabs(xx - np.median(xx)) / np.std(xx)
@@ -818,7 +870,6 @@ def carpet(xx, weights=None, ax=None, ystd=None, yave=None, shift=0.0,
 
     # Set parameters
     color = kwargs.pop('color', _get_next_color(ax))
-
     kwargs.setdefault('facecolor', color)
     kwargs.setdefault('edgecolor', 'none')
     kwargs.setdefault('marker', '.')
@@ -826,17 +877,20 @@ def carpet(xx, weights=None, ax=None, ystd=None, yave=None, shift=0.0,
     kwargs.setdefault('s', kwargs.pop('size', size))
 
     extr = utils.minmax(yy)
-    trans = [ax.transData, ax.transAxes]
+    # trans = [ax.transData, ax.transAxes]
     if shift is not None:
         yy += shift
 
+    # Switch x and y
     if rotate:
         temp = xx
         xx = yy
         yy = temp
-        trans = trans[::-1]
+        # trans = trans[::-1]
 
-    return ax.scatter(xx, yy, **kwargs), extr
+    # plot
+    rv = ax.scatter(xx, yy, **kwargs), extr
+    return rv
 
 
 def confidence(data, ax=None, weights=None, quantiles=[0.5, 0.9],
@@ -885,17 +939,19 @@ def confidence(data, ax=None, weights=None, quantiles=[0.5, 0.9],
         weights = weights[idx]
         cdf = np.cumsum(weights) / np.sum(weights)
 
-    # Get both the lower (left) and upper (right) values
+    # Get both the lower (left) and upper (right) values of quantiles
     quantiles = np.asarray(quantiles) / 2
     qnts = np.append(0.5 - quantiles, 0.5 + quantiles)
-    # Reshape to (sigmas, 2)
+    # Reshape to (Q, 2)
     locs = np.interp(qnts, cdf, data).reshape(2, len(quantiles)).T
 
+    # Draw median line
     if median:
         mm = np.interp(0.5, cdf, data)
         line_func = ax.axhline if rotate else ax.axvline
         line_func(mm, ls='--', color=color, alpha=0.25)
 
+    # Draw confidence bands
     for lo, hi in locs:
         span_func = ax.axhspan if rotate else ax.axvspan
         handle = span_func(lo, hi, **kwargs)
@@ -966,10 +1022,13 @@ def contour(data, edges=None, ax=None, weights=None,
     if ax is None:
         ax = plt.gca()
 
+    # Set color and cmap as needed
     color, cmap = _parse_color_cmap(ax=ax, color=color, cmap=cmap)
 
+    # Calculate histogram
     edges = utils.parse_edges(data, edges=edges)
     hist, *_ = np.histogram2d(*data, bins=edges, weights=weights, density=True)
+    # Plot
     rv = draw_contour2d(
         ax, edges, hist,
         cmap=cmap, quantiles=quantiles, smooth=smooth, upsample=upsample, pad=pad, **kwargs
@@ -1034,6 +1093,7 @@ def dist1d(kde_data, ax=None, edges=None, weights=None, probability=True, param=
 
     """
 
+    # ---- Set parameters
     if isinstance(kde_data, kale.KDE):
         if weights is not None:
             raise ValueError("`weights` of given `KDE` instance cannot be overridden!")
@@ -1050,10 +1110,11 @@ def dist1d(kde_data, ax=None, edges=None, weights=None, probability=True, param=
     if ax is None:
         ax = plt.gca()
 
+    # set default color to next from axes' color-cycle
     if color is None:
         color = _get_next_color(ax)
 
-    # Default: plot KDE-density curve if KDE is given (data not given explicitly)
+    # set default: plot KDE-density curve if KDE is given (data not given explicitly)
     if density is None:
         density = (kde is not None)
 
@@ -1061,11 +1122,10 @@ def dist1d(kde_data, ax=None, edges=None, weights=None, probability=True, param=
     if hist is None:
         hist = (kde is None)
 
-    ls = '--' if hist and density else '-'
+    # ---- Draw Components
 
     # Draw PDF from KDE
-    # -----------------
-    handle = None
+    handle = None     # variable to store a plotting 'handle' from one of the plotted objects
     if density:
         if kde is None:
             try:
@@ -1074,14 +1134,18 @@ def dist1d(kde_data, ax=None, edges=None, weights=None, probability=True, param=
                 logging.error(f"Failed to construct KDE from given data!")
                 raise
 
+        # If histogram is also being plotted (as a solid line) use a dashed line
+        ls = '--' if hist else '-'
+
+        # Calculate KDE density distribution for the given parameter
         points, pdf = kde.density(probability=probability, params=param)
+        # Plot
         if rotate:
             handle, = ax.plot(pdf, points, color=color, ls=ls)
         else:
             handle, = ax.plot(points, pdf, color=color, ls=ls)
 
     # Draw Histogram
-    # --------------------------
     if hist:
         _, _, hh = hist1d(
             data, ax=ax, edges=edges, weights=weights, color=color,
@@ -1091,16 +1155,14 @@ def dist1d(kde_data, ax=None, edges=None, weights=None, probability=True, param=
             handle = hh
 
     # Draw Contours and Median Line
-    # ------------------------------------
     if confidence:
         hh = _confidence(data, ax=ax, color=color, quantiles=quantiles, rotate=rotate)
         if handle is None:
             handle = hh
 
     # Draw Carpet Plot
-    # ------------------------------------
     if carpet:
-        hh = _draw_carpet(data, weights=weights, ax=ax, color=color, rotate=rotate)
+        hh = _carpet(data, weights=weights, ax=ax, color=color, rotate=rotate)
         if handle is None:
             handle = hh
 
@@ -1202,6 +1264,8 @@ def dist2d(kde_data, ax=None, edges=None, weights=None, params=[0, 1],
 
     """
 
+    # ---- Process parameters
+
     if isinstance(kde_data, kale.KDE):
         if weights is not None:
             raise ValueError(f"`weights` of given `KDE` instance cannot be overridden!")
@@ -1227,42 +1291,48 @@ def dist2d(kde_data, ax=None, edges=None, weights=None, params=[0, 1],
     # Set default color or cmap as needed
     color, cmap = _parse_color_cmap(ax=ax, color=color, cmap=cmap)
 
+    # Default: if either hist or contour is being plotted, mask over high-density scatter points
     if mask_dense is None:
-        mask_dense = (hist or scatter)
+        mask_dense = scatter and (hist or contour)
 
+    # Calculate histogram (used for hist and contours)
     edges = utils.parse_edges(data, edges=edges)
     hh, *_ = np.histogram2d(*data, bins=edges, weights=weights, density=True)
 
     _, levels, quantiles = _dfm_levels(hh, quantiles=quantiles)
     if mask_below is True:
+        # no weights : Mask out empty bins
         if weights is None:
-            mask_below = 1.0 / len(data[0])
+            mask_below = 0.9 / len(data[0])
+        # weights : Mask out bins with less than average weight
         else:
             mask_below = len(data[0]) / np.sum(weights)
 
-    # Draw Scatter Points
-    # -------------------------------
+    # ---- Draw components
+    # ------------------------------------
+
+    # ---- Draw Scatter Points
     if scatter:
         draw_scatter(ax, *data, color=color, zorder=5)
 
-    # Draw Median Lines (Target Style)
-    # -----------------------------------------
+    # ---- Draw Median Lines (cross-hairs style)
     if median:
         for dd, func in zip(data, [ax.axvline, ax.axhline]):
+            # Calculate value
             if weights is None:
                 med = np.median(dd)
             else:
                 med = utils.quantiles(dd, percs=0.5, weights=weights)
 
+            # Load path_effects
             outline = _get_outline_effects()
+            # Draw
             func(med, color=color, ls='-', alpha=0.25, lw=1.0, zorder=40, path_effects=outline)
 
-    # Draw 2D Histogram
-    # -------------------------------
+    # ---- Draw 2D Histogram
     # We may need edges and histogram for `mask_dense` later; store them from hist2d or contour2d
     _ee = None
     _hh = None
-
     if hist:
         _ee, _hh, _ = draw_hist2d(
             ax, edges, hh, mask_below=mask_below, cmap=cmap, zorder=10
@@ -1272,18 +1342,18 @@ def dist2d(kde_data, ax=None, edges=None, weights=None, params=[0, 1],
             _ee = [utils.midpoints(ee, axis=-1) for ee in _ee]
             _ee = np.meshgrid(*_ee, indexing='ij')
 
-    # Draw Contours
-    # --------------------------------
+    # ---- Draw Contours
     if contour:
         contour_cmap = cmap.reversed()
-        # Narrow the range of contour colors
+        # Narrow the range of contour colors relative to full `cmap`
         dd = 0.7 / 2
         nq = len(quantiles)
         if nq < 4:
             dd = nq*0.08
         contour_cmap = _cut_colormap(contour_cmap, 0.5 - dd, 0.5 + dd)
-
+        # Calculate PDF
         points, pdf = kde.density(params=params)
+        # Plot
         _ee, _hh, _ = draw_contour2d(
             ax, points, pdf, quantiles=quantiles, smooth=smooth, upsample=upsample, pad=pad,
             cmap=contour_cmap, zorder=20,
@@ -1291,18 +1361,23 @@ def dist2d(kde_data, ax=None, edges=None, weights=None, params=[0, 1],
 
     # Mask dense scatter-points
     if mask_dense:
+        # Load the histogram or PDF
         hh = _hh if (_hh is not None) else hh
+        # Load the bin edges
         if _ee is not None:
             ee = _ee
+        # Convert to mesh-grid of centerpoints if needed
         else:
             ee = [utils.midpoints(ee, axis=-1) for ee in edges]
             ee = np.meshgrid(*ee, indexing='ij')
 
+        # NOTE: levels need to be recalculated here!
         _, levels, quantiles = _dfm_levels(hh, quantiles=quantiles)
         span = [levels.min(), hh.max()]
         # Set mask as white-to-white
         mask_cmap = [(1, 1, 1), (1, 1, 1)]
         mask_cmap = mpl.colors.LinearSegmentedColormap.from_list("mask", mask_cmap, N=2)
+        # Draw
         ax.contourf(*ee, hh, span, cmap=mask_cmap, antialiased=True, zorder=9)
 
     return
@@ -1361,10 +1436,12 @@ def hist1d(data, edges=None, ax=None, weights=None, density=False, probability=F
     if ax is None:
         ax = plt.gca()
 
+    # Calculate histogram
     hist, edges = utils.histogram(
         data, bins=edges, weights=weights, density=density, probability=probability
     )
 
+    # Draw
     rv = draw_hist1d(
         ax, edges, hist,
         renormalize=renormalize, joints=joints, positive=positive, rotate=rotate,
@@ -1416,12 +1493,15 @@ def hist2d(data, edges=None, ax=None, weights=None, mask_below=False, **kwargs):
     if ax is None:
         ax = plt.gca()
 
-    edges = utils.parse_edges(data, edges=edges)
-    hist, *_ = np.histogram2d(*data, bins=edges, weights=weights, density=True)
     if mask_below is True:
         mask_below = 0.9 / len(data[0])
 
-    return draw_hist2d(ax, edges, hist, mask_below=mask_below, **kwargs)
+    # Calculate histogram
+    edges = utils.parse_edges(data, edges=edges)
+    hist, *_ = np.histogram2d(*data, bins=edges, weights=weights, density=True)
+    # Draw
+    rv = draw_hist2d(ax, edges, hist, mask_below=mask_below, **kwargs)
+    return rv
 
 
 # ======  Drawing Methods  =====
@@ -1477,13 +1557,16 @@ def draw_hist1d(ax, edges, hist, renormalize=False, nonzero=False, positive=Fals
 
 
 def draw_hist2d(ax, edges, hist, mask_below=None, **kwargs):
-    kwargs.setdefault('shading', 'auto')
-    # kwargs.setdefault('edgecolors', 'face')
-    kwargs.setdefault('edgecolors', [1.0, 1.0, 1.0, 0.0])
-    kwargs.setdefault('linewidth', 0.01)
     if mask_below not in [False, None]:
         hist = np.ma.masked_less_equal(hist, mask_below)
-    return edges, hist, ax.pcolormesh(*edges, hist.T, **kwargs)
+    kwargs.setdefault('shading', 'auto')
+    # kwargs.setdefault('edgecolors', 'face')
+    # NOTE: this avoids edge artifacts when alpha is not unity!
+    kwargs.setdefault('edgecolors', [1.0, 1.0, 1.0, 0.0])
+    kwargs.setdefault('linewidth', 0.01)
+    # Plot
+    rv = ax.pcolormesh(*edges, hist.T, **kwargs)
+    return edges, hist, rv
 
 
 def draw_contour2d(ax, edges, hist, quantiles=None, smooth=None, upsample=None, pad=True,
@@ -1505,6 +1588,7 @@ def draw_contour2d(ax, edges, hist, quantiles=None, smooth=None, upsample=None, 
     # Construct grid from center values
     xx, yy = np.meshgrid(xx, yy, indexing='ij')
 
+    # Perform upsampling
     if (upsample not in [None, False]):
         import scipy as sp
         if upsample is True:
@@ -1512,12 +1596,14 @@ def draw_contour2d(ax, edges, hist, quantiles=None, smooth=None, upsample=None, 
         xx = sp.ndimage.zoom(xx, upsample)
         yy = sp.ndimage.zoom(yy, upsample)
         hist = sp.ndimage.zoom(hist, upsample)
+    # perform smoothing
     if (smooth not in [None, False]):
         import scipy as sp
         if upsample is not None:
             smooth *= upsample
         hist = sp.ndimage.filters.gaussian_filter(hist, smooth)
 
+    # Update edges based on pre-processing
     edges = [xx, yy]
 
     # ---- Setup parameters
@@ -1532,13 +1618,16 @@ def draw_contour2d(ax, edges, hist, quantiles=None, smooth=None, upsample=None, 
 
     # ---- Add Outline path effect to contours
     if (outline is True):
+        # If multiple linewidths were specified, add outlines individually
         if (not np.isscalar(lw)) and (len(cont.collections) == len(lw)):
             for line, _lw in zip(cont.collections, lw):
                 outline = _get_outline_effects(2*_lw, alpha=1 - np.sqrt(1 - alpha))
                 plt.setp(line, path_effects=outline)
+        # Add uniform outlines to all contour lines
         elif np.isscalar(lw):
             outline = _get_outline_effects(2*lw, alpha=1 - np.sqrt(1 - alpha))
             plt.setp(cont.collections, path_effects=outline)
+        # Otherwise error
         else:
             err = (
                 f"kalepy.plot.draw_contour2d() :: ",
@@ -1573,22 +1662,28 @@ def draw_scatter(ax, xx, yy, alpha=None, s=4, **kwargs):
 
 
 def _confidence(*args, **kwargs):
+    """Wrapper for `confidence`, allows for reusing the variable name in function calls."""
     return confidence(*args, **kwargs)
 
 
 def _dist1d(*args, **kwargs):
+    """Wrapper for `dist1d`, allows for reusing the variable name in function calls."""
     return dist1d(*args, **kwargs)
 
 
 def _dist2d(*args, **kwargs):
+    """Wrapper for `dist2d`, allows for reusing the variable name in function calls."""
     return dist2d(*args, **kwargs)
 
 
-def _draw_carpet(*args, **kwargs):
+def _carpet(*args, **kwargs):
+    """Wrapper for `carpet`, allows for reusing the variable name in function calls."""
     return carpet(*args, **kwargs)
 
 
 def _set_corner_axes_extrema(axes, extrema, rotate, pdf=None):
+    """Set all of the axes in a corner plot to the given extrema (limits).
+    """
     npar = len(axes)
     last = npar - 1
     if not np.all([sh == npar for sh in np.shape(axes)]):
@@ -1628,7 +1723,8 @@ def _set_corner_axes_extrema(axes, extrema, rotate, pdf=None):
 
 def _figax(size, grid=True, left=None, bottom=None, right=None, top=None, hspace=None, wspace=None,
            **kwfig):
-
+    """Construct a matplotlib figure and axes with the given parameters.
+    """
     _def_figsize = np.clip(4 * size, 6, 20)
     _def_figsize = [_def_figsize for ii in range(2)]
 
@@ -1658,6 +1754,8 @@ def _figax(size, grid=True, left=None, bottom=None, right=None, top=None, hspace
 
 
 def _match_edges_to_hist(edges, hist):
+    """Convert from bin-edges to bin-centers as needed for 2D histograms.
+    """
     esh = tuple([len(ee) for ee in edges])
     esh_p1 = tuple([len(ee) - 1 for ee in edges])
     # If the shape of edges matches the hist, then we're good
@@ -1677,6 +1775,8 @@ def _match_edges_to_hist(edges, hist):
 
 
 def _parse_kde_data(kde_data, weights=None):
+    """Convert from either a KDE or data (array) to both.
+    """
     if isinstance(kde_data, kale.KDE):
         if weights is not None:
             raise ValueError("`weights` must be used from given `KDE` instance!")
@@ -1697,6 +1797,8 @@ def _parse_kde_data(kde_data, weights=None):
 
 
 def _parse_color_cmap(ax=None, color=None, cmap=None):
+    """Set `color` and `cmap` values appropriately.
+    """
     if (color is None) and (cmap is None):
         if ax is None:
             ax = plt.gca()
@@ -1709,29 +1811,6 @@ def _parse_color_cmap(ax=None, color=None, cmap=None):
         cmap = _color_to_cmap(color)
 
     return color, cmap
-
-
-def _none_dict(val, name, defaults={}):
-    """
-
-    False/None  ===>  None
-    True/dict   ===>  dict
-    otherwise   ===>  error
-
-    """
-    if (val is False) or (val is None):
-        return None
-
-    if val is True:
-        val = dict()
-
-    if not isinstance(val, dict):
-        raise ValueError("Unrecognized type '{}' for `{}`!".format(type(val), name))
-
-    for kk, vv in defaults.items():
-        val.setdefault(kk, vv)
-
-    return val
 
 
 def _dfm_levels(data, quantiles=None, sigmas=None):
@@ -1765,6 +1844,8 @@ def _dfm_levels(data, quantiles=None, sigmas=None):
 
 
 def _default_quantiles(quantiles=None, sigmas=None):
+    """Set default quantile values.
+    """
     if quantiles is None:
         if sigmas is None:
             sigmas = _DEF_SIGMAS
@@ -1778,6 +1859,8 @@ def _default_quantiles(quantiles=None, sigmas=None):
 
 
 def _pad_hist(edges, hist, pad):
+    """Pad the given histogram to allow contours near/at the edges to close.
+    """
     hh = np.pad(hist, pad, mode='constant', constant_values=hist.min())
     tf = np.arange(1, pad+1)  # [+1, +2]
     tr = - tf[::-1]    # [-2, -1]
@@ -1790,6 +1873,8 @@ def _pad_hist(edges, hist, pad):
 
 
 def _scatter_alpha(xx, norm=10.0):
+    """Choose a transparency for the given number of scatter points.
+    """
     alpha = norm / np.sqrt(len(xx))
     # NOTE: array values dont work for alpha parameters (added to `colors`)
     # if alpha is None:
@@ -1815,6 +1900,8 @@ def _get_next_color(ax):
 
 
 def _color_to_cmap(col, pow=0.333, sat=0.25, val=0.25, white=1.0, black=0.0):
+    """Construct a matplotlib colormap based on the given color.
+    """
     rgb = mpl.colors.to_rgb(col)
 
     # ---- Increase 'value' and 'saturation' of color
@@ -1844,6 +1931,8 @@ def _color_to_cmap(col, pow=0.333, sat=0.25, val=0.25, white=1.0, black=0.0):
 
 
 def _cut_colormap(cmap, min=0.0, max=1.0, n=10):
+    """Truncate the given colormap with the given minimum and maximum values.
+    """
     name = 'trunc({n},{a:.2f},{b:.2f})'.format(n=cmap.name, a=min, b=max)
     new_cmap = mpl.colors.LinearSegmentedColormap.from_list(
         name, cmap(np.linspace(min, max, n)))
