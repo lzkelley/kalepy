@@ -5,6 +5,7 @@ Copyright (C) 2020 Luke Zoltan Kelley and Contributors.
 
 import os
 
+# Load the version information stored within the package contents
 _path = os.path.dirname(os.path.abspath(__file__))
 _vers_path = os.path.join(_path, "VERSION.txt")
 with open(_vers_path) as inn:
@@ -32,6 +33,7 @@ from kalepy.kde import KDE  # noqa
 import kalepy.plot          # noqa
 from kalepy.plot import *   # noqa
 
+# cleanup imports and objects so they're not visible in the imported package
 del os
 del inn
 del _version
