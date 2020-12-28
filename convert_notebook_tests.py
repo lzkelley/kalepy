@@ -10,7 +10,7 @@ import logging
 if '-v' in sys.argv:
     logging.getLogger().setLevel(0)
 
-TEST_NOTEBOOK_NAMES = ["demo", "kde", "kernels", "plotting", "theory", "utils"]
+TEST_NOTEBOOK_NAMES = ["demo", "kde", "kernels", "plotting", "utils"]
 # "performance", "logo"
 
 args = sys.argv[1:]
