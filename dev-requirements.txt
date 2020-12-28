@@ -10,3 +10,5 @@ coverage
 nose-timer
 jupyter
 nbconvert
+sphinx
+memory_profiler
