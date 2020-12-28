@@ -12,8 +12,6 @@ import matplotlib as mpl
 import matplotlib.pyplot as plt
 from nose import tools
 
-import tqdm
-
 import kalepy as kale
 import kalepy.utils
 import kalepy.plot
