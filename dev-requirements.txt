@@ -9,3 +9,4 @@ coverage
 nose-timer
 jupyter
 nbconvert
+gitpython
