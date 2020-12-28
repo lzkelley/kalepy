@@ -2,6 +2,7 @@ numpy
 scipy
 matplotlib>=3
 
+tqdm
 codecov
 six
 nose
