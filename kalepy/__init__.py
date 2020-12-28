@@ -5,9 +5,13 @@ Copyright (C) 2020 Luke Zoltan Kelley and Contributors.
 
 import os
 
-# For Testing: uncomment to raise errors on all warnings
+# ---- For Testing: uncomment to raise errors on all warnings
 # import warnings
-# warnings.simplefilter("error")
+# import numpy as np
+# cat = Warning
+# cat = np.VisibleDeprecationWarning
+# warnings.simplefilter("error", category=cat)
+# -----------------------------------------------------------
 
 # Load the version information stored within the package contents
 _path = os.path.dirname(os.path.abspath(__file__))

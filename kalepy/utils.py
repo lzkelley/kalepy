@@ -240,11 +240,11 @@ def cumtrapz(pdf, edges, prepend=True, axis=None):
 def histogram(data, bins=None, weights=None, density=False, probability=False):
     if bins is None:
         bins = 'auto'
-    hist, edges = np.histogram(data, bins=bins, weights=weights)
+    hist, edges = np.histogram(data, bins=bins, weights=weights, density=False)
     if density:
         hist = hist.astype(float) / np.diff(edges)
     if probability:
-        tot = data.size if weights is None else np.sum(weights)
+        tot = data.size if (weights is None) else np.sum(weights)
         hist = hist.astype(float) / tot
     return hist, edges
 
@@ -586,10 +586,7 @@ def really1d(arr):
     # Empty list or array
     if len(arr) == 0:
         return True
-    # if np.any(np.vectorize(_ndim)(arr)):
-    #     return False
-    # if len(arr) != flatlen(arr):
-    #     return False
+    # Each element must be a scalar
     if np.any([np.shape(tt) != () for tt in arr]):
         return False
 

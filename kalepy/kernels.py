@@ -858,19 +858,23 @@ def _check_points(points, data, params=None):
     """
     data = np.atleast_2d(data)
     ndim, nval = np.shape(data)
-    # points = np.asarray(points)
-    params = params if params is None else np.atleast_1d(params)
+    params = params if (params is None) else np.atleast_1d(params)
 
     # (N,) ==> (1, N)
-    if (np.ndim(points) == 1) and ((ndim == 1) or (params is not None and len(params) == 1)):
+    data_is_1d = (ndim == 1)
+    data_will_be_1d = ((params is not None) and (len(params) == 1))
+    # If both `points` and `data` are (or will be) 1D
+    # if (np.ndim(points) == 1) and (data_is_1d or data_will_be_1d):
+    if utils.really1d(points) and (data_is_1d or data_will_be_1d):
         if len(points) == 0:
             raise ValueError("Empty `points` given.")
         points = np.atleast_2d(points)
         return points
 
-    if np.ndim(points) != 2:
+    # if np.ndim(points) != 2:
+    if np.ndim(np.array(points, dtype=object)) != 2:
         err = "`points` ({}) must be shaped (D,N) for D parameters/dimensions!".format(
-            np.shape(points))
+            utils.jshape(points))
         raise ValueError(err)
 
     if params is None:

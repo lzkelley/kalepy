@@ -1534,6 +1534,12 @@ def draw_hist1d(ax, edges, hist, renormalize=False, nonzero=False, positive=Fals
         xval = np.ma.masked_where(yval == 0.0, xval)
         yval = np.ma.masked_where(yval == 0.0, yval)
 
+    if renormalize not in [False, None]:
+        if renormalize is True:
+            renormalize = 1.0
+        yval = yval / yval[np.isfinite(yval)].max()
+        yval *= renormalize
+
     # Select positive values
     if positive:
         xval = np.ma.masked_where(yval < 0.0, xval)
@@ -1545,12 +1551,6 @@ def draw_hist1d(ax, edges, hist, renormalize=False, nonzero=False, positive=Fals
         yval = temp
 
     # Plot Histogram
-    if renormalize not in [False, None]:
-        if renormalize is True:
-            renormalize = 1.0
-        yval = yval / yval[np.isfinite(yval)].max()
-        yval *= renormalize
-
     line, = ax.plot(xval, yval, **kwargs)
 
     return line
