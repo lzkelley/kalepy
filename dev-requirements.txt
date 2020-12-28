@@ -2,7 +2,6 @@ numpy
 scipy
 matplotlib>=3
 
-tqdm
 codecov
 six
 nose
@@ -10,5 +9,3 @@ coverage
 nose-timer
 jupyter
 nbconvert
-sphinx
-memory_profiler

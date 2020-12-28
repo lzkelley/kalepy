@@ -13,7 +13,6 @@ import matplotlib.pyplot as plt
 from nose import tools
 
 import tqdm
-import memory_profiler as mpro
 
 import kalepy as kale
 import kalepy.utils
