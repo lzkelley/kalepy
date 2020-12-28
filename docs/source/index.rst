@@ -1,7 +1,10 @@
 Introduction
 ============
 
-*Multidimensional kernel density estimation for calculating distribution functions and resampling.*
+*Multidimensional kernel density estimation for distribution functions, resampling, and plotting.*
+
+
+.. contents:: :local:
 
 Installation
 ------------
@@ -23,7 +26,9 @@ or from source, for development:
 Quickstart
 ----------
 
-`Top-level API functions are documented here <api.html>`_.
+| Basic examples are shown below.
+| `The top-level API is documented on the page linked here <api.html>`_.
+| `Examples of typical usage are linked here <demo.html>`_, or `in the README file here <https://github.com/lzkelley/kalepy/blob/master/README.md>`_.
 
 One dimensional kernel density estimation:
 ******************************************
@@ -59,7 +64,7 @@ Multi-dimensional kernel density estimation:
     # Construct a KDE instance from data, shaped (N, 3) for `N` data points, and 3 dimensions
     kde = kale.KDE(data)
     # Build a corner plot using the `kalepy` plotting submodule
-    corner = kale.plot.Corner(kde, figsize=[10, 10])
+    corner = kale.corner(kde)
 
 .. image:: https://raw.githubusercontent.com/lzkelley/kalepy/dev/docs/media/demo_files/demo_13_1.png
 
@@ -71,13 +76,13 @@ Documentation
 A number of examples are included in `the package notebooks <https://github.com/lzkelley/kalepy/tree/master/notebooks>`_, and the `readme file <https://github.com/lzkelley/kalepy/blob/master/README.md>`_.  Some background information and references are included in `the JOSS paper <>`_.
 
 .. toctree::
-   :maxdepth: 1
+   :maxdepth: 2
    :caption: Contents:
    
-   index
-   api
-   kalepy
-   modules
+   introduction <index>
+   demo
+   kalepy API <api>
+   Full Package Documentation <kalepy>
 
 
 Development & Contributions

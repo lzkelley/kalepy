@@ -1,45 +1,40 @@
-package
-=======
+=========================
+full package documenation
+=========================
 
-Submodules
-----------
 
-kalepy.kde module
------------------
+Primary API
+-----------
 
-.. automodule:: kalepy.kde
-   :members:
-   :undoc-members:
-   :show-inheritance:
+`See the API documentation here. <api>`_
 
-kalepy.kernels module
----------------------
+.. .. automodule:: kalepy
+..    :members:
+..    :imported-members:
 
-.. automodule:: kalepy.kernels
-   :members:
-   :undoc-members:
-   :show-inheritance:
 
-kalepy.plot module
-------------------
+.. toctree::
+   :maxdepth: 2
+   :caption: Submodules:
 
-.. automodule:: kalepy.plot
-   :members:
-   :undoc-members:
-   :show-inheritance:
+   kalepy_kde
+   kalepy_kernels
+   kalepy_plot
+   kalepy_utils
 
-kalepy.utils module
--------------------
+   
 
-.. automodule:: kalepy.utils
-   :members:
-   :undoc-members:
-   :show-inheritance:
-
-Module contents
----------------
-
-.. automodule:: kalepy
-   :members:
-   :undoc-members:
-   :show-inheritance:
+.. Submodules
+.. ==========
+.. 
+.. `kalepy.kde <kalepy_kde.html>`_
+.. -------------------------------
+.. 
+.. `kalepy.kernels <kalepy_kernels.html>`_
+.. ---------------------------------------
+.. 
+.. `kalepy.plot <kalepy_plot.html>`_
+.. ---------------------------------
+.. 
+.. `kalepy.utils <kalepy_utils.html>`_
+.. -----------------------------------

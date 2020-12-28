@@ -214,9 +214,9 @@ def cumtrapz(pdf, edges, prepend=True, axis=None):
     cdf : ndarray of scalar
         Values integrated over the desired axes.
         Shape:
-            If `prepend` is False, the shape of `cdf` will be one smaller than the input `pdf`
-            in all dimensions integrated over.
-            If `prepend` is True, the shape of `cdf` will match that of the input `pdf`.
+        * If `prepend` is False, the shape of `cdf` will be one smaller than the input `pdf`
+        * in all dimensions integrated over.
+        * If `prepend` is True, the shape of `cdf` will match that of the input `pdf`.
 
     """
     # Convert from density to mass using trapezoid rule in each bin
@@ -809,7 +809,7 @@ def trapz_dens_to_mass(pdf, edges, axis=None):
         e.g. `[[x0, x1, ... xn], [y0, y1, ... ym], ...]`
         The length of each sub-list in `edges`, must match the shape of `pdf`.
         e.g. if `edges` is a (3,) list, composed of sub-lists with lengths: `[N, M, L,]` then
-             the shape of `pdf` must be `(N, M, L,)`.
+        the shape of `pdf` must be `(N, M, L,)`.
     axis : int, array_like int, or None
         Along which axes to convert from density to mass.
 
@@ -1037,6 +1037,7 @@ def _parse_extrema(data, extrema=None, warn=True):
     """Get extrema (min and max) consistent with the given `data`.
 
     `data` must have shape (D, N) for `D` parameters/dimensions, and `N` data points.
+
     `extrema` can be:
         None: extrema are calculated
         (2,): extrema taken as the same for each dimension

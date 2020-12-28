@@ -51,8 +51,8 @@ class Kernel(object):
         ---------
         points : (D, N), 2darray of float,
             `N` points at which to evaluate the density function over `D` parameters (dimensions).
-            Locations must be specified for each dimension of the data,
-                or for each of target `params` dimensions of the data.
+            Locations must be specified for each dimension of the data, or for each of target
+            `params` dimensions of the data.
 
         """
         matrix_inv = self.matrix_inv
@@ -850,10 +850,9 @@ def _check_points(points, data, params=None):
     """
 
     Need to end up with (D, N) array of `N` points specified at for each of `D` parameters.
-    (N,) ==> (1, N)
-    (D,N)
-         ==> (D,N) : if `params` is None
-         ==> (P,N) : if `params` is not None, and has length 'P'
+    (N,)  ==> (1, N)
+    if `params` is None :: (D,N) ==> (D,N)
+    if `params` is not None, and has length 'P' :: (D,N) ==> (P,N)
 
     """
     data = np.atleast_2d(data)

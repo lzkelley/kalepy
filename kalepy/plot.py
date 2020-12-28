@@ -207,7 +207,7 @@ class Corner:
             * instance of `kalepy.kde.KDE`, providing the data and KDE to be plotted.
             * array_like scalar (D,N) of data with `D` parameters and `N` data points.
             * `None` : use the KDE/data stored during class initialization.
-                       raises `ValueError` if no KDE/data was provided
+              raises `ValueError` if no KDE/data was provided
 
         weights : `None` or (N,) array_like of scalar, the weighting of each data-point if and
             only-if the given `kde_data` argument is a (D,N) array_like of scalar data.
@@ -255,7 +255,7 @@ class Corner:
             * instance of `kalepy.kde.KDE`, providing the data and KDE to be plotted.
             * array_like scalar (D,N) of data with `D` parameters and `N` data points.
             * `None` : use the KDE/data stored during class initialization.
-                       raises `ValueError` if no KDE/data was provided
+              raises `ValueError` if no KDE/data was provided
 
         weights : `None` or (N,) array_like of scalar, the weighting of each data-point if and
             only-if the given `kde_data` argument is a (D,N) array_like of scalar data.
@@ -309,14 +309,14 @@ class Corner:
             * instance of `kalepy.kde.KDE`, providing the data and KDE to be plotted.
             * array_like scalar (D,N) of data with `D` parameters and `N` data points.
             * `None` : use the KDE/data stored during class initialization.
-                       raises `ValueError` if no KDE/data was provided
+              raises `ValueError` if no KDE/data was provided
 
         edges : object specifying historgam edge locations; or `None`
             * int : the number of bins for all dimensions, locations calculated automatically
             * (D,) array_like of int : the number of bins for each of `D` dimensions
             * (D,) of array_like : the bin-edge locations for each of `D` dimensions, e.g.
-                                   ([0, 1, 2], [0.0, 0.1, 0.2, 0.3],) would describe two bins for
-                                   the 0th dimension, and 3 bins for the 1st dimension.
+              ([0, 1, 2], [0.0, 0.1, 0.2, 0.3],) would describe two bins for
+              the 0th dimension, and 3 bins for the 1st dimension.
             * (X,) array_like of scalar : the bin-edge locations to be used for all dimensions
             * `None` : the number and locations of bins are calculated automatically for each dim
 
@@ -334,13 +334,14 @@ class Corner:
             If `None`:
                 * `cmap` is given, then the color will be set to the `cmap` midpoint.
                 * `cmap` is not given, then the color will be determined by the next value of the
-                    default matplotlib color-cycle, and `cmap` will be set to a matching colormap.
+                  default matplotlib color-cycle, and `cmap` will be set to a matching colormap.
+
             This parameter effects the color of 1D: histograms, confidence intervals, and carpet;
             2D: scatter points.
 
         cmap : matplotlib colormap specification, or `None`
             * All valid matplotlib specifications can be used, e.g. named value (like 'Reds' or
-            'viridis') or a `matplotlib.colors.Colormap` instance.
+              'viridis') or a `matplotlib.colors.Colormap` instance.
             * If `None` then a colormap is constructed based on the value of `color` (see above).
 
         dist1d : dict of keyword-arguments passed to the `kale.plot.dist1d` method.
@@ -394,14 +395,14 @@ class Corner:
             * instance of `kalepy.kde.KDE`, providing the data and KDE to be plotted.
             * array_like scalar (D,N) of data with `D` parameters and `N` data points.
             * `None` : use the KDE/data stored during class initialization.
-                       raises `ValueError` if no KDE/data was provided
+              raises `ValueError` if no KDE/data was provided
 
         edges : object specifying historgam edge locations; or None
             * int : the number of bins for all dimensions, locations calculated automatically
             * (D,) array_like of int : the number of bins for each of `D` dimensions
             * (D,) of array_like : the bin-edge locations for each of `D` dimensions, e.g.
-                                   ([0, 1, 2], [0.0, 0.1, 0.2, 0.3],) would describe two bins for
-                                   the 0th dimension, and 3 bins for the 1st dimension.
+              ([0, 1, 2], [0.0, 0.1, 0.2, 0.3],) would describe two bins for
+              the 0th dimension, and 3 bins for the 1st dimension.
             * (X,) array_like of scalar : the bin-edge locations to be used for all dimensions
             * `None` : the number and locations of bins are calculated automatically for each dim
 
@@ -420,13 +421,14 @@ class Corner:
             If `None`:
                 * `cmap` is given, then the color will be set to the `cmap` midpoint.
                 * `cmap` is not given, then the color will be determined by the next value of the
-                    default matplotlib color-cycle, and `cmap` will be set to a matching colormap.
+                  default matplotlib color-cycle, and `cmap` will be set to a matching colormap.
+
             This parameter effects the color of 1D: histograms, confidence intervals, and carpet;
             2D: scatter points.
 
         cmap : matplotlib colormap specification, or `None`
             * All valid matplotlib specifications can be used, e.g. named value (like 'Reds' or
-            'viridis') or a `matplotlib.colors.Colormap` instance.
+              'viridis') or a `matplotlib.colors.Colormap` instance.
             * If `None` then a colormap is constructed based on the value of `color` (see above).
 
         dist1d : dict of keyword-arguments passed to the `kale.plot.dist1d` method.
@@ -460,7 +462,9 @@ class Corner:
             limit = self._limit_flag
 
         edges = utils.parse_edges(kde.dataset, edges=edges)
-        quantiles, _ = _default_quantiles(quantiles=quantiles)
+        # quantiles, _ = _default_quantiles(quantiles=quantiles)
+        dist1d.setdefault('quantiles', quantiles)
+        dist2d.setdefault('quantiles', quantiles)
 
         # Set default color or cmap as needed
         color, cmap = _parse_color_cmap(ax=axes[0][0], color=color, cmap=cmap)
@@ -474,7 +478,7 @@ class Corner:
         for jj, ax in enumerate(axes.diagonal()):
             rot = (rotate and (jj == last))
             self._kde1d(
-                ax, edges[jj], kde, param=jj, quantiles=quantiles, rotate=rot,
+                ax, edges[jj], kde, param=jj, rotate=rot,
                 color=color, **dist1d
             )
             limits[jj] = utils.minmax(edges[jj], stretch=self._LIMITS_STRETCH)
@@ -484,7 +488,7 @@ class Corner:
             if jj >= ii:
                 continue
             self._kde2d(
-                ax, [edges[jj], edges[ii]], kde, params=[jj, ii], quantiles=quantiles,
+                ax, [edges[jj], edges[ii]], kde, params=[jj, ii],
                 color=color, cmap=cmap, **dist2d
             )
 
@@ -512,17 +516,18 @@ class Corner:
         data : (D,N) array_like of scalars, `kalepy.KDE` instance, or None
             * array_like scalar (D,N) of data with `D` parameters and `N` data points.
             * `None` : use the KDE/data stored during class initialization.
-                       raises `ValueError` if no KDE/data was provided
+              raises `ValueError` if no KDE/data was provided
             * instance of `kalepy.kde.KDE`, providing the data and KDE to be plotted.
+
             NOTE: if a `KDE` instance is given, or one was stored during initilization, then the
-                  dataset is extracted from the instance.
+              dataset is extracted from the instance.
 
         edges : object specifying historgam edge locations; or None
             * int : the number of bins for all dimensions, locations calculated automatically
             * (D,) array_like of int : the number of bins for each of `D` dimensions
             * (D,) of array_like : the bin-edge locations for each of `D` dimensions, e.g.
-                                   ([0, 1, 2], [0.0, 0.1, 0.2, 0.3],) would describe two bins for
-                                   the 0th dimension, and 3 bins for the 1st dimension.
+              ([0, 1, 2], [0.0, 0.1, 0.2, 0.3],) would describe two bins for
+              the 0th dimension, and 3 bins for the 1st dimension.
             * (X,) array_like of scalar : the bin-edge locations to be used for all dimensions
             * `None` : the number and locations of bins are calculated automatically for each dim
 
@@ -540,13 +545,14 @@ class Corner:
             If `None`:
                 * `cmap` is given, then the color will be set to the `cmap` midpoint.
                 * `cmap` is not given, then the color will be determined by the next value of the
-                    default matplotlib color-cycle, and `cmap` will be set to a matching colormap.
+                  default matplotlib color-cycle, and `cmap` will be set to a matching colormap.
+
             This parameter effects the color of 1D: histograms, confidence intervals, and carpet;
             2D: scatter points.
 
         cmap : matplotlib colormap specification, or `None`
             * All valid matplotlib specifications can be used, e.g. named value (like 'Reds' or
-            'viridis') or a `matplotlib.colors.Colormap` instance.
+              'viridis') or a `matplotlib.colors.Colormap` instance.
             * If `None` then a colormap is constructed based on the value of `color` (see above).
 
         dist1d : dict of keyword-arguments passed to the `kale.plot.dist1d` method.
@@ -940,7 +946,8 @@ def confidence(data, ax=None, weights=None, quantiles=[0.5, 0.9],
         cdf = np.cumsum(weights) / np.sum(weights)
 
     # Get both the lower (left) and upper (right) values of quantiles
-    quantiles = np.asarray(quantiles) / 2
+    quantiles, _ = _default_quantiles(quantiles=quantiles)
+    quantiles = quantiles / 2
     qnts = np.append(0.5 - quantiles, 0.5 + quantiles)
     # Reshape to (Q, 2)
     locs = np.interp(qnts, cdf, data).reshape(2, len(quantiles)).T
@@ -976,8 +983,8 @@ def contour(data, edges=None, ax=None, weights=None,
         * int : the number of bins for both dimensions, locations calculated automatically
         * (2,) array_like of int : the number of bins for each dimension.
         * (2,) of array_like : the bin-edge locations for each dimension, e.g.
-                               ([0, 1, 2], [0.0, 0.1, 0.2, 0.3],) would describe two bins for
-                               the 0th dimension, and 3 bins for the 1st dimension: i.e. 6 total.
+          ([0, 1, 2], [0.0, 0.1, 0.2, 0.3],) would describe two bins for
+          the 0th dimension, and 3 bins for the 1st dimension: i.e. 6 total.
         * (X,) array_like of scalar : the bin-edge locations to be used for both dimensions.
         * `None` : the number and locations of bins are calculated automatically.
 
@@ -990,13 +997,14 @@ def contour(data, edges=None, ax=None, weights=None,
         If `None`:
             * `cmap` is given, then the color will be set to the `cmap` midpoint.
             * `cmap` is not given, then the color will be determined by the next value of the
-                default matplotlib color-cycle, and `cmap` will be set to a matching colormap.
+              default matplotlib color-cycle, and `cmap` will be set to a matching colormap.
+
         This parameter effects the color of 1D: histograms, confidence intervals, and carpet;
         2D: scatter points.
 
     cmap : matplotlib colormap specification, or `None`
         * All valid matplotlib specifications can be used, e.g. named value (like 'Reds' or
-        'viridis') or a `matplotlib.colors.Colormap` instance.
+          'viridis') or a `matplotlib.colors.Colormap` instance.
         * If `None` then a colormap is constructed based on the value of `color` (see above).
 
     quantiles : `None` or array_like of scalar values in [0.0, 1.0] denoting the fractions of
@@ -1051,8 +1059,8 @@ def dist1d(kde_data, ax=None, edges=None, weights=None, probability=True, param=
     ---------
     kde_data : `kalepy.KDE` instance, (D,N) array_like of scalars, or `None`
         * instance of `kalepy.kde.KDE`, providing the data and KDE to be plotted.
-            In this case the `param` argument selects which dimension/parameter is plotted if
-            numerous are included in the `KDE`.
+          In this case the `param` argument selects which dimension/parameter is plotted if
+          numerous are included in the `KDE`.
         * array_like scalar (D,N) of data with `D` parameters and `N` data points.
 
     ax : `matplotlib.axes.Axes` instance, or `None`; if `None` then `plt.gca()` is used.
@@ -1189,8 +1197,8 @@ def dist2d(kde_data, ax=None, edges=None, weights=None, params=[0, 1],
     ---------
     kde_data : `kalepy.KDE` instance, or (D,N) array_like of scalars
         * instance of `kalepy.kde.KDE`, providing the data and KDE to be plotted.
-            In this case the `param` argument selects which dimension/parameter is plotted if
-            numerous are included in the `KDE`.
+          In this case the `param` argument selects which dimension/parameter is plotted if
+          numerous are included in the `KDE`.
         * array_like scalar (D,N) of data with `D` parameters and `N` data points.
 
     ax : `matplotlib.axes.Axes` instance, or `None`; if `None` then `plt.gca()` is used.
@@ -1199,8 +1207,8 @@ def dist2d(kde_data, ax=None, edges=None, weights=None, params=[0, 1],
         * int : the number of bins for both dimensions, locations calculated automatically
         * (2,) array_like of int : the number of bins for each dimension.
         * (2,) of array_like : the bin-edge locations for each dimension, e.g.
-                               ([0, 1, 2], [0.0, 0.1, 0.2, 0.3],) would describe two bins for
-                               the 0th dimension, and 3 bins for the 1st dimension: i.e. 6 total.
+          ([0, 1, 2], [0.0, 0.1, 0.2, 0.3],) would describe two bins for
+          the 0th dimension, and 3 bins for the 1st dimension: i.e. 6 total.
         * (X,) array_like of scalar : the bin-edge locations to be used for both dimensions.
         * `None` : the number and locations of bins are calculated automatically.
 
@@ -1217,13 +1225,14 @@ def dist2d(kde_data, ax=None, edges=None, weights=None, params=[0, 1],
         If `None`:
             * `cmap` is given, then the color will be set to the `cmap` midpoint.
             * `cmap` is not given, then the color will be determined by the next value of the
-                default matplotlib color-cycle, and `cmap` will be set to a matching colormap.
+              default matplotlib color-cycle, and `cmap` will be set to a matching colormap.
+
         This parameter effects the color of 1D: histograms, confidence intervals, and carpet;
         2D: scatter points.
 
     cmap : matplotlib colormap specification, or `None`
         * All valid matplotlib specifications can be used, e.g. named value (like 'Reds' or
-        'viridis') or a `matplotlib.colors.Colormap` instance.
+          'viridis') or a `matplotlib.colors.Colormap` instance.
         * If `None` then a colormap is constructed based on the value of `color` (see above).
 
     smooth : scalar or `None`/`False`, smoothing of plotted contours (*only*)
@@ -1251,10 +1260,10 @@ def dist2d(kde_data, ax=None, edges=None, weights=None, params=[0, 1],
     mask_dense : bool, whether to mask over high-density scatter points (within the lowest contour).
 
     mask_below : bool or scalar; whether, or the value below which, hist bins should be excluded.
-        If True : exclude histogram bins with less than the average weight of a data point.
-            If `weights` are not given, this means exclude empty histogram bins.
-        If False : do not exclude any bins (i.e. include all bins).
-        If scalar : exclude histogram bins with values below the given value.
+        * If True : exclude histogram bins with less than the average weight of a data point.
+          If `weights` are not given, this means exclude empty histogram bins.
+        * If False : do not exclude any bins (i.e. include all bins).
+        * If scalar : exclude histogram bins with values below the given value.
 
 
     Notes
@@ -1296,17 +1305,18 @@ def dist2d(kde_data, ax=None, edges=None, weights=None, params=[0, 1],
         mask_dense = scatter and (hist or contour)
 
     # Calculate histogram (used for hist and contours)
-    edges = utils.parse_edges(data, edges=edges)
+    edges = utils.parse_edges(data, edges=edges, extrema=kde._reflect)
     hh, *_ = np.histogram2d(*data, bins=edges, weights=weights, density=True)
 
     _, levels, quantiles = _dfm_levels(hh, quantiles=quantiles)
     if mask_below is True:
-        # no weights : Mask out empty bins
-        if weights is None:
-            mask_below = 0.9 / len(data[0])
-        # weights : Mask out bins with less than average weight
-        else:
-            mask_below = len(data[0]) / np.sum(weights)
+        mask_below = levels.min()
+        # # no weights : Mask out empty bins
+        # if weights is None:
+        #     mask_below = 0.9 / len(data[0])
+        # # weights : Mask out bins with less than average weight
+        # else:
+        #     mask_below = len(data[0]) / np.sum(weights)
 
     # ---- Draw components
     # ------------------------------------
@@ -1427,9 +1437,9 @@ def hist1d(data, edges=None, ax=None, weights=None, density=False, probability=F
         Any arguments not caught by `draw_hist1d()` are eventually passed to `plt.plot()` method.
 
 
-    To-Do
+    Notes
     -----
-    - Add `scipy.binned_statistic` functionality for arbitrary statistics beyond histgramming.
+    - TO-DO: Add `scipy.binned_statistic` functionality for arbitrary statistics beyond histgramming.
 
     """
 
@@ -1464,8 +1474,8 @@ def hist2d(data, edges=None, ax=None, weights=None, mask_below=False, **kwargs):
         * int : the number of bins for both dimensions, locations calculated automatically
         * (2,) array_like of int : the number of bins for each dimension.
         * (2,) of array_like : the bin-edge locations for each dimension, e.g.
-                               ([0, 1, 2], [0.0, 0.1, 0.2, 0.3],) would describe two bins for
-                               the 0th dimension, and 3 bins for the 1st dimension: i.e. 6 total.
+          ([0, 1, 2], [0.0, 0.1, 0.2, 0.3],) would describe two bins for
+          the 0th dimension, and 3 bins for the 1st dimension: i.e. 6 total.
         * (X,) array_like of scalar : the bin-edge locations to be used for both dimensions.
         * `None` : the number and locations of bins are calculated automatically.
 
@@ -1475,18 +1485,18 @@ def hist2d(data, edges=None, ax=None, weights=None, mask_below=False, **kwargs):
         only-if the given `kde_data` argument is a (D,N) array_like of scalar data.
 
     mask_below : bool or scalar; whether, or the value below which, hist bins should be excluded.
-        If True : exclude histogram bins with less than the average weight of a data point.
-            If `weights` are not given, this means exclude empty histogram bins.
-        If False : do not exclude any bins (i.e. include all bins).
-        If scalar : exclude histogram bins with values below the given value.
+        * If True : exclude histogram bins with less than the average weight of a data point.
+          If `weights` are not given, this means exclude empty histogram bins.
+        * If False : do not exclude any bins (i.e. include all bins).
+        * If scalar : exclude histogram bins with values below the given value.
 
     **kwargs : additional keyword-arguments passed to `kalepy.plot.draw_hist2d()`.
         Any arguments not caught by `draw_hist1d()` are eventually passed to `plt.pcolormesh()`.
 
 
-    To-Do
+    Notes
     -----
-    - Add `scipy.binned_statistic` functionality for arbitrary statistics beyond histgramming.
+    - TO-DO: Add `scipy.binned_statistic` functionality for arbitrary statistics beyond histgramming.
 
     """
 

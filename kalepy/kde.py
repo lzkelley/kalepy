@@ -12,7 +12,7 @@ from kalepy import _BANDWIDTH_DEFAULT
 
 
 class KDE(object):
-    """Core class and primary API for using `Kalepy`, by constructin a KDE based on given data.
+    """Core class and primary API for using `kalepy`, by constructin a KDE based on given data.
 
     The `KDE` class acts as an API to the underlying `kernel` structures and methods.  From the
     passed data, a 'bandwidth' is calculated and/or set (using optional specifications using the
@@ -22,7 +22,8 @@ class KDE(object):
 
     Notes
     -----
-    Reflection ::
+
+    *Reflection*
 
         Reflective boundary conditions can be used to better reconstruct a PDF that is known to
         have finite support (i.e. boundaries outside of which the PDF should be zero).
@@ -41,13 +42,11 @@ class KDE(object):
             boundary, in that dimension.  If there should only be a single lower or upper
             boundary, then `None` should be passed as the other boundary value.
 
-        Example:
-           ```reflect=[None, [-1.0, 1.0], [0.0, None]]```
-        specifies that the 0th dimension has no boundaries, the 1st dimension has
-        boundaries at both -1.0 and 1.0, and the 2nd dimension has a lower boundary at 0.0,
-        and no upper boundary.
+        For example, `reflect=[None, [-1.0, 1.0], [0.0, None]]`, specifies that the 0th dimension
+        has no boundaries, the 1st dimension has boundaries at both -1.0 and 1.0, and the 2nd
+        dimension has a lower boundary at 0.0, and no upper boundary.
 
-    Projection / Marginalization ::
+    *Projection / Marginalization*
 
         The PDF can be calculated for only particular parameters/dimensions.
         The `pdf` method accepts the keyword-argument (kwarg) `params` to specify particular
@@ -60,14 +59,13 @@ class KDE(object):
             If `params` is specified, then the target evaluation points `pnts`, must only
             contain the corresponding dimensions.
 
-        Example:
-        If the `dataset` has shape (4, 100), but `pdf` is called with `params=(1, 2)`,
+        For example, if the `dataset` has shape (4, 100), but `pdf` is called with `params=(1, 2)`,
         then the `pnts` array should have shape `(2, M)` where the two provides dimensions
         correspond to the 1st and 2nd variables of the `dataset`.
 
-    TODO: add notes on `keep` parameter
+    TO-DO: add notes on `keep` parameter
 
-    Dynamic Range ::
+    *Dynamic Range*
 
         When the elements of the covariace matrix between data variables differs by numerous
         orders of magnitude, the KDE values (especially marginalized values) can become spurious.
@@ -145,19 +143,23 @@ class KDE(object):
             determination methods.  If a `float` is given, it is used as the bandwidth in each
             dimension.  If an array of `float`s are given, then each value will be used as the
             bandwidth for the corresponding data dimension.
+
         weights : array_like (N,), None  [optional]
             Weights corresponding to each `dataset` point.  Must match the number of points `N` in
             the `dataset`.
             If `None`, weights are uniformly set to 1.0 for each value.
+
         kernel : str, Distribution, None  [optional]
             The distribution function that should be used for the kernel.  This can be a `str`
             specification that must match one of the existing distribution functions, or this can
             be a `Distribution` subclass itself that overrides the `_evaluate` method.
+
         neff : int, None  [optional]
             An effective number of datapoints.  This is used in the plugin bandwidth determination
             methods.
             If `None`, `neff` is calculated from the `weights` array.  If `weights` are all
             uniform, then `neff` equals the number of datapoints `N`.
+
         diagonal : bool,
             Whether the bandwidth/covariance matrix should be set as a diagonal matrix
             (i.e. without covariances between parameters).
@@ -262,22 +264,55 @@ class KDE(object):
 
         This method acts as an API to the `Kernel.pdf` method for this instance's `kernel`.
 
+
         Arguments
         ---------
-        points : ([D,]M,) array_like of float
+        points : ([D,]M,) array_like of float, or (D,) set of array_like point specifications
             The locations at which the PDF should be evaluated.  The number of dimensions `D` must
             match that of the `dataset` that initialized this class' instance.
             NOTE: If the `params` kwarg (see below) is given, then only those dimensions of the
-            target parameters should be specified in `pnts`.
+            target parameters should be specified in `points`.
+
+            The meaning of `points` depends on the value of the `grid` argument:
+
+            * `grid=True`  : `points` must be a set of (D,) array_like objects which each give the
+              evaluation points for the corresponding dimension to produce a grid of values.
+              For example, for a 2D dataset,
+              `points=([0.1, 0.2, 0.3], [1, 2])`,
+              would produce a grid of points with shape (3, 2):
+              `[[0.1, 1], [0.1, 2]], [[0.2, 1], [0.2, 2]], [[0.3, 1], [0.3, 2]]`,
+              and the returned values would be an array of the same shape (3, 2).
+
+            * `grid=False` : `points` must be an array_like (D,M) describing the position of `M`
+              sample points in each of `D` dimensions.
+              For example, for a 3D dataset:
+              `points=([0.1, 0.2], [1.0, 2.0], [10, 20])`,
+              describes 2 sample points at the 3D locations, `(0.1, 1.0, 10)` and `(0.2, 2.0, 20)`,
+              and the returned values would be an array of shape (2,).
 
         reflect : (D,) array_like, None (default)
             Locations at which reflecting boundary conditions should be imposed.
             For each dimension `D`, a pair of boundary locations (for: lower, upper) must be
             specified, or `None`.  `None` can also be given to specify no boundary at that
             location.  See class docstrings:`Reflection` for more information.
+
         params : int, array_like of int, None (default)
             Only calculate the PDF for certain parameters (dimensions).
             See class docstrings:`Projection` for more information.
+
+        grid : bool,
+            Evaluate the KDE distribution at a grid of points specified by `points`.
+            See `points` argument description above.
+
+        probability : bool, normalize the results to sum to unity
+
+
+        Returns
+        -------
+        points : array_like of scalar
+            Locations at which the PDF is evaluated.
+        vals : array_like of scalar
+            PDF evaluated at the given points
 
         """
         ndim = self.ndim
@@ -328,23 +363,23 @@ class KDE(object):
             shape = np.shape(points[0])
             points = [pp.flatten() for pp in points]
 
-        result = self.kernel.density(points, data, self.weights, reflect=reflect, params=params)
+        values = self.kernel.density(points, data, self.weights, reflect=reflect, params=params)
 
         if probability:
             if self.weights is None:
-                result = result / self.ndata
+                values = values / self.ndata
             else:
-                result = result / np.sum(self.weights)
+                values = values / np.sum(self.weights)
 
         if grid:
-            result = result.reshape(shape)
+            values = values.reshape(shape)
             points = _points
 
         if squeeze:
             points = points[0]
-            result = result.squeeze()
+            values = values.squeeze()
 
-        return points, result
+        return points, values
 
     def pdf(self, *args, **kwargs):
         kwargs['probability'] = True
@@ -429,11 +464,13 @@ class KDE(object):
             Parameters/dimensions where the original data-values should be drawn from, instead of
             from the reconstructed PDF.
             TODO: add more information.
+
         reflect : (D,) array_like, None (default)
             Locations at which reflecting boundary conditions should be imposed.
             For each dimension `D`, a pair of boundary locations (for: lower, upper) must be
             specified, or `None`.  `None` can also be given to specify no boundary at that
             location.
+
         squeeze : bool, (default: True)
             If the number of dimensions `D` is one, then return an array of shape (L,) instead of
             (1, L).
