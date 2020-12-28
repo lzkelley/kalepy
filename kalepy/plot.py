@@ -1305,7 +1305,7 @@ def dist2d(kde_data, ax=None, edges=None, weights=None, params=[0, 1],
         mask_dense = scatter and (hist or contour)
 
     # Calculate histogram (used for hist and contours)
-    edges = utils.parse_edges(data, edges=edges, extrema=kde._reflect)
+    edges = utils.parse_edges(data, edges=edges, extrema=kde._reflect, params=params)
     hh, *_ = np.histogram2d(*data, bins=edges, weights=weights, density=True)
 
     _, levels, quantiles = _dfm_levels(hh, quantiles=quantiles)

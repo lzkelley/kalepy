@@ -369,7 +369,7 @@ def modify_exists(path_fname):
     return fname
 
 
-def parse_edges(data, edges=None, extrema=None, weights=None,
+def parse_edges(data, edges=None, extrema=None, weights=None, params=None,
                 nmin=5, nmax=1000, pad=None, refine=1.0):
     """
     """
@@ -387,7 +387,7 @@ def parse_edges(data, edges=None, extrema=None, weights=None,
     if pad is None:
         pad = 1 if extrema is None else 0
 
-    extrema = _parse_extrema(data, extrema=extrema, warn=False)
+    extrema = _parse_extrema(data, extrema=extrema, warn=False, params=params)
 
     # If `edges` provides a specification for each dimension, convert to npars*[edges]
     if (_ndim(edges) == 0) or (really1d(edges) and (np.size(edges) != npars)):
@@ -1033,7 +1033,7 @@ class Test_Base(object):
         return value
 
 
-def _parse_extrema(data, extrema=None, warn=True):
+def _parse_extrema(data, extrema=None, params=None, warn=True):
     """Get extrema (min and max) consistent with the given `data`.
 
     `data` must have shape (D, N) for `D` parameters/dimensions, and `N` data points.
@@ -1058,6 +1058,8 @@ def _parse_extrema(data, extrema=None, warn=True):
     data_extrema = [minmax(dd) for dd in data]
     if extrema is None:
         extrema = data_extrema
+    elif (params is not None) and (len(extrema) != npars):
+        extrema = [extrema[pp] for pp in params]
 
     # Check components of given `extrema` to make sure they are valid
     #   fill in any `None` values with extrema from the data
@@ -1076,7 +1078,7 @@ def _parse_extrema(data, extrema=None, warn=True):
         # Otherwise bad
         else:
             err = "`extrema` shape '{}' unrecognized for {} parameters!".format(
-                np.shape(extrema), npars)
+                jshape(extrema), npars)
             raise ValueError(err)
 
         # Fill in `None` values and check if given `extrema` is out of bounds for data
