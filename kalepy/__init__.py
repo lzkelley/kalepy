@@ -1,9 +1,13 @@
-"""
+"""Multidimensional kernel density estimation for distribution functions, resampling, and plotting.
 
 Copyright (C) 2020 Luke Zoltan Kelley and Contributors.
 """
 
 import os
+
+# For Testing: uncomment to raise errors on all warnings
+# import warnings
+# warnings.simplefilter("error")
 
 # Load the version information stored within the package contents
 _path = os.path.dirname(os.path.abspath(__file__))
@@ -95,25 +99,6 @@ def resample(data, size=None, weights=None, reflect=None, keep=None, **kwargs):
     kde = KDE(data, weights=weights, reflect=reflect, **kwargs)
     samps = kde.resample(size=size, keep=keep)
     return samps
-
-
-def _reload():
-    from importlib import reload
-    import kalepy
-    import kalepy.utils
-    import kalepy.kernels
-    import kalepy.plot
-    reload(kalepy)
-    reload(kalepy.kde)
-    reload(kalepy.utils)
-    reload(kalepy.kernels)
-    reload(kalepy.plot)
-    reload(kalepy)
-    reload(kalepy.kde)
-    reload(kalepy.utils)
-    reload(kalepy.kernels)
-    reload(kalepy.plot)
-    return
 
 
 '''

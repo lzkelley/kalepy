@@ -1065,10 +1065,10 @@ def _parse_extrema(data, extrema=None, warn=True):
     #   fill in any `None` values with extrema from the data
     else:
         # Convert from (2,) ==> (D, 2)
-        if np.shape(extrema) == (2,) and really1d(extrema):
+        if really1d(extrema) and (np.shape(extrema) == (2,)):
             extrema = [extrema for ii in range(npars)]
         # If already (D, 2) we're good, keep going
-        elif np.shape(extrema) == (npars, 2):
+        elif np.shape(np.array(extrema, dtype=object)) == (npars, 2):
             pass
         # If jagged (D,) array
         elif len(extrema) == npars:

@@ -175,8 +175,10 @@ class KDE(object):
         # The first time `points` are used, they need to be 'checked' for consistency
         self._check_points_flag = True
         self._points = points
-        if ndata < 2:
-            raise ValueError("ERROR: Cannot construct KDE from {} data point(s)!".format(ndata))
+        if ndata < 3:
+            print(self._dataset)
+            err = "ERROR: too few data points!  Dataset shape: ({}, {})".format(ndim, ndata)
+            raise ValueError(err)
 
         # Set `weights`
         # --------------------------------

@@ -38,7 +38,7 @@ import matplotlib.pyplot as plt
 
 import kalepy as kale
 from kalepy import utils
-from kalepy import KDE
+# from kalepy import KDE
 
 _DEF_SIGMAS = [0.5, 1.0, 1.5, 2.0]
 _PAD = 1
@@ -73,7 +73,7 @@ class Corner:
 
     >>> import kalepy as kale
     >>> data = kale.utils._random_data_3d_03()
-    >>> kale.corner(data)
+    >>> corner = kale.corner(data)
 
     Load two different datasets, and overplot them using a `kalepy.Corner` instance.
 
@@ -1129,9 +1129,9 @@ def dist1d(kde_data, ax=None, edges=None, weights=None, probability=True, param=
     if density:
         if kde is None:
             try:
-                kde = KDE(data, weights=weights)
+                kde = kale.KDE(data, weights=weights)
             except:
-                logging.error(f"Failed to construct KDE from given data!")
+                logging.error("Failed to construct KDE from given data!")
                 raise
 
         # If histogram is also being plotted (as a solid line) use a dashed line
@@ -1268,21 +1268,21 @@ def dist2d(kde_data, ax=None, edges=None, weights=None, params=[0, 1],
 
     if isinstance(kde_data, kale.KDE):
         if weights is not None:
-            raise ValueError(f"`weights` of given `KDE` instance cannot be overridden!")
+            raise ValueError("`weights` of given `KDE` instance cannot be overridden!")
         kde = kde_data
         data = kde.dataset
         ndim = np.shape(data)[0]
         if ndim > 2:
             if len(params) != 2:
-                raise ValueError(f"`dist2d` requires two chosen `params` (dimensions)!")
+                raise ValueError("`dist2d` requires two chosen `params` (dimensions)!")
             data = np.vstack([data[ii] for ii in params])
         weights = None if kde._weights_uniform else kde.weights
     else:
         try:
             data = kde_data
-            kde = KDE(data, weights=weights)
+            kde = kale.KDE(data, weights=weights)
         except:
-            logging.error(f"Failed to construct KDE from given data!")
+            logging.error("Failed to construct KDE from given data!")
             raise
 
     if ax is None:
@@ -1630,8 +1630,8 @@ def draw_contour2d(ax, edges, hist, quantiles=None, smooth=None, upsample=None, 
         # Otherwise error
         else:
             err = (
-                f"kalepy.plot.draw_contour2d() :: ",
-                f"Disregarding unexpected `lw`/`linewidths` argument: '{lw}'"
+                "kalepy.plot.draw_contour2d() :: ",
+                "Disregarding unexpected `lw`/`linewidths` argument: '{}'".format(lw)
             )
             logging.warning(err)
             outline = _get_outline_effects(2*LW, alpha=1 - np.sqrt(1 - alpha))
@@ -1787,11 +1787,14 @@ def _parse_kde_data(kde_data, weights=None):
     else:
         try:
             data = kde_data
-            kde = KDE(kde_data, weights=weights)
+            kde = kale.KDE(kde_data, weights=weights)
         except:
             err = "Failed to construct `KDE` instance from given data!"
             logging.error(err)
             raise
+
+    if not isinstance(kde, kale.KDE):
+        raise RuntimeError("kalepy.plot._parse_kde_data() :: failed to produce `KDE` instance!")
 
     return kde, data, weights
 
@@ -1939,10 +1942,9 @@ def _cut_colormap(cmap, min=0.0, max=1.0, n=10):
     return new_cmap
 
 
-'''
 def nbshow():
     return utils.run_if_notebook(plt.show, otherwise=lambda: plt.close('all'))
-'''
+
 
 '''
 def _get_corner_axes_extrema(axes, rotate, extrema=None, pdf=None):
