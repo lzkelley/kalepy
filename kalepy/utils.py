@@ -1173,7 +1173,7 @@ def _random_data_1d_01(num=1e4):
     num = int(num)
     np.random.seed(12345)
     _d1 = np.random.normal(4.0, 1.0, num//2)
-    _d2 = np.random.lognormal(0, 0.5, size=num - num//2)
+    _d2 = np.random.lognormal(0, 0.5, size=num - _d1.size)
     data = np.concatenate([_d1, _d2])
 
     xx = np.linspace(0.0, 7.0, 200)[1:]
@@ -1182,6 +1182,21 @@ def _random_data_1d_01(num=1e4):
 
     truth = [xx, yy]
     return data, truth
+
+
+def _random_data_1d_02(num=1e4):
+    num = int(num)
+    np.random.seed(12345)
+    _d1 = np.random.normal(1.0, 1.0, num//2)
+    _d2 = np.random.uniform(1.0, 3.0, size=num - _d1.size)
+    data = np.concatenate([_d1, _d2])
+
+    # xx = np.linspace(0.0, 7.0, 200)[1:]
+    # yy = 0.5*np.exp(-(xx - 4.0)**2/2) / np.sqrt(2*np.pi)
+    # yy += 0.5 * np.exp(-np.log(xx)**2/(2*0.5**2)) / (0.5*xx*np.sqrt(2*np.pi))
+    #
+    # truth = [xx, yy]
+    return data
 
 
 def _random_data_2d_01(num=1e3, noise=0.2):
