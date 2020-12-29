@@ -20,7 +20,7 @@ Plot some three-dimensional data called ``data3`` with shape (3, N) with
 
 
 
-.. image:: https://raw.githubusercontent.com/lzkelley/kalepy/dev/docs/media/demo_plot_files/demo_plot_8_0.png
+.. image:: https://raw.githubusercontent.com/lzkelley/kalepy/test/docs/media/demo_plot_files/demo_plot_8_0.png
 
 
 Extensive modifications are possible with passed arguments, for example:
@@ -37,7 +37,7 @@ Extensive modifications are possible with passed arguments, for example:
 
 
 
-.. image:: https://raw.githubusercontent.com/lzkelley/kalepy/dev/docs/media/demo_plot_files/demo_plot_10_0.png
+.. image:: https://raw.githubusercontent.com/lzkelley/kalepy/test/docs/media/demo_plot_files/demo_plot_10_0.png
 
 
 The ``kalepy.corner`` method is a wrapper that builds a
@@ -57,7 +57,7 @@ distributions, or using preconfigured plotting styles.
 
 
 
-.. image:: https://raw.githubusercontent.com/lzkelley/kalepy/dev/docs/media/demo_plot_files/demo_plot_12_0.png
+.. image:: https://raw.githubusercontent.com/lzkelley/kalepy/test/docs/media/demo_plot_files/demo_plot_12_0.png
 
 
 documentation
@@ -84,7 +84,7 @@ functions can also be used directly.
 
 
 
-.. image:: https://raw.githubusercontent.com/lzkelley/kalepy/dev/docs/media/demo_plot_files/demo_plot_17_0.png
+.. image:: https://raw.githubusercontent.com/lzkelley/kalepy/test/docs/media/demo_plot_files/demo_plot_17_0.png
 
 
 .. code:: ipython3
@@ -94,7 +94,7 @@ functions can also be used directly.
 
 
 
-.. image:: https://raw.githubusercontent.com/lzkelley/kalepy/dev/docs/media/demo_plot_files/demo_plot_18_0.png
+.. image:: https://raw.githubusercontent.com/lzkelley/kalepy/test/docs/media/demo_plot_files/demo_plot_18_0.png
 
 
 These functions can also be called on a ``kalepy.KDE`` instance, which
@@ -115,7 +115,7 @@ reflection.
 
 
 
-.. image:: https://raw.githubusercontent.com/lzkelley/kalepy/dev/docs/media/demo_plot_files/demo_plot_20_0.png
+.. image:: https://raw.githubusercontent.com/lzkelley/kalepy/test/docs/media/demo_plot_files/demo_plot_20_0.png
 
 
 .. code:: ipython3
@@ -140,7 +140,7 @@ reflection.
 
 
 
-.. image:: https://raw.githubusercontent.com/lzkelley/kalepy/dev/docs/media/demo_plot_files/demo_plot_21_0.png
+.. image:: https://raw.githubusercontent.com/lzkelley/kalepy/test/docs/media/demo_plot_files/demo_plot_21_0.png
 
 
 documenation

@@ -51,7 +51,7 @@ Plotting Smooth Distributions
 
 
 
-.. image:: https://raw.githubusercontent.com/lzkelley/kalepy/dev/docs/media/demo_files/demo_8_0.png
+.. image:: https://raw.githubusercontent.com/lzkelley/kalepy/test/docs/media/demo_files/demo_8_0.png
 
 
 Constructing statistically similar values
@@ -77,7 +77,7 @@ Draw a new sample of data-points from the KDE PDF
 
 
 
-.. image:: https://raw.githubusercontent.com/lzkelley/kalepy/dev/docs/media/demo_files/demo_11_0.png
+.. image:: https://raw.githubusercontent.com/lzkelley/kalepy/test/docs/media/demo_files/demo_11_0.png
 
 
 Multivariate Distributions
@@ -107,7 +107,7 @@ Multivariate Distributions
 
 
 
-.. image:: https://raw.githubusercontent.com/lzkelley/kalepy/dev/docs/media/demo_files/demo_13_0.png
+.. image:: https://raw.githubusercontent.com/lzkelley/kalepy/test/docs/media/demo_files/demo_13_0.png
 
 
 Fancy Usage
@@ -148,7 +148,7 @@ like in a uniform distribution between two bounds? Here, the KDE chooses
 
 
 
-.. image:: https://raw.githubusercontent.com/lzkelley/kalepy/dev/docs/media/demo_files/demo_18_0.png
+.. image:: https://raw.githubusercontent.com/lzkelley/kalepy/test/docs/media/demo_files/demo_18_0.png
 
 
 Explicit reflection locations can also be provided (in any number of
@@ -181,7 +181,7 @@ dimensions).
 
 
 
-.. image:: https://raw.githubusercontent.com/lzkelley/kalepy/dev/docs/media/demo_files/demo_20_0.png
+.. image:: https://raw.githubusercontent.com/lzkelley/kalepy/test/docs/media/demo_files/demo_20_0.png
 
 
 Multivariate Reflection
@@ -227,7 +227,7 @@ Multivariate Reflection
 
 
 
-.. image:: https://raw.githubusercontent.com/lzkelley/kalepy/dev/docs/media/demo_files/demo_22_0.png
+.. image:: https://raw.githubusercontent.com/lzkelley/kalepy/test/docs/media/demo_files/demo_22_0.png
 
 
 Specifying Bandwidths and Kernel Functions
@@ -279,7 +279,7 @@ Use different ``weights`` of the data
 
 
 
-.. image:: https://raw.githubusercontent.com/lzkelley/kalepy/dev/docs/media/demo_files/demo_27_0.png
+.. image:: https://raw.githubusercontent.com/lzkelley/kalepy/test/docs/media/demo_files/demo_27_0.png
 
 
 Resampling while ‘keeping’ certain parameters/dimensions

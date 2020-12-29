@@ -24,7 +24,7 @@ NB_START_HEADER = "# demo"
 CONVERT_IMAGE_REGEX = r"^\!\[png\]\((.*)\)"
 GITHUB_RAW_ADDR = "https://raw.githubusercontent.com/lzkelley/kalepy/{branch:}/docs/media/"
 
-ALLOWED_BRANCHES = ['dev', 'master']
+ALLOWED_BRANCHES = ['dev', 'master', 'test']
 
 EXECUTE = False
 
