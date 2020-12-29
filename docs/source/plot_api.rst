@@ -11,6 +11,12 @@ Top Level Functions
 kalepy.corner() and the kalepy.Corner class
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
+For the full documentation, see:
+
+* `kalepy.plot.corner <kalepy_plot.html#kalepy.plot.corner>`_
+* `kalepy.plot.Corner <kalepy_plot.html#kalepy.plot.Corner>`_
+* `kalepy.plot.Corner.plot <kalepy_plot.html#kalepy.plot.Corner.plot>`_
+
 Plot some three-dimensional data called ``data3`` with shape (3, N) with
 ``N`` data points.
 
@@ -20,7 +26,7 @@ Plot some three-dimensional data called ``data3`` with shape (3, N) with
 
 
 
-.. image:: https://raw.githubusercontent.com/lzkelley/kalepy/test/docs/media/demo_plot_files/demo_plot_8_0.png
+.. image:: https://raw.githubusercontent.com/lzkelley/kalepy/test/docs/media/demo_plot_files/demo_plot_9_0.png
 
 
 Extensive modifications are possible with passed arguments, for example:
@@ -37,7 +43,7 @@ Extensive modifications are possible with passed arguments, for example:
 
 
 
-.. image:: https://raw.githubusercontent.com/lzkelley/kalepy/test/docs/media/demo_plot_files/demo_plot_10_0.png
+.. image:: https://raw.githubusercontent.com/lzkelley/kalepy/test/docs/media/demo_plot_files/demo_plot_11_0.png
 
 
 The ``kalepy.corner`` method is a wrapper that builds a
@@ -57,18 +63,8 @@ distributions, or using preconfigured plotting styles.
 
 
 
-.. image:: https://raw.githubusercontent.com/lzkelley/kalepy/test/docs/media/demo_plot_files/demo_plot_12_0.png
+.. image:: https://raw.githubusercontent.com/lzkelley/kalepy/test/docs/media/demo_plot_files/demo_plot_13_0.png
 
-
-documentation
-^^^^^^^^^^^^^
-
-.. autofunction:: kalepy.corner
-    :noindex:
-    
-.. autoclass:: kalepy.Corner
-    :members:
-    :noindex:
 
 kalepy.dist1d and kalepy.dist2d
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -76,6 +72,12 @@ kalepy.dist1d and kalepy.dist2d
 The ``Corner`` class ultimately calls the functions ``dist1d`` and
 ``dist2d`` to do the actual plotting of each figure panel. These
 functions can also be used directly.
+
+For the full documentation, see:
+
+* `kalepy.plot.dist1d <kalepy_plot.html#kalepy.plot.dist1d>`_
+* `kalepy.plot.dist2d <kalepy_plot.html#kalepy.plot.dist2d>`_
+
 
 .. code:: ipython3
 
@@ -142,12 +144,3 @@ reflection.
 
 .. image:: https://raw.githubusercontent.com/lzkelley/kalepy/test/docs/media/demo_plot_files/demo_plot_21_0.png
 
-
-documenation
-^^^^^^^^^^^^
-
-.. autofunction:: kalepy.dist1d
-    :noindex:
-    
-.. autofunction:: kalepy.dist2d
-    :noindex:
