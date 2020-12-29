@@ -6,10 +6,10 @@
     import matplotlib.pyplot as plt
 
 Top Level Functions
-===================
+-------------------
 
-kalepy.corner(kde_data, …) and the kalepy.Corner class
-------------------------------------------------------
+kalepy.corner() and the kalepy.Corner class
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Plot some three-dimensional data called ``data3`` with shape (3, N) with
 ``N`` data points.
@@ -61,7 +61,7 @@ distributions, or using preconfigured plotting styles.
 
 
 documentation
-~~~~~~~~~~~~~
+^^^^^^^^^^^^^
 
 .. autofunction:: kalepy.corner
     :noindex:
@@ -71,7 +71,7 @@ documentation
     :noindex:
 
 kalepy.dist1d and kalepy.dist2d
--------------------------------
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 The ``Corner`` class ultimately calls the functions ``dist1d`` and
 ``dist2d`` to do the actual plotting of each figure panel. These
@@ -144,7 +144,7 @@ reflection.
 
 
 documenation
-~~~~~~~~~~~~
+^^^^^^^^^^^^
 
 .. autofunction:: kalepy.dist1d
     :noindex:

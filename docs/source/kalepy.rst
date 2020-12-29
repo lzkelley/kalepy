@@ -14,7 +14,7 @@ Primary API
 
 
 .. toctree::
-   :maxdepth: 2
+   :maxdepth: 1
    :caption: Submodules:
 
    kalepy_kde

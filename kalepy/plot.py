@@ -15,17 +15,17 @@ subclassing the `Corner` class to provide additional or different functionality.
 
 API Contents
 ------------
-- Corner : class for corner/triangle/pair plots.
-- corner : method which constructs a `Corner` instance and plots 1D and 2D distributions.
+- `Corner` : class for corner/triangle/pair plots.
+- `corner` : method which constructs a `Corner` instance and plots 1D and 2D distributions.
 
-- dist1d : plot a 1D distribution with numerous possible elements (e.g. histogram, carpet, etc)
-- dist2d : plot a 2D distribution with numerous possible elements (e.g. histogram, contours, etc)
+- `dist1d` : plot a 1D distribution with numerous possible elements (e.g. histogram, carpet, etc)
+- `dist2d` : plot a 2D distribution with numerous possible elements (e.g. histogram, contours, etc)
 
-- carpet : draw a 1D scatter-like plot to depict semi-quantitative information about a distribution.
-- contour : draw a 2D contour plot. A wrapper of additional functionality around `plt.contour`
-- confidence : draw 1D confidence intervals using shaded bands.
-- hist1d : draw a 1D histogram
-- hist2d : draw a 2D histogram.  A wrapper of additional functionality around `plt.pcolormesh`
+- `carpet` : draw a 1D scatter-like plot to semi-quantitatively depict a distribution.
+- `contour` : draw a 2D contour plot. A wrapper of additional functionality around `plt.contour`
+- `confidence` : draw 1D confidence intervals using shaded bands.
+- `hist1d` : draw a 1D histogram
+- `hist2d` : draw a 2D histogram.  A wrapper of additional functionality around `plt.pcolormesh`
 
 """
 
