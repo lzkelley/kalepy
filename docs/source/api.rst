@@ -18,6 +18,9 @@ Each of these functions constructs a `KDE` (kalepy.kde.KDE) instance, calls the 
     new_samples = kde.resample()      # use same `KDE` for resampling
 
 
+.. include:: plot_api.rst
+
+
 Density estimation: `kalepy.density(...)`:
 ------------------------------------------
 

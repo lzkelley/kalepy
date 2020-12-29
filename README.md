@@ -69,7 +69,6 @@ yy += 0.5 * np.exp(-np.log(xx)**2/(2*0.5**2)) / (0.5*xx*np.sqrt(2*np.pi))
 
 ```python
 # Reconstruct the probability-density based on the given data points.
-# If `points` aren't provided then `kalepy` automatically generates them
 points, density = kale.density(data, probability=True)
 
 # Plot the PDF
@@ -89,7 +88,7 @@ nbshow()
 ![png](https://raw.githubusercontent.com/lzkelley/kalepy/test/docs/media/demo_files/demo_8_0.png)
 
 
-### Constructing statistically similar values
+### resampling: constructing statistically similar values
 
 Draw a new sample of data-points from the KDE PDF
 
@@ -99,12 +98,12 @@ Draw a new sample of data-points from the KDE PDF
 samples = kale.resample(data)
 
 # Plot new samples
-plt.hist(samples, density=True, alpha=0.5, label='new samples', color='0.65', edgecolor='b')
+plt.hist(samples, density=True, label='new samples', alpha=0.5, color='0.65', edgecolor='b')
+# Plot the old samples
+plt.hist(data, density=True, histtype='step', lw=2.0, alpha=0.5, color='r', label='input data')
 
 # Plot the KDE reconstructed PDF
 plt.plot(points, density, 'k-', lw=2.0, alpha=0.8, label='KDE')
-# Plot the "true" PDF
-plt.plot(xx, yy, 'r--', alpha=0.4, lw=3.0, label='truth')
 
 plt.legend()
 nbshow()
@@ -118,23 +117,14 @@ nbshow()
 
 
 ```python
-# Load some random-ish data
-# data = kale.utils._random_data_3d_01()
+# Load some random-ish three-dimensional data
 data = kale.utils._random_data_3d_02()
 
 # Construct a KDE
 kde = kale.KDE(data)
 
-# import kalepy.plot
-
-# Build a corner plot using the `kalepy` plotting submodule
-corner = kale.plot.Corner(kde, figsize=[10, 10])
-
-# Data points: red scatter and histograms
-corner.plot_data(color='red')
-
-# KDE reconstructed density-distribution: blue contours and curves
-corner.plot_kde(color='blue')
+# Plot the data and distributions using the builtin `kalepy.corner` plot
+kale.corner(kde)
 
 nbshow()
 ```
@@ -143,9 +133,36 @@ nbshow()
 ![png](https://raw.githubusercontent.com/lzkelley/kalepy/test/docs/media/demo_files/demo_13_0.png)
 
 
-# Fancy Usage
 
-## Distribution Functions
+```python
+# Resample the data (default output is the same size as the input data)
+samples = kde.resample()
+
+
+# ---- Plot the input data compared to the resampled data ----
+
+fig, axes = plt.subplots(figsize=[16, 4], ncols=kde.ndim)
+
+for ii, ax in enumerate(axes):
+    # Calculate and plot PDF for `ii`th parameter (i.e. data dimension `ii`)
+    xx, yy = kde.density(params=ii, probability=True)
+    ax.plot(xx, yy, 'k--', label='KDE', lw=2.0, alpha=0.5)
+    # Draw histograms of original and newly resampled datasets
+    *_, h1 = ax.hist(data[ii], histtype='step', density=True, lw=2.0, label='input')
+    *_, h2 = ax.hist(samples[ii], histtype='step', density=True, lw=2.0, label='resample')
+    # Add 'kalepy.carpet' plots showing the data points themselves
+    kale.carpet(data[ii], ax=ax, color=h1[0].get_facecolor())
+    kale.carpet(samples[ii], ax=ax, color=h2[0].get_facecolor(), shift=ax.get_ylim()[0])
+
+axes[0].legend()
+nbshow()
+```
+
+
+![png](https://raw.githubusercontent.com/lzkelley/kalepy/test/docs/media/demo_files/demo_14_0.png)
+
+
+# Fancy Usage
 
 ### Reflecting Boundaries
 
@@ -158,18 +175,19 @@ NDATA = 1e3
 np.random.seed(54321)
 data = np.random.uniform(-1.0, 1.0, int(NDATA))
 
-# Plot the data
-kale.plot.carpet(data, label='data')
+# Create a 'carpet' plot of the data
+kale.carpet(data, label='data')
 # Histogram the data
-plt.hist(data, density=True, alpha=0.5, label='histogram', color='0.65', edgecolor='k')
+plt.hist(data, density=True, alpha=0.5, label='hist', color='0.65', edgecolor='k')
 
-# Standard KDE will undershoot just-inside the edges and overshoot outside edges
+# ---- Standard KDE will undershoot just-inside the edges and overshoot outside edges
 points, pdf_basic = kale.density(data, probability=True)
 plt.plot(points, pdf_basic, 'r--', lw=3.0, alpha=0.5, label='KDE')
 
-# Reflecting KDE keeps probability within given bounds
-points, pdf_basic = kale.density(data, reflect=True, probability=True)
-plt.plot(points, pdf_basic, 'b-', lw=2.0, alpha=0.75, label='reflecting KDE')
+# ---- Reflecting KDE keeps probability within the given bounds
+# setting `reflect=True` lets the KDE guess the edge locations based on the data extrema
+points, pdf_reflect = kale.density(data, reflect=True, probability=True)
+plt.plot(points, pdf_reflect, 'b-', lw=2.0, alpha=0.75, label='reflecting KDE')
 
 plt.legend()
 nbshow()
@@ -215,41 +233,18 @@ nbshow()
 
 
 ```python
-reload(kale.plot)
+# Load a predefined dataset that has boundaries at:
+#   x: 0.0 on the low-end
+#   y: 1.0 on the high-end
 data = kale.utils._random_data_2d_03()
 
-# Construct a KDE
+# Construct a KDE with the given reflection boundaries given explicitly
 kde = kale.KDE(data, reflect=[[0, None], [None, 1]])
 
-# kale.plot.corner(kde)
+# Plot using default settings
+kale.corner(kde)
 
-# Build a corner plot using the `kalepy` plotting submodule
-# corner = kale.plot.Corner(kde)  #, figsize=[10, 10])
-
-# Data points: red scatter and histograms
-# corner.plot_data(color='red', scatter=dict(s=10, alpha=0.15))
-# corner.plot(kde=False, data=True, color='red');
-
-# KDE reconstructed density-distribution: blue contours and curves
-# corner.plot(kde=True, data=False, color='blue');
-
-corner = kale.plot.Corner(kde)
-corner.plot_data()
-# corner.plot(kde=False, data=True, color='red');
-# corner.plot_data(color='red', dist2d=dict(contour=True, pad=True), scatter=True, sigmas=[0.5, 1, 2])
-
-# axes = corner.axes
-# xlim = None
-# ylim = None
-# for ii in range(2):
-#     xlim = zmath.minmax(axes[ii, 0].get_xlim(), prev=xlim)
-#     ylim = zmath.minmax(axes[1, ii].get_ylim(), prev=ylim)
-    
-# axes[1, 0].set(xlim=xlim, ylim=ylim)
-# axes[0, 0].set(xlim=xlim)
-# axes[1, 1].set(ylim=ylim)
-
-
+nbshow()
 ```
 
 
@@ -258,42 +253,87 @@ corner.plot_data()
 
 ### Specifying Bandwidths and Kernel Functions
 
-### Selecting Particular Parameters/Dimensions
+
+```python
+# Load predefined 'random' data
+data = kale.utils._random_data_1d_02(num=100)
+# Choose a uniform x-spacing for drawing PDFs
+xx = np.linspace(-2, 8, 1000)
+
+# ------ Choose the kernel-functions and bandwidths to test -------  #
+kernels = ['parabola', 'gaussian', 'box']                            #
+bandwidths = [None, 0.9, 0.15]     # `None` means let kalepy choose  #
+# -----------------------------------------------------------------  #
+
+ylabels = ['Automatic', 'Course', 'Fine']
+fig, axes = plt.subplots(figsize=[16, 10], ncols=len(kernels), nrows=len(bandwidths), sharex=True, sharey=True)
+plt.subplots_adjust(hspace=0.2, wspace=0.05)
+for (ii, jj), ax in np.ndenumerate(axes):
+    
+    # ---- Construct KDE using particular kernel-function and bandwidth ---- #
+    kern = kernels[jj]                                                       # 
+    bw = bandwidths[ii]                                                      #
+    kde = kale.KDE(data, kernel=kern, bandwidth=bw)                          #
+    # ---------------------------------------------------------------------- #
+    
+    # If bandwidth was set to `None`, then the KDE will choose the 'optimal' value
+    if bw is None:
+        bw = kde.bandwidth[0, 0]
+        
+    ax.set_title('{} (bw={:.3f})'.format(kern, bw))
+    if jj == 0:
+        ax.set_ylabel(ylabels[ii])
+
+    # plot the KDE
+    ax.plot(*kde.pdf(points=xx), color='r')
+    # plot histogram of the data (same for all panels)
+    ax.hist(data, bins='auto', color='b', alpha=0.2, density=True)
+    # plot  carpet   of the data (same for all panels)
+    kale.carpet(data, ax=ax, color='b')
+    
+ax.set(xlim=[-2, 5], ylim=[-0.2, 0.6])
+nbshow()
+```
+
+
+![png](https://raw.githubusercontent.com/lzkelley/kalepy/test/docs/media/demo_files/demo_24_0.png)
+
 
 ## Resampling
 
-### Use different `weights` of the data
+### Using different data `weights`
 
 
 ```python
-# Draw some random data (and the PDF, for comparison)
+# Load some random data (and the 'true' PDF, for comparison)
 data, truth = kale.utils._random_data_1d_01()
+
+# ---- Resample the same data, using different weightings ---- #
+resamp_uni = kale.resample(data, size=1000)                       # 
+resamp_sqr  = kale.resample(data, weights=data**2, size=1000)      #
+resamp_inv = kale.resample(data, weights=data**-1, size=1000)     #
+# ------------------------------------------------------------ # 
+
+
+# ---- Plot different distributions ----
+
 # Setup plotting parameters
 kw = dict(density=True, histtype='step', lw=2.0, alpha=0.75, bins='auto')
 
-# plot the 'true' distribution
-plt.plot(*truth, 'k--', alpha=0.25)
-# plot the sampled data with a carpet plot
-kale.plot.carpet(data, color='k')
+xx, yy = truth
+samples = [resamp_inv, resamp_uni, resamp_sqr]
+yvals = [yy/xx, yy, yy*xx**2/10]
+labels = [r'$\propto X^{-1}$', r'$\propto 1$', r'$\propto X^2$']
 
-# UNIFORM: resample the data uniformly, 600 samples
-col = 'tab:blue'
-res = kale.resample(data, size=600)
-kale.plot.carpet(res, shift=-0.15, color=col)              # `shift` the carpet plot downwards to not overlap
-plt.hist(res, color=col, label=r'$\propto 1$', **kw)
+plt.figure(figsize=[10, 5])
 
-# SQUARE: resample the data proportional to its square
-col = 'tab:orange'
-res = kale.resample(data, weights=data**2, size=1000)
-kale.plot.carpet(res, shift=-0.25, color=col)
-plt.hist(res, color=col, label=r'$\propto X^2$', **kw)
+for ii, (res, yy, lab) in enumerate(zip(samples, yvals, labels)):
+    hh, = plt.plot(xx, yy, ls='--', alpha=0.5, lw=2.0)
+    col = hh.get_color()
+    kale.carpet(res, color=col, shift=-0.1*ii)
+    plt.hist(res, color=col, label=lab, **kw)
 
-# INVERSE: resample the data proportional to its inverse
-col = 'tab:green'
-res = kale.resample(data, weights=data**-1, size=1000)
-kale.plot.carpet(res, shift=-0.35, color=col)
-plt.hist(res, color=col, label=r'$\propto X^{-1}$', **kw)
-
+plt.gca().set(xlim=[-0.5, 6.5])
 # Add legend
 plt.legend()
 # display the figure if this is a notebook
@@ -305,3 +345,47 @@ nbshow()
 
 
 ### Resampling while 'keeping' certain parameters/dimensions
+
+
+```python
+# Construct covariant 2D dataset where the 0th parameter takes on discrete values
+xx = np.random.randint(2, 7, 1000)
+yy = np.random.normal(4, 2, xx.size) + xx**(3/2)
+data = [xx, yy]
+
+# 2D plotting settings: disable the 2D histogram & disable masking of dense scatter-points
+dist2d = dict(hist=False, mask_dense=False)
+
+# Draw a corner plot 
+kale.corner(data, dist2d=dist2d)
+
+nbshow()
+```
+
+
+![png](https://raw.githubusercontent.com/lzkelley/kalepy/test/docs/media/demo_files/demo_29_0.png)
+
+
+A standard KDE resampling will smooth out the discrete variables, creating a smooth(er) distribution.  Using the `keep` parameter, we can choose to resample from the actual data values of that parameter instead of resampling with 'smoothing' based on the KDE.
+
+
+```python
+kde = kale.KDE(data)
+
+# ---- Resample the data both normally, and 'keep'ing the 0th parameter values ---- #
+resamp_stnd = kde.resample()                                                        #
+resamp_keep = kde.resample(keep=0)                                                  #
+# --------------------------------------------------------------------------------- #
+
+corner = kale.Corner(2)
+dist2d['median'] = False    # disable median 'cross-hairs'
+h1 = corner.plot(resamp_stnd, dist2d=dist2d)
+h2 = corner.plot(resamp_keep, dist2d=dist2d)
+
+corner.legend([h1, h2], ['Standard', "'keep'"])
+nbshow()
+```
+
+
+![png](https://raw.githubusercontent.com/lzkelley/kalepy/test/docs/media/demo_files/demo_31_0.png)
+
