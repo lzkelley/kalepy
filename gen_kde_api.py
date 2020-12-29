@@ -10,7 +10,7 @@ import subprocess
 import logging
 
 
-NOTEBOOK_FNAME = "./notebooks/demo.ipynb"
+NOTEBOOK_FNAME = "./notebooks/demo_kde.ipynb"
 NB_SUFFIX = "ipynb"
 # Path for output resources (i.e. image files)
 OUTPUT_PATH_RESOURCES = "./docs/media/"
@@ -18,7 +18,7 @@ OUTPUT_PATH_RESOURCES = "./docs/media/"
 OUTPUT_FNAME = "./docs/source/kde_api.rst"
 
 # Only the output of the notebook *after* this line, is written to output
-NB_START_HEADER = "demo"
+NB_START_HEADER = "demo_kde"
 
 # CONVERT_IMAGE_REGEX = r"^\!\[png\]\((.*)\)"    # MARKDOWN
 CONVERT_IMAGE_REGEX = r"^\.\. image\:\: (.*)"   # RST
@@ -89,6 +89,9 @@ def main():
     out_dir = os.path.join(os.path.abspath(OUTPUT_PATH_RESOURCES), out_dir, '')
     if not os.path.exists(out_dir):
         os.mkdir(out_dir)
+
+    print("out_dir = ", out_dir, os.path.isdir(out_dir))
+    print("out_dir_temp = ", out_dir_temp, os.path.isdir(out_dir_temp))
 
     # Remove previously added image files (in `out_dir`) from the git repo before deleting
     for fil in os.listdir(out_dir):

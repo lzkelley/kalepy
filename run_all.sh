@@ -16,6 +16,7 @@ echo "\n\n\n=====================  RUNNING TEST SUITE  ========================"
 bash tester.sh
 
 echo "\n\n\n================  RUNNING NOTEBOOK CONVERSIONS  ==================="
+
 python gen_kde_api.py
 python gen_plot_api.py
 python gen_readme.py
