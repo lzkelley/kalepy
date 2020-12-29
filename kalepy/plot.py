@@ -80,8 +80,8 @@ class Corner:
     >>> data1 = kale.utils._random_data_3d_03(par=[0.0, 0.5], cov=0.05)
     >>> data2 = kale.utils._random_data_3d_03(par=[1.0, 0.25], cov=0.5)
     >>> corner = kale.Corner(3)   # construct '3' dimensional corner-plot (i.e. 3x3 axes)
-    >>> corner.clean(data1)
-    >>> corner.clean(data2)
+    >>> _ = corner.clean(data1)
+    >>> _ = corner.clean(data2)
 
     """
 
@@ -477,7 +477,7 @@ class Corner:
         limits = [None] * size    # variable to store the limits of the plotted data
         for jj, ax in enumerate(axes.diagonal()):
             rot = (rotate and (jj == last))
-            self._kde1d(
+            handle = self._kde1d(
                 ax, edges[jj], kde, param=jj, rotate=rot,
                 color=color, **dist1d
             )
@@ -501,7 +501,7 @@ class Corner:
             # Set axes to limits
             _set_corner_axes_extrema(self.axes, self._limits, self._rotate)
 
-        return
+        return handle
 
     def plot_data(self, data=None, edges=None, weights=None, quantiles=None, limit=None,
                   color=None, cmap=None, dist1d={}, dist2d={}):
@@ -680,8 +680,7 @@ class Corner:
         rv = _dist2d(kde, ax=ax, edges=edges, cmap=cmap, params=params, **dist2d)
         return rv
 
-    '''
-    def legend(self, handles=None, labels=None, index=None,
+    def legend(self, handles, labels, index=None,
                loc=None, fancybox=False, borderaxespad=0, **kwargs):
         """
         """
@@ -718,7 +717,6 @@ class Corner:
         leg = fig.legend(handles, labels, fancybox=fancybox,
                          borderaxespad=borderaxespad, loc=loc, **kwargs)
         return leg
-    '''
 
 
 def corner(kde_data, labels=None, kwcorner={}, **kwplot):
