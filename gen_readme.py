@@ -27,7 +27,7 @@ GITHUB_RAW_ADDR = "https://raw.githubusercontent.com/lzkelley/kalepy/{branch:}/d
 
 ALLOWED_BRANCHES = ['dev', 'master', 'test']
 
-EXECUTE = False
+EXECUTE = True
 
 # repo.git.describe
 

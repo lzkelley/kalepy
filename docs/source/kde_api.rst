@@ -50,7 +50,7 @@ Plotting Smooth Distributions
 
 
 
-.. image:: https://raw.githubusercontent.com/lzkelley/kalepy/test/docs/media/demo_kde_files/demo_kde_8_0.png
+.. image:: https://raw.githubusercontent.com/lzkelley/kalepy/dev/docs/media/demo_kde_files/demo_kde_8_0.png
 
 
 resampling: constructing statistically similar values
@@ -76,7 +76,7 @@ Draw a new sample of data-points from the KDE PDF
 
 
 
-.. image:: https://raw.githubusercontent.com/lzkelley/kalepy/test/docs/media/demo_kde_files/demo_kde_11_0.png
+.. image:: https://raw.githubusercontent.com/lzkelley/kalepy/dev/docs/media/demo_kde_files/demo_kde_11_0.png
 
 
 Multivariate Distributions
@@ -97,7 +97,7 @@ Multivariate Distributions
 
 
 
-.. image:: https://raw.githubusercontent.com/lzkelley/kalepy/test/docs/media/demo_kde_files/demo_kde_13_0.png
+.. image:: https://raw.githubusercontent.com/lzkelley/kalepy/dev/docs/media/demo_kde_files/demo_kde_13_0.png
 
 
 .. code:: ipython3
@@ -126,7 +126,7 @@ Multivariate Distributions
 
 
 
-.. image:: https://raw.githubusercontent.com/lzkelley/kalepy/test/docs/media/demo_kde_files/demo_kde_14_0.png
+.. image:: https://raw.githubusercontent.com/lzkelley/kalepy/dev/docs/media/demo_kde_files/demo_kde_14_0.png
 
 
 Fancy Usage
@@ -165,7 +165,7 @@ like in a uniform distribution between two bounds? Here, the KDE chooses
 
 
 
-.. image:: https://raw.githubusercontent.com/lzkelley/kalepy/test/docs/media/demo_kde_files/demo_kde_18_0.png
+.. image:: https://raw.githubusercontent.com/lzkelley/kalepy/dev/docs/media/demo_kde_files/demo_kde_18_0.png
 
 
 Explicit reflection locations can also be provided (in any number of
@@ -198,7 +198,7 @@ dimensions).
 
 
 
-.. image:: https://raw.githubusercontent.com/lzkelley/kalepy/test/docs/media/demo_kde_files/demo_kde_20_0.png
+.. image:: https://raw.githubusercontent.com/lzkelley/kalepy/dev/docs/media/demo_kde_files/demo_kde_20_0.png
 
 
 Multivariate Reflection
@@ -221,7 +221,7 @@ Multivariate Reflection
 
 
 
-.. image:: https://raw.githubusercontent.com/lzkelley/kalepy/test/docs/media/demo_kde_files/demo_kde_22_0.png
+.. image:: https://raw.githubusercontent.com/lzkelley/kalepy/dev/docs/media/demo_kde_files/demo_kde_22_0.png
 
 
 Specifying Bandwidths and Kernel Functions
@@ -270,7 +270,7 @@ Specifying Bandwidths and Kernel Functions
 
 
 
-.. image:: https://raw.githubusercontent.com/lzkelley/kalepy/test/docs/media/demo_kde_files/demo_kde_24_0.png
+.. image:: https://raw.githubusercontent.com/lzkelley/kalepy/dev/docs/media/demo_kde_files/demo_kde_24_0.png
 
 
 Resampling
@@ -317,7 +317,7 @@ Using different data ``weights``
 
 
 
-.. image:: https://raw.githubusercontent.com/lzkelley/kalepy/test/docs/media/demo_kde_files/demo_kde_27_0.png
+.. image:: https://raw.githubusercontent.com/lzkelley/kalepy/dev/docs/media/demo_kde_files/demo_kde_27_0.png
 
 
 Resampling while ‘keeping’ certain parameters/dimensions
@@ -340,7 +340,7 @@ Resampling while ‘keeping’ certain parameters/dimensions
 
 
 
-.. image:: https://raw.githubusercontent.com/lzkelley/kalepy/test/docs/media/demo_kde_files/demo_kde_29_0.png
+.. image:: https://raw.githubusercontent.com/lzkelley/kalepy/dev/docs/media/demo_kde_files/demo_kde_29_0.png
 
 
 A standard KDE resampling will smooth out the discrete variables,
@@ -367,5 +367,5 @@ of resampling with ‘smoothing’ based on the KDE.
 
 
 
-.. image:: https://raw.githubusercontent.com/lzkelley/kalepy/test/docs/media/demo_kde_files/demo_kde_31_0.png
+.. image:: https://raw.githubusercontent.com/lzkelley/kalepy/dev/docs/media/demo_kde_files/demo_kde_31_0.png
 
