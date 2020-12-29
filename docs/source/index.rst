@@ -3,6 +3,13 @@ Introduction
 
 *Multidimensional kernel density estimation for distribution functions, resampling, and plotting.*
 
+|travis| |codecov| |rtd|
+
+.. |travis| image:: https://travis-ci.org/lzkelley/kalepy.svg?branch=master
+.. |codecov| image:: https://codecov.io/gh/lzkelley/kalepy/branch/master/graph/badge.svg
+.. |rtd| image:: https://readthedocs.org/projects/kalepy/badge/?version=latest
+
+.. image:: https://raw.githubusercontent.com/lzkelley/kalepy/dev/docs/media/logo_anim_small.gif
 
 .. contents:: :local:
 

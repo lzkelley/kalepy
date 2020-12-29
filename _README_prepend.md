@@ -8,6 +8,22 @@
 
 This package performs KDE operations on multidimensional data to: **1) calculate estimated PDFs** (probability distribution functions), and **2) resample new data** from those PDFs.
 
+## Documentation
+
+A number of examples (also used for continuous integration testing) are included in [the package notebooks](https://github.com/lzkelley/kalepy/tree/master/notebooks).  Some background information and references are included in [the JOSS paper]().
+
+Full documentation is available on [kalepy.readthedocs.io](https://kalepy.readthedocs.io/en/latest/).
+
+## README Contents
+
+- [Installation](#Installation)
+- Quickstart
+    - [Basic Usage](#Basic-Usage)
+    - [Fancy Usage](#Fancy-Usage)
+- [Development & Contributions](#Development-&-Contributions)
+- [Attribution (citation)](#Attribution)
+
+
 ## Installation
 
 #### from pypi (i.e. via pip)

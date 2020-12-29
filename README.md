@@ -8,6 +8,22 @@
 
 This package performs KDE operations on multidimensional data to: **1) calculate estimated PDFs** (probability distribution functions), and **2) resample new data** from those PDFs.
 
+## Documentation
+
+A number of examples (also used for continuous integration testing) are included in [the package notebooks](https://github.com/lzkelley/kalepy/tree/master/notebooks).  Some background information and references are included in [the JOSS paper]().
+
+Full documentation is available on [kalepy.readthedocs.io](https://kalepy.readthedocs.io/en/latest/).
+
+## README Contents
+
+- [Installation](#Installation)
+- Quickstart
+    - [Basic Usage](#Basic-Usage)
+    - [Fancy Usage](#Fancy-Usage)
+- [Development & Contributions](#Development-&-Contributions)
+- [Attribution (citation)](#Attribution)
+
+
 ## Installation
 
 #### from pypi (i.e. via pip)
@@ -388,4 +404,23 @@ nbshow()
 
 
 ![png](https://raw.githubusercontent.com/lzkelley/kalepy/test/docs/media/demo_files/demo_31_0.png)
+
+
+## Development & Contributions
+
+Please visit the `github page <https://github.com/lzkelley/kalepy>`_ for issues or bug reports.  Contributions and feedback are very welcome.
+
+
+## Attribution
+
+A JOSS paper has been submitted.  If you have found this package useful in your research, please add a reference to the code paper:
+
+.. code-block:: tex
+
+    @article{kalepy,
+      author = {Luke Zoltan Kelley},
+      title = {kalepy: a python package for kernel density estimation and sampling},
+      journal = {The Journal of Open Source Software},
+      publisher = {The Open Journal},
+    }
 

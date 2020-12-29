@@ -16,7 +16,8 @@ NB_SUFFIX = "ipynb"
 OUTPUT_PATH_RESOURCES = "./docs/media/"
 # Path for output markdown file
 OUTPUT_FNAME = "./README.md"
-README_BASE = "./_README.md"
+README_PREPEND = "./_README_prepend.md"
+README_APPEND = "./_README_append.md"
 
 # Only the output of the notebook *after* this line, is written to output
 NB_START_HEADER = "# demo"
@@ -52,8 +53,9 @@ def main():
     logging.debug("\t`EXECUTE` = {}".format(EXECUTE))
     logging.debug("sys.argv = '{}'".format(sys.argv))
 
-    if not os.path.isfile(README_BASE):
-        raise ValueError("Base/template readme file '{}' does not exist!".format(README_BASE))
+    for rmf in [README_PREPEND, README_APPEND]:
+        if not os.path.isfile(rmf):
+            raise ValueError("Base/template readme file '{}' does not exist!".format(rmf))
 
     repo = git.Repo('.')
     if repo.bare:
@@ -155,7 +157,7 @@ def main():
         with open(out_fil, 'w') as stout:
 
             # Add template to beginning
-            with open(README_BASE, 'r') as stin:
+            with open(README_PREPEND, 'r') as stin:
                 stout.write(stin.read() + "\n")
 
             # Append demo notebook content
@@ -178,6 +180,10 @@ def main():
                         line = re.sub(pattern, replace, line)
 
                     stout.write(line)
+
+            # Add template to ending
+            with open(README_APPEND, 'r') as stin:
+                stout.write(stin.read() + "\n")
 
     except Exception as err:
         logging.error("Failed on final write to '{}'".format(out_fil))
