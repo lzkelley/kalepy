@@ -29,6 +29,9 @@
 ## Current
 
 
+
+## v0.5 - 2020/12/30
+
 - Complete restructure of `kalepy.plot` submodule, particularly in the API.
 - Extensive addition and improvements of documentation, both inline docstrings, and the addition of sphinx docs now available on [kalepy.readthedocs.io](kalepy.readthedocs.io).
   - This includes new demo/test notebooks which are automatically incorporated into the `README.md` and sphinx documentation.
