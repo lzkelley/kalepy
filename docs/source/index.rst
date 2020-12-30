@@ -11,6 +11,8 @@ Introduction
 
 .. image:: https://raw.githubusercontent.com/lzkelley/kalepy/dev/docs/media/logo_anim_small.gif
 
+`Fing kalepy on github <https://github.com/lzkelley/kalepy>`_.
+
 .. contents:: :local:
 
 Installation
