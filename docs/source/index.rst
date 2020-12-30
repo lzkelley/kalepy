@@ -3,6 +3,8 @@ Introduction
 
 *Multidimensional kernel density estimation for distribution functions, resampling, and plotting.*
 
+`kalepy on github <https://github.com/lzkelley/kalepy>`_
+
 |travis| |codecov| |rtd|
 
 .. |travis| image:: https://travis-ci.org/lzkelley/kalepy.svg?branch=master
@@ -10,8 +12,6 @@ Introduction
 .. |rtd| image:: https://readthedocs.org/projects/kalepy/badge/?version=latest
 
 .. image:: https://raw.githubusercontent.com/lzkelley/kalepy/dev/docs/media/logo_anim_small.gif
-
-`Fing kalepy on github <https://github.com/lzkelley/kalepy>`_.
 
 .. contents:: :local:
 

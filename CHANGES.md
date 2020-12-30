@@ -1,15 +1,13 @@
 ## To-Do / Known-Issues
-- **Optimization desperately needed**.  Things are done in (generally) the simplest ways, currently, need to be optimized for performance (both speed and memory [e.g. with reflections]).  Especially in the case of finite-support kernels, the calculations can be drastically sped up.  Can also use an approximation for infinite-support kernels, truncating at some threshold value of sigma (or percentile; etc).
+- **Optimization needed**.  Things are done in (generally) the simplest ways, currently, need to be optimized for performance (both speed and memory [e.g. with reflections]).  Especially in the case of finite-support kernels, the calculations can be drastically sped up.  Can also use an approximation for infinite-support kernels, truncating at some threshold value of sigma (or percentile; etc).
 - Try using `sp.stats.rv_continuous` as base-class for 'Distribution' to provide functionality like 'ppf' etc.
 - `Triweight` kernel is currently NOT-WORKING
   - The distribution is non-unitary for 2D distributions.  This might be a normalization issue when constructing the PDF (i.e. in `Triweight._evaluate()`) --- is this scaling for the nball correct??
 - Differences between covariance-matrix elements of numerous orders of magnitude can cause spurious results, in particular in the PDF marginalized over parameters.  See "KDE::Dynamic Range" docstrings.  Currently this is checked for in the `KDE._finalize()` method, at the end of initialization, and a warning is given if the dynamic range seems too large.
-- BUG: calculating marginalized PDF's by integrating over dimensions differs from calculating them directly!
-
-- Calculate CDF for particular parameters!
-
+- BUG: calculating marginalized PDF's by integrating over dimensions differs from calculating them directly
 - Move all checking/sanitizing functionality to `KDE` and have `kernels` (etc) assume it's correct.
   - e.g. extrema, points, reflection, params, etc
+- Add documenation/examples for base drawing functions in plotting submodule (e.g. `draw_contour2d`, `draw_hist1d`, etc).
 
 
 - `kalepy/`
@@ -30,11 +28,21 @@
 
 ## Current
 
-- BUG: `weights` was not being passed correctly during resampling (without reflection).
+
 - Complete restructure of `kalepy.plot` submodule, particularly in the API.
 - Extensive addition and improvements of documentation, both inline docstrings, and the addition of sphinx docs now available on [kalepy.readthedocs.io](kalepy.readthedocs.io).
   - This includes new demo/test notebooks which are automatically incorporated into the `README.md` and sphinx documentation.
-
+  - Documentation, testing, and examples are now included for core plotting functionality.  More is needed for the base drawing functions (e.g. `draw_contour2d`, `draw_hist1d`, etc)
+- `kalepy` paper
+  - Fixed typos pointed out by JOSS referees.
+  - Added citation and comparison to `GetDist` package.
+- BUG: `weights` was not being passed correctly during resampling (without reflection).
+- MAINT: fixed a huge number of deprecation warnings now raised by numpy about operations on jagged arrays.
+  - Improved functionality of `kale.utils.jshape` and `kale.utils.really1d` functions to accommodate.
+- General plotting improvements
+  - The handling of colors and colormaps: plotting methods will automatically select the next colorcycle color, construct a matching colormap, and synchronize the color of all plot components.
+  - The handling of quantiles for confidence and contour components: are now handles much more self-consistently and with a simpler API.
+  - Drawing functions (e.g. `carpet`, `dist1d` and `dist2d`) will load the current, active axes by default.
 
 
 ## v0.4 - 2020/10/12
