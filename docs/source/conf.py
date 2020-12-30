@@ -2,7 +2,7 @@
 #
 # This file only contains a selection of the most common options. For a full
 # list see the documentation:
-# http://www.sphinx-doc.org/en/master/config
+# https://www.sphinx-doc.org/en/master/usage/configuration.html
 
 # -- Path setup --------------------------------------------------------------
 
@@ -10,16 +10,19 @@
 # add these directories to sys.path here. If the directory is relative to the
 # documentation root, use os.path.abspath to make it absolute, like shown here.
 #
-# import os
-# import sys
-# sys.path.insert(0, os.path.abspath('.'))
+import os
+import sys
+sys.path.insert(0, os.path.abspath('../../kalepy/'))
 
 
 # -- Project information -----------------------------------------------------
 
 project = 'kalepy'
-copyright = '2019, Luke Zoltan Kelley and contributors'
-author = 'Luke Zoltan Kelley and contributors'
+copyright = '2020, Luke Zoltan Kelley and Contributors'
+author = 'Luke Zoltan Kelley'
+
+# The full version, including alpha/beta/rc tags
+release = '0.4'
 
 
 # -- General configuration ---------------------------------------------------
@@ -28,6 +31,11 @@ author = 'Luke Zoltan Kelley and contributors'
 # extensions coming with Sphinx (named 'sphinx.ext.*') or your custom
 # ones.
 extensions = [
+    'nbsphinx',                # convert notebooks to sphinx output
+    'sphinx.ext.napoleon',     # allow numpy/google style docstrings
+    'sphinx.ext.autodoc',      # auto-generate documentation from docstrings
+    'sphinx.ext.mathjax',      # render math in html using mathjax
+    'sphinx.ext.autosummary'
 ]
 
 # Add any paths that contain templates here, relative to this directory.
@@ -44,9 +52,34 @@ exclude_patterns = []
 # The theme to use for HTML and HTML Help pages.  See the documentation for
 # a list of builtin themes.
 #
-html_theme = 'alabaster'
+# html_theme = 'alabaster'
+html_theme = 'sphinx_rtd_theme'
 
 # Add any paths that contain custom static files (such as style sheets) here,
 # relative to this directory. They are copied after the builtin static files,
 # so a file named "default.css" will overwrite the builtin "default.css".
 html_static_path = ['_static']
+
+
+# -- Extensions Parameters ----------------------------------------------------
+
+# autodoc
+autoclass_content = 'both'
+autodoc_default_options = {
+    'autoclass_content': 'both',
+    'special-members': '__init__',
+}
+
+# Napoleon settings
+napoleon_google_docstring = True
+napoleon_numpy_docstring = True
+napoleon_include_init_with_doc = False
+napoleon_include_private_with_doc = False
+napoleon_include_special_with_doc = True
+napoleon_use_admonition_for_examples = False
+napoleon_use_admonition_for_notes = False
+napoleon_use_admonition_for_references = False
+napoleon_use_ivar = False
+napoleon_use_param = True
+napoleon_use_rtype = True
+napoleon_type_aliases = None

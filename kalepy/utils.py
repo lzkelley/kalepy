@@ -144,7 +144,7 @@ def check_path(fname):
 
 def cov_from_var_cor(var, corr):
     var = np.atleast_1d(var)
-    assert np.ndim(var) == 1, "`var` should be 1D!"
+    assert _ndim(var) == 1, "`var` should be 1D!"
     ndim = len(var)
     # Covariance matrix diagonals should be the variance (of each parameter)
     cov = np.identity(ndim) * var
@@ -183,7 +183,7 @@ def cumsum(vals, axis=None):
     """
 
     vals = np.asarray(vals)
-    nd = np.ndim(vals)
+    nd = _ndim(vals)
     if (axis is not None) or (nd == 1):
         return np.cumsum(vals, axis=axis)
 
@@ -214,9 +214,9 @@ def cumtrapz(pdf, edges, prepend=True, axis=None):
     cdf : ndarray of scalar
         Values integrated over the desired axes.
         Shape:
-            If `prepend` is False, the shape of `cdf` will be one smaller than the input `pdf`
-            in all dimensions integrated over.
-            If `prepend` is True, the shape of `cdf` will match that of the input `pdf`.
+        * If `prepend` is False, the shape of `cdf` will be one smaller than the input `pdf`
+        * in all dimensions integrated over.
+        * If `prepend` is True, the shape of `cdf` will match that of the input `pdf`.
 
     """
     # Convert from density to mass using trapezoid rule in each bin
@@ -226,7 +226,7 @@ def cumtrapz(pdf, edges, prepend=True, axis=None):
 
     # Prepend zeros to output array
     if prepend:
-        ndim = np.ndim(cdf)
+        ndim = _ndim(cdf)
         temp = [1, 0] if axis is None else [0, 0]
         padding = [temp for ii in range(ndim)]
         if axis is not None:
@@ -240,11 +240,11 @@ def cumtrapz(pdf, edges, prepend=True, axis=None):
 def histogram(data, bins=None, weights=None, density=False, probability=False):
     if bins is None:
         bins = 'auto'
-    hist, edges = np.histogram(data, bins=bins, weights=weights)
+    hist, edges = np.histogram(data, bins=bins, weights=weights, density=False)
     if density:
         hist = hist.astype(float) / np.diff(edges)
     if probability:
-        tot = data.size if weights is None else np.sum(weights)
+        tot = data.size if (weights is None) else np.sum(weights)
         hist = hist.astype(float) / tot
     return hist, edges
 
@@ -369,28 +369,28 @@ def modify_exists(path_fname):
     return fname
 
 
-def parse_edges(data, edges=None, extrema=None, weights=None,
+def parse_edges(data, edges=None, extrema=None, weights=None, params=None,
                 nmin=5, nmax=1000, pad=None, refine=1.0):
     """
     """
-    if np.ndim(data) not in [1, 2]:
+    if _ndim(data) not in [1, 2]:
         err = (
             "`data` (shape: {}) ".format(np.shape(data)) +
             "must have shape (N,) or (D, N) for `N` data points and `D` parameters!"
         )
         raise ValueError(err)
 
-    squeeze = (np.ndim(data) == 1)
+    squeeze = (_ndim(data) == 1)
     data = np.atleast_2d(data)
     npars = np.shape(data)[0]
 
     if pad is None:
         pad = 1 if extrema is None else 0
 
-    extrema = _parse_extrema(data, extrema=extrema, warn=False)
+    extrema = _parse_extrema(data, extrema=extrema, warn=False, params=params)
 
     # If `edges` provides a specification for each dimension, convert to npars*[edges]
-    if (np.ndim(edges) == 0) or (really1d(edges) and (np.size(edges) != npars)):
+    if (_ndim(edges) == 0) or (really1d(edges) and (np.size(edges) != npars)):
         edges = [edges] * npars
     elif len(edges) != npars:
         err = "length of `edges` ({}) does not match number of data dimensions ({})!".format(
@@ -424,7 +424,7 @@ def _get_edges_1d(edges, data, extrema, ndim, nmin, nmax, pad, weights=None, ref
 
     """
 
-    if np.ndim(edges) == 0:
+    if _ndim(edges) == 0:
         num_bins = edges
     elif really1d(edges):
         return edges
@@ -491,7 +491,8 @@ def _guess_edges(data, extrema=None, ndim=None, weights=None,
         raise ValueError("`bin_width` is negative (w1 = {}, w2 = {})!".format(w1, w2))
 
     num_bins = int(np.ceil(span_width / bin_width))
-    num_bins = np.clip(num_bins, num_min, num_max)
+    if (num_min is not None) or (num_max is not None):
+        num_bins = np.clip(num_bins, num_min, num_max)
 
     return num_bins, bin_width, extrema
 
@@ -534,7 +535,7 @@ def quantiles(values, percs=None, sigmas=None, weights=None, axis=None, values_s
     if percs is None:
         percs = sp.stats.norm.cdf(sigmas)
 
-    if np.ndim(values) > 1:
+    if _ndim(values) > 1:
         if axis is None:
             values = values.flatten()
 
@@ -580,13 +581,15 @@ def really1d(arr):
         Whether `arr` is purely 1D.
 
     """
-    if np.ndim(arr) != 1:
+    if _ndim(arr) != 1:
         return False
     # Empty list or array
     if len(arr) == 0:
         return True
-    if np.any(np.vectorize(np.ndim)(arr)):
+    # Each element must be a scalar
+    if np.any([np.shape(tt) != () for tt in arr]):
         return False
+
     return True
 
 
@@ -623,6 +626,7 @@ def isjagged(arr):
 def jshape(arr, level=0, printout=False, prepend="", indent="  "):
     """Print the complete shape (even if jagged) of the given array.
     """
+    arr = np.asarray(arr, dtype=object)
     if printout:
         print(prepend + indent*level + str(np.shape(arr)))
 
@@ -805,7 +809,7 @@ def trapz_dens_to_mass(pdf, edges, axis=None):
         e.g. `[[x0, x1, ... xn], [y0, y1, ... ym], ...]`
         The length of each sub-list in `edges`, must match the shape of `pdf`.
         e.g. if `edges` is a (3,) list, composed of sub-lists with lengths: `[N, M, L,]` then
-             the shape of `pdf` must be `(N, M, L,)`.
+        the shape of `pdf` must be `(N, M, L,)`.
     axis : int, array_like int, or None
         Along which axes to convert from density to mass.
 
@@ -858,7 +862,7 @@ def trapz_dens_to_mass(pdf, edges, axis=None):
         widths.append(temp)
 
     # Multiply the widths along each dimension to get the volume of each grid cell
-    volumes = np.product(widths, axis=0)
+    volumes = np.product(np.array(widths, dtype=object), axis=0).astype(float)
     # NOTE
     assert np.all(np.shape(volumes) == shp_out), "BAD `volume` shape!"
 
@@ -995,6 +999,13 @@ def _python_environment():
         return 'script'
 
 
+def _ndim(vals):
+    import warnings
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        return np.ndim(vals)
+
+
 class _DummyError(Exception):
     pass
 
@@ -1022,10 +1033,11 @@ class Test_Base(object):
         return value
 
 
-def _parse_extrema(data, extrema=None, warn=True):
+def _parse_extrema(data, extrema=None, params=None, warn=True):
     """Get extrema (min and max) consistent with the given `data`.
 
     `data` must have shape (D, N) for `D` parameters/dimensions, and `N` data points.
+
     `extrema` can be:
         None: extrema are calculated
         (2,): extrema taken as the same for each dimension
@@ -1037,7 +1049,7 @@ def _parse_extrema(data, extrema=None, warn=True):
     """
 
     # `data` must be shaped as (D, N)
-    if np.ndim(data) != 2:
+    if _ndim(data) != 2:
         err = "`data` must be shaped (D, N) for `D` dimensions/parameters and `N` data points!"
         raise ValueError(err)
 
@@ -1046,15 +1058,17 @@ def _parse_extrema(data, extrema=None, warn=True):
     data_extrema = [minmax(dd) for dd in data]
     if extrema is None:
         extrema = data_extrema
+    elif (params is not None) and (len(extrema) != npars):
+        extrema = [extrema[pp] for pp in params]
 
     # Check components of given `extrema` to make sure they are valid
     #   fill in any `None` values with extrema from the data
     else:
         # Convert from (2,) ==> (D, 2)
-        if np.shape(extrema) == (2,) and really1d(extrema):
+        if really1d(extrema) and (np.shape(extrema) == (2,)):
             extrema = [extrema for ii in range(npars)]
         # If already (D, 2) we're good, keep going
-        elif np.shape(extrema) == (npars, 2):
+        elif np.shape(np.array(extrema, dtype=object)) == (npars, 2):
             pass
         # If jagged (D,) array
         elif len(extrema) == npars:
@@ -1064,7 +1078,7 @@ def _parse_extrema(data, extrema=None, warn=True):
         # Otherwise bad
         else:
             err = "`extrema` shape '{}' unrecognized for {} parameters!".format(
-                np.shape(extrema), npars)
+                jshape(extrema), npars)
             raise ValueError(err)
 
         # Fill in `None` values and check if given `extrema` is out of bounds for data
@@ -1088,6 +1102,21 @@ def _parse_extrema(data, extrema=None, warn=True):
                     logging.warning(msg)
 
     return extrema
+
+
+def _dep_warn(old_name, new_name=None, msg=None, lvl=3, type='function'):
+    """Standardized deprecation warning for `zcode` package.
+    """
+    import warnings
+    warnings.simplefilter('always', DeprecationWarning)
+    warn = "WARNING: {} `{}` is deprecated.".format(type, old_name)
+    if new_name is not None:
+        warn += "  Use `{}` instead.".format(new_name)
+    if msg is not None:
+        warn += "  '{}'".format(msg)
+
+    warnings.warn(warn, DeprecationWarning, stacklevel=lvl)
+    return
 
 
 '''
@@ -1140,56 +1169,33 @@ def ave_std(values, weights=None, **kwargs):
 '''
 
 
-def _random_data_3d_01(num=1e3):
+def _random_data_1d_01(num=1e4):
     num = int(num)
+    np.random.seed(12345)
+    _d1 = np.random.normal(4.0, 1.0, num//2)
+    _d2 = np.random.lognormal(0, 0.5, size=num - _d1.size)
+    data = np.concatenate([_d1, _d2])
 
-    sigma = [1.0, 0.2, 1.5]
-    corr = [
-        [+1.4, +0.8, +0.4],
-        [+0.8, +1.0, -0.5],
-        [+0.2, -0.5, +1.0]
-    ]
+    xx = np.linspace(0.0, 7.0, 200)[1:]
+    yy = 0.5*np.exp(-(xx - 4.0)**2/2) / np.sqrt(2*np.pi)
+    yy += 0.5 * np.exp(-np.log(xx)**2/(2*0.5**2)) / (0.5*xx*np.sqrt(2*np.pi))
 
-    cov = np.zeros_like(corr)
-    for (ii, jj), cc in np.ndenumerate(corr):
-        cov[ii, jj] = cc * sigma[ii] * sigma[jj]
-
-    data = np.random.multivariate_normal(np.zeros_like(sigma), cov, num).T
-    dd = data[1, :]
-    dd = (dd - dd.min())/dd.max()
-    data *= np.sqrt(dd)[np.newaxis, :]
-
-    pc = 0
-    extr = [np.percentile(dd, [0+pc, 100-pc]) for dd in data]
-    noise = [np.random.uniform(*ex, num//5) for ex in extr]
-    data = np.append(data, noise, axis=1)
-
-    return data
+    truth = [xx, yy]
+    return data, truth
 
 
-def _random_data_3d_02(num=1e3, noise=0.2):
+def _random_data_1d_02(num=1e4):
     num = int(num)
+    np.random.seed(12345)
+    _d1 = np.random.normal(1.0, 1.0, num//2)
+    _d2 = np.random.uniform(1.0, 3.0, size=num - _d1.size)
+    data = np.concatenate([_d1, _d2])
 
-    sigma = [1.0, 0.2, 1.5]
-    corr = [
-        [+1.4, +0.8, +0.4],
-        [+0.8, +1.0, -0.5],
-        [+0.2, -0.5, +1.0]
-    ]
-
-    cov = np.zeros_like(corr)
-    for (ii, jj), cc in np.ndenumerate(corr):
-        cov[ii, jj] = cc * sigma[ii] * sigma[jj]
-
-    data = np.random.multivariate_normal(np.zeros_like(sigma), cov, num).T
-    dd = data[1, :]
-    dd = (dd - dd.min())/dd.max()
-    data *= np.sqrt(dd)[np.newaxis, :]
-
-    nn = int(num*noise)
-    noise = [np.random.normal(data[ii, :].mean(), 2*ss, nn) for ii, ss in enumerate(sigma)]
-    sel = np.random.choice(num, nn, replace=False)
-    data[:, sel] = np.array(noise)
+    # xx = np.linspace(0.0, 7.0, 200)[1:]
+    # yy = 0.5*np.exp(-(xx - 4.0)**2/2) / np.sqrt(2*np.pi)
+    # yy += 0.5 * np.exp(-np.log(xx)**2/(2*0.5**2)) / (0.5*xx*np.sqrt(2*np.pi))
+    #
+    # truth = [xx, yy]
     return data
 
 
@@ -1238,4 +1244,113 @@ def _random_data_2d_02(num=1e3, noise=0.2):
     # idx = np.random.choice(num, num//2, replace=False)
     # np.random.shuffle(np.array(data)[:, idx])
 
+    return data
+
+
+def _random_data_2d_03(num=1e3):
+    num = int(num)
+
+    aa = np.random.lognormal(0.0, 0.3, size=3*num) - 1
+    aa += np.random.uniform(-1.0, 1.0, aa.size)
+    aa = aa[aa > 0.0]
+    aa = np.random.choice(aa, size=num, replace=False)
+    cc = np.random.power(2, size=num)
+
+    # Make `aa` and `cc` strongly covariant
+    COV = 0.1    # the smaller the value, the stronger the covariance
+    aa = np.sort(aa)
+    c1 = cc / cc.max()
+    a1 = (aa / aa.max())**(1/4)
+    xx = a1**2 + c1**2 + np.random.normal(0.0, COV, size=a1.size)
+    idx = np.argsort(xx)
+    cc = cc[idx]
+
+    #    unsort `aa` and keep covariance
+    idx = np.arange(aa.size)
+    np.random.shuffle(idx)
+    aa = aa[idx]
+    cc = cc[idx]
+
+    data = [aa, cc]
+    return data
+
+
+def _random_data_3d_01(num=1e3):
+    num = int(num)
+
+    sigma = [1.0, 0.2, 1.5]
+    corr = [
+        [+1.4, +0.8, +0.4],
+        [+0.8, +1.0, -0.25],
+        [+0.4, -0.25, +1.0]
+    ]
+
+    cov = np.zeros_like(corr)
+    for (ii, jj), cc in np.ndenumerate(corr):
+        cov[ii, jj] = cc * sigma[ii] * sigma[jj]
+
+    data = np.random.multivariate_normal(np.zeros_like(sigma), cov, num).T
+    dd = data[1, :]
+    dd = (dd - dd.min())/dd.max()
+    data *= np.sqrt(dd)[np.newaxis, :]
+
+    pc = 0
+    extr = [np.percentile(dd, [0+pc, 100-pc]) for dd in data]
+    noise = [np.random.uniform(*ex, num//5) for ex in extr]
+    data = np.append(data, noise, axis=1)
+
+    return data
+
+
+def _random_data_3d_02(num=1e3, noise=0.2):
+    num = int(num)
+
+    sigma = [1.0, 0.2, 1.5]
+    corr = [
+        [+1.4, +0.8, +0.4],
+        [+0.8, +1.0, -0.25],
+        [+0.4, -0.25, +1.0]
+    ]
+
+    cov = np.zeros_like(corr)
+    for (ii, jj), cc in np.ndenumerate(corr):
+        cov[ii, jj] = cc * sigma[ii] * sigma[jj]
+
+    data = np.random.multivariate_normal(np.zeros_like(sigma), cov, num).T
+    dd = data[1, :]
+    dd = (dd - dd.min())/dd.max()
+    data *= np.sqrt(dd)[np.newaxis, :]
+
+    nn = int(num*noise)
+    noise = [np.random.normal(data[ii, :].mean(), 2*ss, nn) for ii, ss in enumerate(sigma)]
+    sel = np.random.choice(num, nn, replace=False)
+    data[:, sel] = np.array(noise)
+    return data
+
+
+def _random_data_3d_03(num=1e3, par=[0.0, 0.5], cov=0.1):
+    num = int(num)
+
+    aa = np.random.lognormal(*par, size=3*num) - 1
+    aa = aa[aa > 0.0]
+    aa = np.random.choice(aa, size=num, replace=False)
+    bb = np.random.normal(scale=par[1], size=num)
+    cc = np.random.power(2, size=num)
+
+    # Make `aa` and `cc` strongly covariant
+    # cov = 0.1    # the smaller the value, the stronger the covariance
+    aa = np.sort(aa)
+    c1 = cc / cc.max()
+    a1 = (aa / aa.max())**(1/4)
+    xx = a1**2 + c1**2 + np.random.normal(0.0, cov, size=a1.size)
+    idx = np.argsort(xx)
+    cc = cc[idx]
+
+    #    unsort `aa` and keep covariance
+    idx = np.arange(aa.size)
+    np.random.shuffle(idx)
+    aa = aa[idx]
+    cc = cc[idx]
+
+    data = [aa, bb, cc]
     return data

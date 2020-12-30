@@ -70,7 +70,8 @@ def repeat(fname, times):
 
 titles = ['KDE', 'Resample']
 
-for ii, NN in enumerate(tqdm.tqdm_notebook(vals)):
+# for ii, NN in enumerate(tqdm.tqdm_notebook(vals)):
+for ii, NN in enumerate(vals):
     last = (ii == len(vals)-1)
     for jj, ax in enumerate(axes):
         ax.cla()

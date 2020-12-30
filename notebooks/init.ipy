@@ -12,18 +12,12 @@ import matplotlib as mpl
 import matplotlib.pyplot as plt
 from nose import tools
 
-import tqdm
-import memory_profiler as mpro
-
 import kalepy as kale
 import kalepy.utils
 import kalepy.plot
-from kalepy.plot import nbshow   # NOTE: this should be upgraded to `plot_control`
-from kalepy.plot import plot_control
+# The `nbshow` command runs `plt.show()` in interactive jupyter notebooks, but closes
+#   figures when run from the command-line (notebooks are converted to scripts and run as tests)
+from kalepy.plot import nbshow
 
-def _save_fig(fig, fname, **kwargs):
-    kwargs.setdefault('path', kale._PATH_NB_OUT)
-    kwargs.setdefault('rename', True)
-    return kale.plot._save_fig(fig, fname, **kwargs)
-    
-save_fig = _save_fig
+import warnings
+warnings.simplefilter("error")

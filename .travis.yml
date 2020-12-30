@@ -1,10 +1,10 @@
 language: python
 python:
-  - "3.5"
-  - "3.5-dev"
   - "3.6"
   - "3.6-dev"
   - "3.7-dev"
+  - "3.8"
+  - "3.8-dev"
 
 # Enable 3.7 without globally enabling sudo and dist: xenial for other build jobs
 # See: https://github.com/travis-ci/travis-ci/issues/9815
@@ -16,7 +16,7 @@ matrix:
 
 # command to install dependencies
 install:
-  - pip install -r requirements.txt
+  - pip install -r dev-requirements.txt
   - pip install numpy --upgrade
   - pip install .
 
@@ -25,7 +25,7 @@ script:
   - python -c "import numpy; print(numpy.__version__); import scipy; print(scipy.__version__); import matplotlib; print(matplotlib.__version__)"
   - python -c "import kalepy; print(kalepy.__file__)"
   - python convert_notebook_tests.py
-  - nosetests --with-coverage --cover-inclusive --with-doctest --cover-package=kalepy
+  - nosetests --with-coverage --cover-inclusive --with-doctest --cover-package=kalepy kalepy/
 
 after_success:
   - codecov
