@@ -49,7 +49,7 @@ One dimensional kernel density estimation:
    points, density = kale.density(data, points=None)
    plt.plot(points, density, 'k-', lw=2.0, alpha=0.8, label='KDE')
 
-.. image:: https://raw.githubusercontent.com/lzkelley/kalepy/dev/docs/media/demo_files/demo_8_0.png
+.. image:: https://raw.githubusercontent.com/lzkelley/kalepy/dev/docs/media/kde1d.png
     :alt: my-picture1
 
 
@@ -62,7 +62,7 @@ One dimensional resampling:
     samples = kale.resample(data)
     plt.hist(samples, density=True, alpha=0.5, label='new samples', color='0.65', edgecolor='b')
 
-.. image:: https://raw.githubusercontent.com/lzkelley/kalepy/dev/docs/media/demo_files/demo_11_0.png
+.. image:: https://raw.githubusercontent.com/lzkelley/kalepy/dev/docs/media/resamp1d.png
 
 
 Multi-dimensional kernel density estimation:
@@ -75,7 +75,7 @@ Multi-dimensional kernel density estimation:
     # Build a corner plot using the `kalepy` plotting submodule
     corner = kale.corner(kde)
 
-.. image:: https://raw.githubusercontent.com/lzkelley/kalepy/dev/docs/media/demo_files/demo_13_1.png
+.. image:: https://raw.githubusercontent.com/lzkelley/kalepy/dev/docs/media/kde3dresamp.png
 
 
 

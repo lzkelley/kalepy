@@ -381,7 +381,7 @@ class Corner:
         return rv
 
     def plot_kde(self, kde=None, edges=None, weights=None, quantiles=None, limit=None,
-                 color=None, cmap=None, dist1d={}, dist2d={}):
+                 ls='-', color=None, cmap=None, dist1d={}, dist2d={}):
         """Plot with default settings to emphasize the KDE derived distributions.
 
         This function coordinates the drawing of a corner plot that ultimately uses the
@@ -465,6 +465,8 @@ class Corner:
         # quantiles, _ = _default_quantiles(quantiles=quantiles)
         dist1d.setdefault('quantiles', quantiles)
         dist2d.setdefault('quantiles', quantiles)
+        dist1d.setdefault('ls', ls)
+        dist2d.setdefault('ls', ls)
 
         # Set default color or cmap as needed
         color, cmap = _parse_color_cmap(ax=axes[0][0], color=color, cmap=cmap)
@@ -740,8 +742,8 @@ def corner(kde_data, labels=None, kwcorner={}, **kwplot):
 
     """
     corner = Corner(kde_data, labels=labels, **kwcorner)
-    corner.plot(**kwplot)
-    return corner
+    handle = corner.plot(**kwplot)
+    return corner, handle
 
 
 '''
@@ -1043,7 +1045,8 @@ def contour(data, edges=None, ax=None, weights=None,
 
 
 def dist1d(kde_data, ax=None, edges=None, weights=None, probability=True, param=0, rotate=False,
-           density=None, confidence=False, hist=None, carpet=True, color=None, quantiles=None):
+           density=None, confidence=False, hist=None, carpet=True, color=None, quantiles=None,
+           ls=None, **kwargs):
     """Draw 1D data distributions with numerous possible components.
 
     The components of the plot are controlled by the arguments:
@@ -1097,6 +1100,11 @@ def dist1d(kde_data, ax=None, edges=None, weights=None, probability=True, param=
 
     quantiles : array_like of scalar values in [0.0, 1.0] denoting the fractions of data to mark.
 
+    ls : str or None, matplotlib linestyle specification
+
+    **kwargs : additional keyword-arguments passed to `plt.plot` command when plotting 'density'
+        and 'hist' components.
+
     """
 
     # ---- Set parameters
@@ -1141,21 +1149,27 @@ def dist1d(kde_data, ax=None, edges=None, weights=None, probability=True, param=
                 raise
 
         # If histogram is also being plotted (as a solid line) use a dashed line
-        ls = '--' if hist else '-'
+        if ls is None:
+            _ls = '--' if hist else '-'
+        else:
+            _ls = ls
 
         # Calculate KDE density distribution for the given parameter
-        points, pdf = kde.density(probability=probability, params=param)
+        xx, yy = kde.density(probability=probability, params=param)
         # Plot
         if rotate:
-            handle, = ax.plot(pdf, points, color=color, ls=ls)
-        else:
-            handle, = ax.plot(points, pdf, color=color, ls=ls)
+            temp = xx
+            xx = yy
+            yy = temp
+
+        handle, = ax.plot(xx, yy, color=color, ls=_ls, **kwargs)
 
     # Draw Histogram
     if hist:
         _, _, hh = hist1d(
             data, ax=ax, edges=edges, weights=weights, color=color,
-            density=True, probability=probability, joints=True, rotate=rotate
+            density=True, probability=probability, joints=True, rotate=rotate,
+            ls=ls, **kwargs
         )
         if handle is None:
             handle = hh
@@ -1176,7 +1190,7 @@ def dist1d(kde_data, ax=None, edges=None, weights=None, probability=True, param=
 
 
 def dist2d(kde_data, ax=None, edges=None, weights=None, params=[0, 1],
-           quantiles=None, color=None, cmap=None, smooth=None, upsample=None, pad=True,
+           quantiles=None, color=None, cmap=None, smooth=None, upsample=None, pad=True, ls='-',
            median=True, scatter=True, contour=True, hist=True, mask_dense=None, mask_below=True):
     """Draw 2D data distributions with numerous possible components.
 
@@ -1245,6 +1259,8 @@ def dist2d(kde_data, ax=None, edges=None, weights=None, params=[0, 1],
         if int: the number of edge bins added to the histogram to close contours hitting the edges
         if true: the default padding size is used
         if `None` or `False`: no padding is used.
+
+    ls : str or `None`, matplotlib linestyle specification for 'contour' and 'mdedian' components.
 
     median : bool, mark the location of the median values in both dimensions (cross-hairs style).
 
@@ -1335,7 +1351,7 @@ def dist2d(kde_data, ax=None, edges=None, weights=None, params=[0, 1],
             # Load path_effects
             outline = _get_outline_effects()
             # Draw
-            func(med, color=color, ls='-', alpha=0.25, lw=1.0, zorder=40, path_effects=outline)
+            func(med, color=color, ls=ls, alpha=0.25, lw=1.0, zorder=40, path_effects=outline)
 
     # ---- Draw 2D Histogram
     # We may need edges and histogram for `mask_dense` later; store them from hist2d or contour2d
@@ -1364,7 +1380,7 @@ def dist2d(kde_data, ax=None, edges=None, weights=None, params=[0, 1],
         # Plot
         _ee, _hh, _ = draw_contour2d(
             ax, points, pdf, quantiles=quantiles, smooth=smooth, upsample=upsample, pad=pad,
-            cmap=contour_cmap, zorder=20,
+            cmap=contour_cmap, zorder=20, ls=ls
         )
 
     # Mask dense scatter-points

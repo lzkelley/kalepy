@@ -133,14 +133,23 @@ nbshow()
 
 
 ```python
+reload(kale.plot)
+
 # Load some random-ish three-dimensional data
-data = kale.utils._random_data_3d_02()
+np.random.seed(9485)
+data = kale.utils._random_data_3d_02(num=3e3)
 
 # Construct a KDE
 kde = kale.KDE(data)
 
+# Construct new data by resampling from the KDE
+resamp = kde.resample(size=1e3)
+
 # Plot the data and distributions using the builtin `kalepy.corner` plot
-kale.corner(kde)
+corner, h1 = kale.corner(kde, quantiles=[0.5, 0.9])
+h2 = corner.clean(resamp, quantiles=[0.5, 0.9], dist2d=dict(median=False), ls='--')
+
+corner.legend([h1, h2], ['input data', 'new samples'])
 
 nbshow()
 ```

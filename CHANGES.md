@@ -31,11 +31,10 @@
 ## Current
 
 - BUG: `weights` was not being passed correctly during resampling (without reflection).
-- For carpet plotting, use `kalepy.plot.carpet()`  (instad of `draw_carpet()`)
+- Complete restructure of `kalepy.plot` submodule, particularly in the API.
+- Extensive addition and improvements of documentation, both inline docstrings, and the addition of sphinx docs now available on [kalepy.readthedocs.io](kalepy.readthedocs.io).
+  - This includes new demo/test notebooks which are automatically incorporated into the `README.md` and sphinx documentation.
 
-- `kalepy/`
-    - `plot.py`
-        - Use `carpet()` as the primary API for what was `draw_carpet()` before; leave the latter for internal use (to simplify other functions parameters).
 
 
 ## v0.4 - 2020/10/12
