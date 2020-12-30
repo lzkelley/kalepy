@@ -36,8 +36,8 @@ Quickstart
 ----------
 
 | Basic examples are shown below.
-| `The top-level API is documented on the page linked here <api.html>`_.
-| `Examples of typical usage are linked here <demo.html>`_, or `in the README file here <https://github.com/lzkelley/kalepy/blob/master/README.md>`_.
+| `The top-level API is documented here, with many KDE and plotting examples, <api.html>`_
+| `The README file on github also includes installation and quickstart examples. <https://github.com/lzkelley/kalepy/blob/master/README.md>`_
 
 One dimensional kernel density estimation:
 ******************************************
