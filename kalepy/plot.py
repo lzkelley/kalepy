@@ -1683,8 +1683,9 @@ def draw_contour2d(ax, edges, hist, quantiles=None, levels=None,
         raise ValueError("`outline` must be either 'True' or 'False'!")
 
     if cbar is not None:
+        # cmap is coming from the contours themselves, so do not invert them
         smap = mpl.cm.ScalarMappable(norm=cont.norm, cmap=cont.cmap)
-        _draw_colorbar_contours(cbar, levels, smap=smap)
+        _draw_colorbar_contours(cbar, levels, smap=smap, invert=False)
 
     return edges, hist, cont
 
