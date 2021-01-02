@@ -294,17 +294,17 @@ ylabels = ['Automatic', 'Course', 'Fine']
 fig, axes = plt.subplots(figsize=[16, 10], ncols=len(kernels), nrows=len(bandwidths), sharex=True, sharey=True)
 plt.subplots_adjust(hspace=0.2, wspace=0.05)
 for (ii, jj), ax in np.ndenumerate(axes):
-    
+
     # ---- Construct KDE using particular kernel-function and bandwidth ---- #
-    kern = kernels[jj]                                                       # 
+    kern = kernels[jj]                                                       #
     bw = bandwidths[ii]                                                      #
     kde = kale.KDE(data, kernel=kern, bandwidth=bw)                          #
     # ---------------------------------------------------------------------- #
-    
+
     # If bandwidth was set to `None`, then the KDE will choose the 'optimal' value
     if bw is None:
         bw = kde.bandwidth[0, 0]
-        
+
     ax.set_title('{} (bw={:.3f})'.format(kern, bw))
     if jj == 0:
         ax.set_ylabel(ylabels[ii])
@@ -315,7 +315,7 @@ for (ii, jj), ax in np.ndenumerate(axes):
     ax.hist(data, bins='auto', color='b', alpha=0.2, density=True)
     # plot  carpet   of the data (same for all panels)
     kale.carpet(data, ax=ax, color='b')
-    
+
 ax.set(xlim=[-2, 5], ylim=[-0.2, 0.6])
 nbshow()
 ```
@@ -334,10 +334,10 @@ nbshow()
 data, truth = kale.utils._random_data_1d_01()
 
 # ---- Resample the same data, using different weightings ---- #
-resamp_uni = kale.resample(data, size=1000)                       # 
+resamp_uni = kale.resample(data, size=1000)                       #
 resamp_sqr  = kale.resample(data, weights=data**2, size=1000)      #
 resamp_inv = kale.resample(data, weights=data**-1, size=1000)     #
-# ------------------------------------------------------------ # 
+# ------------------------------------------------------------ #
 
 
 # ---- Plot different distributions ----
@@ -381,7 +381,7 @@ data = [xx, yy]
 # 2D plotting settings: disable the 2D histogram & disable masking of dense scatter-points
 dist2d = dict(hist=False, mask_dense=False)
 
-# Draw a corner plot 
+# Draw a corner plot
 kale.corner(data, dist2d=dist2d)
 
 nbshow()
@@ -417,8 +417,7 @@ nbshow()
 
 ## Development & Contributions
 
-Please visit the `github page <https://github.com/lzkelley/kalepy>`_ for issues or bug reports.  Contributions and feedback are very welcome.
-
+Please visit the [github page to make contributions to the package](https://github.com/lzkelley/kalepy).  Particularly if you encounter any difficulties or bugs in the code, please [submit an issue](https://github.com/lzkelley/kalepy/issues), which can also be used to ask questions about usage, or to submit general suggestions and feature requests.  Direct additions, fixes, or other contributions are very welcome which can be done by submitting [pull requests](https://github.com/lzkelley/kalepy/pulls).  Additional information on development, making contributions, and unit-tests can be found on either [kalepy.readthedocs.io](https://kalepy.readthedocs.io/en/latest/#development-contributions) or in the [DEVELOPMENT file](https://github.com/lzkelley/kalepy/tree/master/DEVELOPMENT.rst).
 
 ## Attribution
 
@@ -432,4 +431,3 @@ A JOSS paper has been submitted.  If you have found this package useful in your 
       journal = {The Journal of Open Source Software},
       publisher = {The Open Journal},
     }
-
