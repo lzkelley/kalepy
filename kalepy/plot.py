@@ -13,19 +13,35 @@ fairly large number of keyword arguments for customization.  The top level API m
 additional customization is possible by using the drawing methods directly, and optionally
 subclassing the `Corner` class to provide additional or different functionality.
 
-API Contents
+Plotting API
 ------------
-- `Corner` : class for corner/triangle/pair plots.
-- `corner` : method which constructs a `Corner` instance and plots 1D and 2D distributions.
 
-- `dist1d` : plot a 1D distribution with numerous possible elements (e.g. histogram, carpet, etc)
-- `dist2d` : plot a 2D distribution with numerous possible elements (e.g. histogram, contours, etc)
+- :class:`Corner <kalepy.plot.Corner>` :
+  class for corner/triangle/pair plots.
 
-- `carpet` : draw a 1D scatter-like plot to semi-quantitatively depict a distribution.
-- `contour` : draw a 2D contour plot. A wrapper of additional functionality around `plt.contour`
-- `confidence` : draw 1D confidence intervals using shaded bands.
-- `hist1d` : draw a 1D histogram
-- `hist2d` : draw a 2D histogram.  A wrapper of additional functionality around `plt.pcolormesh`
+- :func:`corner <kalepy.plot.corner>` :
+  method which constructs a `Corner` instance and plots 1D and 2D distributions.
+
+- :func:`dist1d <kalepy.plot.dist1d>` :
+  plot a 1D distribution with numerous possible elements (e.g. histogram, carpet, etc)
+
+- :func:`dist2d <kalepy.plot.dist2d>` :
+  plot a 2D distribution with numerous possible elements (e.g. histogram, contours, etc)
+
+- :func:`carpet <kalepy.plot.carpet>` :
+  draw a 1D scatter-like plot to semi-quantitatively depict a distribution.
+
+- :func:`contour <kalepy.plot.contour>` :
+  draw a 2D contour plot. A wrapper of additional functionality around `plt.contour`
+
+- :func:`confidence <kalepy.plot.confidence>` :
+  draw 1D confidence intervals using shaded bands.
+
+- :func:`hist1d <kalepy.plot.hist1d>` :
+  draw a 1D histogram
+
+- :func:`hist2d <kalepy.plot.hist2d>` :
+  draw a 2D histogram.  A wrapper of additional functionality around `plt.pcolormesh`
 
 """
 
@@ -1593,8 +1609,8 @@ def draw_hist2d(ax, edges, hist, mask_below=None, **kwargs):
     return edges, hist, rv
 
 
-def draw_contour2d(ax, edges, hist, quantiles=None, smooth=None, upsample=None, pad=True,
-                   outline=True, **kwargs):
+def draw_contour2d(ax, edges, hist, quantiles=None, levels=None,
+                   smooth=None, upsample=None, pad=True, outline=True, cbar=None, **kwargs):
 
     LW = 1.5
 
@@ -1631,7 +1647,9 @@ def draw_contour2d(ax, edges, hist, quantiles=None, smooth=None, upsample=None, 
     edges = [xx, yy]
 
     # ---- Setup parameters
-    _, levels, quantiles = _dfm_levels(hist, quantiles=quantiles)
+    if levels is None:
+        _, levels, quantiles = _dfm_levels(hist, quantiles=quantiles)
+
     alpha = kwargs.setdefault('alpha', 0.8)
     lw = kwargs.pop('linewidths', kwargs.pop('lw', LW))
     kwargs.setdefault('linestyles', kwargs.pop('ls', '-'))
@@ -1663,6 +1681,10 @@ def draw_contour2d(ax, edges, hist, quantiles=None, smooth=None, upsample=None, 
 
     elif (outline is not False):
         raise ValueError("`outline` must be either 'True' or 'False'!")
+
+    if cbar is not None:
+        smap = mpl.cm.ScalarMappable(norm=cont.norm, cmap=cont.cmap)
+        _draw_colorbar_contours(cbar, levels, smap=smap)
 
     return edges, hist, cont
 
@@ -1966,6 +1988,44 @@ def _cut_colormap(cmap, min=0.0, max=1.0, n=10):
     return new_cmap
 
 
+def _draw_colorbar_contours(cbar, levels, invert=True, colors=None, smap=None):
+    ax = cbar.ax
+
+    if colors is None:
+        if smap is None:
+            colors = ['0.5' for ll in levels]
+        else:
+            use_smap = smap
+            if invert:
+                use_smap = mpl.cm.ScalarMappable(norm=smap.norm, cmap=smap.cmap.reversed())
+            colors = [use_smap.to_rgba(ll) for ll in levels]
+
+    orient = cbar.orientation
+    if orient.startswith('v'):
+        line_func = ax.axhline
+    elif orient.startswith('h'):
+        line_func = ax.axvline
+    else:
+        raise RuntimeError("UNKNOWN ORIENTATION '{}'!".format(orient))
+
+    for ll, cc, bg in zip(levels, colors, colors[::-1]):
+        effects = ([
+            mpl.patheffects.Stroke(linewidth=4.0, foreground=bg, alpha=0.5),
+            mpl.patheffects.Normal()
+        ])
+        line_func(ll, 0.0, 1.0, color=cc, path_effects=effects, lw=2.0)
+
+    return
+
+
+def _invert_color(col):
+    rgba = mpl.colors.to_rgba(col)
+    alpha = rgba[-1]
+    col = 1.0 - np.array(rgba[:-1])
+    col = tuple(col.tolist() + [alpha])
+    return col
+
+
 def nbshow():
     return utils.run_if_notebook(plt.show, otherwise=lambda: plt.close('all'))
 
@@ -2094,43 +2154,6 @@ def align_axes_loc(tw, ax, ymax=None, ymin=None, loc=0.0):
     return new_ylim
 '''
 
-'''
-def _draw_colorbar_contours(cbar, levels, colors=None, smap=None):
-    ax = cbar.ax
-
-    if colors is None:
-        if smap is None:
-            colors = ['0.5' for ll in levels]
-        else:
-            colors = [smap.to_rgba(ll) for ll in levels]
-            # colors = [_invert_color(cc) for cc in colors]
-
-    orient = cbar.orientation
-    if orient.startswith('v'):
-        line_func = ax.axhline
-    elif orient.startswith('h'):
-        line_func = ax.axvline
-    else:
-        raise RuntimeError("UNKNOWN ORIENTATION '{}'!".format(orient))
-
-    for ll, cc, bg in zip(levels, colors, colors[::-1]):
-        effects = ([
-            mpl.patheffects.Stroke(linewidth=4.0, foreground=bg, alpha=0.5),
-            mpl.patheffects.Normal()
-        ])
-        line_func(ll, 0.0, 1.0, color=cc, path_effects=effects, lw=2.0)
-
-    return
-'''
-
-'''
-def _invert_color(col):
-    rgba = mpl.colors.to_rgba(col)
-    alpha = rgba[-1]
-    col = 1.0 - np.array(rgba[:-1])
-    col = tuple(col.tolist() + [alpha])
-    return col
-'''
 
 '''
 if colorbar:

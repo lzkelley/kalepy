@@ -1,4 +1,9 @@
-"""
+"""kalepy's top-level KDE class which provides all direct KDE functionality.
+
+Contents:
+
+- :class:`KDE <kalepy.kde.KDE>` : class for interfacing with KDEs and derived functionality.
+
 """
 import logging
 import six
@@ -9,6 +14,9 @@ import scipy as sp
 
 from kalepy import kernels, utils, _NUM_PAD
 from kalepy import _BANDWIDTH_DEFAULT
+
+
+__all__ = ['KDE']
 
 
 class KDE(object):

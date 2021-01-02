@@ -89,7 +89,6 @@ A number of examples are included in `the package notebooks <https://github.com/
    :caption: Contents:
    
    introduction <index>
-   demo
    kalepy API <api>
    Full Package Documentation <kalepy>
 
