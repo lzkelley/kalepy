@@ -1,4 +1,4 @@
-"""Simple utility methods.
+"""kalepy's internal, utility functions.
 """
 import logging
 import os
@@ -503,6 +503,12 @@ def iqrange(data, log=False, weights=None):
         data = np.log10(data)
     iqr = np.subtract(*quantiles(data, percs=[0.75, 0.25], weights=weights))
     return iqr
+
+
+def iqcenter(data, weights=None, axis=None):
+    qr = quantiles(data, percs=[0.75, 0.25], weights=weights, axis=axis)
+    print("qr = ", qr.shape)
+    return np.mean(qr, axis=0)
 
 
 def quantiles(values, percs=None, sigmas=None, weights=None, axis=None, values_sorted=False):
