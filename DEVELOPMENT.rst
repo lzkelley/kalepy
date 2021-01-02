@@ -1,6 +1,9 @@
 Development
 ===========
 
+Please visit the `github page to make contributions to the package. <https://github.com/lzkelley/kalepy>`_  Particularly if you encounter any difficulties or bugs in the code, please `submit an issue <https://github.com/lzkelley/kalepy/issues>`_, which can also be used to ask questions about usage, or to submit general suggestions and feature requests.  Direct additions, fixes, or other contributions are very welcome which can be done by submitting `pull requests <https://github.com/lzkelley/kalepy/pulls>`_.  If you are considering making a contribution / pull-request, please open an issue first to make sure it won't clash with other changes in development or planned for the future.  Some known issues and indended future-updates are noted in the `change-log <https://github.com/lzkelley/kalepy/blob/master/CHANGES.md>`_ file.  If you are looking for ideas of where to contribute, this would be a good place to start.
+
+
 Change-Log
 ----------
 

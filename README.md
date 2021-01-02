@@ -20,7 +20,7 @@ Full documentation is available on [kalepy.readthedocs.io](https://kalepy.readth
 - Quickstart
     - [Basic Usage](#Basic-Usage)
     - [Fancy Usage](#Fancy-Usage)
-- [Development & Contributions](#Development-&-Contributions)
+- [Development & Contributions](#Development--Contributions)
 - [Attribution (citation)](#Attribution)
 
 
