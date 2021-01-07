@@ -1,5 +1,5 @@
 ---
-title: 'kalepy: a python package for kernel density estimation and sampling'
+title: 'kalepy: a python package for kernel density estimation, sampling and plotting'
 tags:
   - Python
   - astronomy
