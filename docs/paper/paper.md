@@ -29,7 +29,6 @@ Numerous Python KDE implementations exist, for example in `scipy` (`scipy.stats.
 
 While `kalepy` has no features specific to any particular field, it was designed for resampling from weighted astronomical datasets.  Consider a population of binaries derived from cosmological simulations.  If the initial population is costly to produce (e.g., requiring tens of millions of CPU hours), and as long as it accurately samples the parameter space of interest, it may be sufficiently accurate to produce larger populations by 'resampling with variation', e.g., using a KDE approach.  Depending on the details of the population, many of the parameters may be highly correlated and often abut a boundary: for example, the mass-ratio defined as the lower-mass component divided by the more massive component, is often highly correlated with the total mass of the binary, and is bounded to the unit interval i.e., $0 < q \equiv M_2 / M_1 \leq 1$.  Faithfully resampling from the population requires handling this discontinuity, while also preserving accurate covariances which may be distorted when transforming the variable, performing the KDE, and transforming back.
 
-
 # Methods
 
 Consider a $d$ dimensional parameter space, with $N$ data points given by $x_i = (x_{i1}, x_{i2}, ..., x_{id})$, with $i = \{1, ..., N\}$.  Each data point may have an associated 'weight' that is appropriately normalized, $\sum_i^N w_i = 1$.  The kernel density estimate at a general position $x = (x_1, x_2, ..., x_N)$ can be written as,
