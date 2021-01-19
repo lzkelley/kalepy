@@ -3,6 +3,7 @@
 import logging
 import os
 import re
+import copy
 
 import numpy as np
 import scipy as sp
@@ -507,7 +508,7 @@ def iqrange(data, log=False, weights=None):
 
 def iqcenter(data, weights=None, axis=None):
     qr = quantiles(data, percs=[0.75, 0.25], weights=weights, axis=axis)
-    print("qr = ", qr.shape)
+    # print("qr = ", qr.shape)
     return np.mean(qr, axis=0)
 
 
@@ -1062,11 +1063,14 @@ def _parse_extrema(data, extrema=None, params=None, warn=True):
     npars = np.shape(data)[0]
 
     data_extrema = [minmax(dd) for dd in data]
+    if extrema is not None:
+        extrema = copy.deepcopy(extrema)
+
     if extrema is None:
         extrema = data_extrema
     elif (params is not None) and (len(extrema) != npars):
         extrema = [extrema[pp] for pp in params]
-
+        
     # Check components of given `extrema` to make sure they are valid
     #   fill in any `None` values with extrema from the data
     else:
