@@ -105,7 +105,7 @@ class Corner:
     #    the units are fractions of the data-range, i.e. '0.1' would mean 10% beyond data range.
     _LIMITS_STRETCH = 0.1
 
-    def __init__(self, kde_data, weights=None, labels=None, limits=None, rotate=True, **kwfig):
+    def __init__(self, kde_data, weights=None, labels=None, limits=None, rotate=True, axes=None, **kwfig):
         """Initialize Corner instance and construct figure and axes based on the given arguments.
 
         Arguments
@@ -148,9 +148,20 @@ class Corner:
             size = kde._ndim
 
         # -- Construct figure and axes
-        fig, axes = _figax(size, **kwfig)
-        self.fig = fig
-        self.axes = axes
+        if axes is None:
+            fig, axes = _figax(size, **kwfig)
+            self.fig = fig
+            self.axes = axes
+        else:
+            try:
+                self.fig = axes[0, 0].figure
+            except Exception as err:
+                msg = "`kalepy.plot.Corner.__init__()`:: could not load figure from passed axes!"
+                logging.error(msg, exc_info=True)
+                logging.error(str(err), exc_info=True)
+                raise err
+
+            self.axes = axes
 
         last = size - 1
         if labels is None:
@@ -1062,7 +1073,7 @@ def contour(data, edges=None, ax=None, weights=None,
 
 def dist1d(kde_data, ax=None, edges=None, weights=None, probability=True, param=0, rotate=False,
            density=None, confidence=False, hist=None, carpet=True, color=None, quantiles=None,
-           ls=None, **kwargs):
+           ls=None, alpha=None, **kwargs):
     """Draw 1D data distributions with numerous possible components.
 
     The components of the plot are controlled by the arguments:
@@ -1137,6 +1148,10 @@ def dist1d(kde_data, ax=None, edges=None, weights=None, probability=True, param=
         data = kde_data
         kde = None
 
+    if np.ndim(data) > 1:
+        err = "Input `data` ({}) is not 1D, please flatten array!".format(np.shape(data))
+        raise ValueError(err)
+
     if ax is None:
         ax = plt.gca()
 
@@ -1167,8 +1182,10 @@ def dist1d(kde_data, ax=None, edges=None, weights=None, probability=True, param=
         # If histogram is also being plotted (as a solid line) use a dashed line
         if ls is None:
             _ls = '--' if hist else '-'
+            _alpha = 0.8 if hist else 0.8
         else:
             _ls = ls
+            _alpha = alpha
 
         # Calculate KDE density distribution for the given parameter
         xx, yy = kde.density(probability=probability, params=param)
@@ -1178,14 +1195,19 @@ def dist1d(kde_data, ax=None, edges=None, weights=None, probability=True, param=
             xx = yy
             yy = temp
 
-        handle, = ax.plot(xx, yy, color=color, ls=_ls, **kwargs)
+        handle, = ax.plot(xx, yy, color=color, ls=_ls, alpha=_alpha, **kwargs)
 
     # Draw Histogram
     if hist:
+        if alpha is None:
+            _alpha = 0.5 if density else 0.8
+        else:
+            _alpha = alpha
+
         _, _, hh = hist1d(
             data, ax=ax, edges=edges, weights=weights, color=color,
             density=True, probability=probability, joints=True, rotate=rotate,
-            ls=ls, **kwargs
+            ls=ls, alpha=_alpha, **kwargs
         )
         if handle is None:
             handle = hh
