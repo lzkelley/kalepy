@@ -1227,8 +1227,8 @@ def dist1d(kde_data, ax=None, edges=None, weights=None, probability=True, param=
     return handle
 
 
-def dist2d(kde_data, ax=None, edges=None, weights=None, params=[0, 1],
-           quantiles=None, color=None, cmap=None, smooth=None, upsample=None, pad=True, ls='-',
+def dist2d(kde_data, ax=None, edges=None, weights=None, params=[0, 1], quantiles=None, 
+           color=None, cmap=None, smooth=None, upsample=None, pad=True, ls='-', outline=True,
            median=True, scatter=True, contour=True, hist=True, mask_dense=None, mask_below=True):
     """Draw 2D data distributions with numerous possible components.
 
@@ -1300,6 +1300,8 @@ def dist2d(kde_data, ax=None, edges=None, weights=None, params=[0, 1],
 
     ls : str or `None`, matplotlib linestyle specification for 'contour' and 'mdedian' components.
 
+    outline : bool, add outline path effects to median and contour lines
+
     median : bool, mark the location of the median values in both dimensions (cross-hairs style).
 
     scatter : bool, whether to plot scatter points of the data points.
@@ -1357,7 +1359,7 @@ def dist2d(kde_data, ax=None, edges=None, weights=None, params=[0, 1],
         mask_dense = scatter and (hist or contour)
 
     # Calculate histogram (used for hist and contours)
-    edges = utils.parse_edges(data, edges=edges, extrema=kde._reflect, params=params)
+    edges = utils.parse_edges(data, edges=edges, extrema=kde.reflect, params=params)
     hh, *_ = np.histogram2d(*data, bins=edges, weights=weights, density=True)
 
     _, levels, quantiles = _dfm_levels(hh, quantiles=quantiles)
@@ -1387,9 +1389,9 @@ def dist2d(kde_data, ax=None, edges=None, weights=None, params=[0, 1],
                 med = utils.quantiles(dd, percs=0.5, weights=weights)
 
             # Load path_effects
-            outline = _get_outline_effects()
+            out_pe = _get_outline_effects() if outline else None
             # Draw
-            func(med, color=color, ls=ls, alpha=0.25, lw=1.0, zorder=40, path_effects=outline)
+            func(med, color=color, ls=ls, alpha=0.25, lw=1.0, zorder=40, path_effects=out_pe)
 
     # ---- Draw 2D Histogram
     # We may need edges and histogram for `mask_dense` later; store them from hist2d or contour2d
@@ -1418,7 +1420,7 @@ def dist2d(kde_data, ax=None, edges=None, weights=None, params=[0, 1],
         # Plot
         _ee, _hh, _ = draw_contour2d(
             ax, points, pdf, quantiles=quantiles, smooth=smooth, upsample=upsample, pad=pad,
-            cmap=contour_cmap, zorder=20, ls=ls
+            cmap=contour_cmap, zorder=20, ls=ls, outline=outline,
         )
 
     # Mask dense scatter-points

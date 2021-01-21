@@ -174,10 +174,14 @@ class KDE(object):
             NOTE: see `KDE` docstrings, "Dynamic Range".
 
         """
-        self._helper = helper
+
         self._squeeze = (np.ndim(dataset) == 1)
         self._dataset = np.atleast_2d(dataset)
         ndim, ndata = self.dataset.shape
+
+        reflect = kernels._check_reflect(reflect, self.dataset)
+        
+        self._helper = helper
         self._ndim = ndim
         self._ndata = ndata
         self._diagonal = diagonal
@@ -186,7 +190,6 @@ class KDE(object):
         self._check_points_flag = True
         self._points = points
         if ndata < 3:
-            print(self._dataset)
             err = "ERROR: too few data points!  Dataset shape: ({}, {})".format(ndim, ndata)
             raise ValueError(err)
 
@@ -242,8 +245,6 @@ class KDE(object):
             out = sp.stats.norm.ppf(1.0 - 1.0/neff)
             # Extra to be double sure...
             out *= 1.2
-
-        reflect = kernels._check_reflect(reflect, self.dataset)
 
         # Find the effective-extrema in each dimension, to be used if `extrema` is not specified
         _bandwidth = np.sqrt(self.kernel.matrix.diagonal())
@@ -325,8 +326,8 @@ class KDE(object):
         """
         ndim = self.ndim
         data = self.dataset
-        if reflect is None:
-            reflect = self._reflect
+        # if reflect is None:
+        #     reflect = self._reflect
 
         squeeze = False
         if params is not None:
@@ -340,6 +341,12 @@ class KDE(object):
             if params is not None:
                 squeeze = np.isscalar(params)
                 params = np.atleast_1d(params)
+                if reflect is None:
+                    reflect = self.reflect
+                    if reflect is not None:
+                        reflect = [reflect[pp] for pp in params]
+                    
+                '''
                 if reflect is not None:
                     if len(reflect) == ndim:
                         reflect = [reflect[pp] for pp in params]
@@ -351,9 +358,19 @@ class KDE(object):
                             "does not match `params` ({})!".format(len(params))
                         )
                         raise ValueError(err)
-
+                '''
                 data = data[params, :]
 
+        if (params is None) and (reflect is None):
+            reflect = self.reflect
+
+        if len(reflect) != np.shape(data)[0]:
+            err = (
+                "length of `reflect` ({}) ".format(len(reflect)),
+                "does not match `data` ({})!".format(np.shape(data))
+            )
+            raise ValueError(err)
+            
         if points is None:
             points = self.points
             if params is not None:
@@ -610,6 +627,10 @@ class KDE(object):
     def neff(self):
         return self._neff
 
+    @property
+    def reflect(self):
+        return self._reflect
+    
     @property
     def weights(self):
         return self._weights
