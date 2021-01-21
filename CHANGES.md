@@ -28,6 +28,10 @@
 
 ## Current
 
+- DOCS: significant expansion of documentation, both docstrings and sphinx (readthedocs.org).
+- Allow `kale.plot.Corner` instances to accept externally-created axes.
+- Simplify handling of `reflect` arguments.
+- Improve bin-edge guessing.
 
 
 ## v0.5 - 2020/12/30
