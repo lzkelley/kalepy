@@ -1,5 +1,5 @@
 ---
-title: 'kalepy: a python package for kernel density estimation, sampling and plotting'
+title: 'kalepy: a Python package for kernel density estimation, sampling and plotting'
 tags:
   - Python
   - astronomy
@@ -10,9 +10,9 @@ authors:
     orcid: 0000-0002-6625-6450
     affiliation: "1, 2" # (Multiple affiliations must be quoted)
 affiliations:
- - name: Center for Interdisciplinary Exploration and Research in Astrophysics (CIERA)
+ - name: Center for Interdisciplinary Exploration and Research in Astrophysics (CIERA), Northwestern University, USA
    index: 1
- - name: Physics & Astronomy, Northwestern University
+ - name: Physics & Astronomy, Northwestern University, USA
    index: 2
 date: 2020 October 11
 bibliography: paper.bib
@@ -21,13 +21,13 @@ bibliography: paper.bib
 
 # Summary
 
-'Kernel Density Estimation' or 'KDE' [@Rosenblatt-1956; @Parzen-1962] is a type of non-parametric density estimation [@Scott-2015] that improves upon the traditional 'histogram' approach by, for example, i) utilizing the exact location of each data point (instead of 'binning'), ii) being able to produce smooth distributions with continuous and meaningful derivatives, and iii) removing the arbitrary offset of an initial bin edge.  The `kalepy` package presents a python KDE implementation designed for broad applicability by including numerous features absent in other packages presented in a class-based structure designed for extensibility.  `kalepy` provides optional weightings, reflecting boundary conditions, an arbitrary number of dimensions, numerous (and extensible) kernel (i.e. window) functions, built-in plotting, and built-in resampling.
+'Kernel Density Estimation' or 'KDE' [@Rosenblatt-1956; @Parzen-1962] is a type of non-parametric density estimation [@Scott-2015] that improves upon the traditional 'histogram' approach by, for example, i) utilizing the exact location of each data point (instead of 'binning'), ii) being able to produce smooth distributions with continuous and meaningful derivatives, and iii) removing the arbitrary offset of an initial bin edge.  The `kalepy` package presents a Python KDE implementation designed for broad applicability by including numerous features absent in other packages presented in a class-based structure designed for extensibility.  `kalepy` provides optional weightings, reflecting boundary conditions, an arbitrary number of dimensions, numerous (and extensible) kernel (i.e., window) functions, built-in plotting, and built-in resampling.
 
 # Statement of need
 
-Numerous python KDE implementations exist, for example in `scipy` (`scipy.stats.gaussian_kde`) [@SciPy-2020], `seaborn` (`seaborn.kdeplot`) [@seaborn-2020], `GetDist` [@GetDist-2019] and `KDEpy` [@kdepy-2018].  The `scipy` and `seaborn` tools are simple and accessible.  The `KDEpy` package provides excellent performance on large numbers of data points and dimensions, but does not include resampling, boundary conditions, or plotting tools.  The `GetDist` package offers extensive methods for plotting samples and utilizes numerous boundary treatments [@GetDist-2019], but lacks a standalone KDE interface or resampling functionality.  `kalepy` provides convenient access to both plotting and numerical results in the same package, including multiple kernel functions, built-in resampling, boundary conditions, and numerous plotting tools for 1D, 2D, and N-dimensional 'corner' plots.  `kalepy` is entirely class-based, and while focusing on ease of use, provides a highly extensible framework for modification and expansion in a range of possible applications.
+Numerous Python KDE implementations exist, for example in `scipy` (`scipy.stats.gaussian_kde`) [@SciPy-2020], `seaborn` (`seaborn.kdeplot`) [@seaborn-2020], `GetDist` [@GetDist-2019] and `KDEpy` [@kdepy-2018].  The `scipy` and `seaborn` tools are simple and accessible.  The `KDEpy` package provides excellent performance on large numbers of data points and dimensions, but does not include resampling, boundary conditions, or plotting tools.  The `GetDist` package offers extensive methods for plotting samples and utilizes numerous boundary treatments [@GetDist-2019], but lacks a standalone KDE interface or resampling functionality.  `kalepy` provides convenient access to both plotting and numerical results in the same package, including multiple kernel functions, built-in resampling, boundary conditions, and numerous plotting tools for 1D, 2D, and N-dimensional 'corner' plots.  `kalepy` is entirely class-based, and while focusing on ease of use, provides a highly extensible framework for modification and expansion in a range of possible applications.
 
-While `kalepy` has no features specific to any particular field, it was designed for resampling from weighted astronomical datasets.  Consider a population of binaries derived from cosmological simulations.  If the initial population is costly to produce (e.g. requiring tens of millions of CPU hours), and as long as it accurately samples the parameter space of interest, it may be sufficiently accurate to produce larger populations by 'resampling with variation', e.g. using a KDE approach.  Depending on the details of the population, many of the parameters may be highly correlated and often abut a boundary: for example, the mass-ratio defined as the lower-mass component divided by the more massive component, is often highly correlated with the total mass of the binary, and is bounded to the unit interval i.e. $q \equiv M_2 / M_1 \leq 1$.  Faithfully resampling from the population requires handling this discontinuity, while also preserving accurate covariances which may be distorted when transforming the variable, performing the KDE, and transforming back.
+While `kalepy` has no features specific to any particular field, it was designed for resampling from weighted astronomical datasets.  Consider a population of binaries derived from cosmological simulations.  If the initial population is costly to produce (e.g., requiring tens of millions of CPU hours), and as long as it accurately samples the parameter space of interest, it may be sufficiently accurate to produce larger populations by 'resampling with variation', e.g., using a KDE approach.  Depending on the details of the population, many of the parameters may be highly correlated and often abut a boundary: for example, the mass-ratio defined as the lower-mass component divided by the more massive component, is often highly correlated with the total mass of the binary, and is bounded to the unit interval i.e., $q \equiv M_2 / M_1 \leq 1$.  Faithfully resampling from the population requires handling this discontinuity, while also preserving accurate covariances which may be distorted when transforming the variable, performing the KDE, and transforming back.
 
 
 # Methods
