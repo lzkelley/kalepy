@@ -180,7 +180,7 @@ class KDE(object):
         ndim, ndata = self.dataset.shape
 
         reflect = kernels._check_reflect(reflect, self.dataset)
-        
+
         self._helper = helper
         self._ndim = ndim
         self._ndata = ndata
@@ -299,13 +299,15 @@ class KDE(object):
               describes 2 sample points at the 3D locations, `(0.1, 1.0, 10)` and `(0.2, 2.0, 20)`,
               and the returned values would be an array of shape (2,).
 
-        reflect : (D,) array_like, None (default)
+        reflect : (D,) array_like, None
             Locations at which reflecting boundary conditions should be imposed.
-            For each dimension `D`, a pair of boundary locations (for: lower, upper) must be
-            specified, or `None`.  `None` can also be given to specify no boundary at that
-            location.  See class docstrings:`Reflection` for more information.
+            For each dimension `D` (matching the input data), a pair of boundary locations
+            (lower, upper) must be specified, or `None`.  `None` can also be given as one of the
+            two locations, to specify no boundary at that location.
+            If the data is one-dimensional (D=1), then `reflect` may be shaped as (2,).
+            See class docstrings:`Reflection` for more information.
 
-        params : int, array_like of int, None (default)
+        params : int, array_like of int, None
             Only calculate the PDF for certain parameters (dimensions).
             See class docstrings:`Projection` for more information.
 
@@ -328,6 +330,7 @@ class KDE(object):
         data = self.dataset
         # if reflect is None:
         #     reflect = self._reflect
+        # print(f"{np.shape(data)=}, {params=}, {reflect=}")
 
         squeeze = False
         if params is not None:
@@ -345,32 +348,24 @@ class KDE(object):
                     reflect = self.reflect
                     if reflect is not None:
                         reflect = [reflect[pp] for pp in params]
-                    
-                '''
-                if reflect is not None:
-                    if len(reflect) == ndim:
-                        reflect = [reflect[pp] for pp in params]
-                    elif len(reflect) == 2 and len(params) == 1:
-                        pass
-                    elif len(reflect) != len(params):
-                        err = (
-                            "length of `reflect` ({}) ".format(len(reflect)),
-                            "does not match `params` ({})!".format(len(params))
-                        )
-                        raise ValueError(err)
-                '''
+
                 data = data[params, :]
 
         if (params is None) and (reflect is None):
             reflect = self.reflect
 
-        if len(reflect) != np.shape(data)[0]:
-            err = (
-                "length of `reflect` ({}) ".format(len(reflect)),
-                "does not match `data` ({})!".format(np.shape(data))
-            )
-            raise ValueError(err)
-            
+        # Make sure `reflect` shape matches the data
+        if (reflect is not None) and (len(reflect) != np.shape(data)[0]):
+            # If the data is 1D, and `reflect` is (2,) --- that's okay, convert `reflect` to (1, 2)
+            if (ndim == 1) and (np.shape(reflect) == (2,)) and utils.really1d(reflect):
+                reflect = np.atleast_2d(reflect)
+            else:
+                err = (
+                    "length of `reflect` ({}) ".format(reflect),
+                    "does not match `data` ({})!".format(np.shape(data))
+                )
+                raise ValueError(err)
+
         if points is None:
             points = self.points
             if params is not None:
@@ -630,7 +625,7 @@ class KDE(object):
     @property
     def reflect(self):
         return self._reflect
-    
+
     @property
     def weights(self):
         return self._weights
