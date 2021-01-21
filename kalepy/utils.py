@@ -371,7 +371,7 @@ def modify_exists(path_fname):
 
 
 def parse_edges(data, edges=None, extrema=None, weights=None, params=None,
-                nmin=5, nmax=1000, pad=None, refine=1.0):
+                nmin=5, nmax=1000, pad=None, refine=1.0, bw=None):
     """
     """
     if _ndim(data) not in [1, 2]:
@@ -398,8 +398,10 @@ def parse_edges(data, edges=None, extrema=None, weights=None, params=None,
             len(edges), npars)
         raise ValueError(err)
 
+    if bw is None:
+        bw = np.empty((npars, npars), dtype=object)
     edges = [_get_edges_1d(edges[ii], data[ii], extrema[ii],
-                           npars, nmin, nmax, pad, weights=weights, refine=refine)
+                           npars, nmin, nmax, pad, weights=weights, refine=refine, bw=bw[ii, ii])
              for ii in range(npars)]
 
     if squeeze:
@@ -408,7 +410,7 @@ def parse_edges(data, edges=None, extrema=None, weights=None, params=None,
     return edges
 
 
-def _get_edges_1d(edges, data, extrema, ndim, nmin, nmax, pad, weights=None, refine=1.0):
+def _get_edges_1d(edges, data, extrema, ndim, nmin, nmax, pad, weights=None, refine=1.0, bw=None):
     """
 
     Arguments
@@ -436,7 +438,7 @@ def _get_edges_1d(edges, data, extrema, ndim, nmin, nmax, pad, weights=None, ref
 
     _num_bins, bin_width, _span = _guess_edges(
         data, extrema=extrema, weights=weights,
-        ndim=ndim, num_min=nmin, num_max=nmax, refine=refine)
+        ndim=ndim, num_min=nmin, num_max=nmax, refine=refine, bw=bw)
 
     # print("utils.py:_get_edges_1d():")
     # print("\t", "num_bins = ", num_bins, "_num_bins = ", _num_bins, "refine = ", refine,
@@ -453,8 +455,7 @@ def _get_edges_1d(edges, data, extrema, ndim, nmin, nmax, pad, weights=None, ref
     return edges
 
 
-def _guess_edges(data, extrema=None, ndim=None, weights=None,
-                 num_min=None, num_max=None, refine=1.0):
+def _guess_edges(data, extrema=None, ndim=None, weights=None, num_min=None, num_max=None, refine=1.0, bw=None):
     if weights is None:
         num_eff = data.size
     else:
@@ -485,15 +486,36 @@ def _guess_edges(data, extrema=None, ndim=None, weights=None,
     # Freedman-Diaconis histogram bin estimator
     iqr = iqrange(data, log=False, weights=weights)               # get interquartile range
     w2 = 2.0 * iqr * num_eff ** (-1.0 / 3.0)
+    w3 = bw / np.sqrt(num_eff) if (bw is not None) else 0.0
 
-    bin_width = min(w1, w2)
-    bin_width = bin_width / refine
-    if bin_width <= 0.0:
-        raise ValueError("`bin_width` is negative (w1 = {}, w2 = {})!".format(w1, w2))
+    widths = [w1, w2, w3]
+    bin_width = [bw for bw in widths if bw > 0.0]
+    if len(bin_width) > 0:
+        bin_width = min(bin_width)
+        bin_width = bin_width / refine
+    else:
+        err = "`bin_width` is not positive (w1 = {}, w2 = {})!".format(w1, w2)
+        logging.warning(err)
+        if np.allclose(data, data[0]):
+            bin_width = 1e-16
+            logging.warning("WARNING: all data is identical! Choosing arbitrary `bin_width`")
+        else:
+            raise ValueError(err)
+
+    if span_width <= 0.0:
+        err = "`span_width` is not positive (span_width={})!".format(span_width)
+        logging.warning(err)
+        if np.allclose(data, data[0]):
+            span_width = 10*bin_width
+            logging.warning("WARNING: all data is identical! Choosing arbitrary `span_width`")
+        else:
+            raise ValueError(err)
 
     num_bins = int(np.ceil(span_width / bin_width))
     if (num_min is not None) or (num_max is not None):
         num_bins = np.clip(num_bins, num_min, num_max)
+
+    # print(f"{num_bins=}, {bin_width=}, {extrema=}, {widths=}")
 
     return num_bins, bin_width, extrema
 
@@ -1070,7 +1092,7 @@ def _parse_extrema(data, extrema=None, params=None, warn=True):
         extrema = data_extrema
     elif (params is not None) and (len(extrema) != npars):
         extrema = [extrema[pp] for pp in params]
-        
+
     # Check components of given `extrema` to make sure they are valid
     #   fill in any `None` values with extrema from the data
     else:

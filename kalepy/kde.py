@@ -592,7 +592,7 @@ class KDE(object):
         extrema = self.extrema
         points = utils.parse_edges(
             self.dataset, edges=self._points, extrema=extrema, weights=self.weights,
-            nmin=3, nmax=200, pad=0, refine=self._EDGE_REFINEMENT)
+            nmin=3, nmax=200, pad=0, refine=self._EDGE_REFINEMENT, bw=self.bandwidth)
 
         # If input `data` to KDE is given as 1D array, then give 1D points (instead of `(1, E)`)
         if self._squeeze:

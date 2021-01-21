@@ -121,7 +121,7 @@ class Kernel(object):
         #         len(reflect), npar_data)
         #     raise ValueError(err)
         # reflect = _check_reflect(reflect, data, weights=weights)
-        
+
         # -----------------    Calculate Density
 
         whitening = sp.linalg.cholesky(matrix_inv)
@@ -152,7 +152,7 @@ class Kernel(object):
             err = "ERROR: shape of reflect `{}` does not match data `{}`!".format(
                 np.shape(reflect), np.shape(data))
             raise ValueError(err)
-        
+
         for ii, reflect_dim in enumerate(reflect):
             if reflect_dim is None:
                 continue
