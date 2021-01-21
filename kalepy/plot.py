@@ -1188,7 +1188,7 @@ def dist1d(kde_data, ax=None, edges=None, weights=None, probability=True, param=
             _alpha = alpha
 
         # Calculate KDE density distribution for the given parameter
-        xx, yy = kde.density(probability=probability, params=param)
+        xx, yy = kde.density(probability=probability, params=param, points=edges)
         # Plot
         if rotate:
             temp = xx
@@ -1227,7 +1227,7 @@ def dist1d(kde_data, ax=None, edges=None, weights=None, probability=True, param=
     return handle
 
 
-def dist2d(kde_data, ax=None, edges=None, weights=None, params=[0, 1], quantiles=None, 
+def dist2d(kde_data, ax=None, edges=None, weights=None, params=[0, 1], quantiles=None,
            color=None, cmap=None, smooth=None, upsample=None, pad=True, ls='-', outline=True,
            median=True, scatter=True, contour=True, hist=True, mask_dense=None, mask_below=True):
     """Draw 2D data distributions with numerous possible components.
