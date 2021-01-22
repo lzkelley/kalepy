@@ -5,12 +5,14 @@ Introduction
 
 `kalepy on github <https://github.com/lzkelley/kalepy>`_
 
-|travis| |codecov| |rtd|
+|travis| |codecov| |rtd| |joss|
 
 .. |travis| image:: https://travis-ci.org/lzkelley/kalepy.svg?branch=master
 .. |codecov| image:: https://codecov.io/gh/lzkelley/kalepy/branch/master/graph/badge.svg
 .. |rtd| image:: https://readthedocs.org/projects/kalepy/badge/?version=latest
-
+.. |joss| image:: https://joss.theoj.org/papers/10.21105/joss.02784/status.svg
+   :target: https://doi.org/10.21105/joss.02784
+   
 .. image:: https://raw.githubusercontent.com/lzkelley/kalepy/dev/docs/media/logo_anim_small.gif
 
 .. contents:: :local:
