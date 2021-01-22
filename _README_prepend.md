@@ -3,6 +3,7 @@
 [![Build Status](https://travis-ci.org/lzkelley/kalepy.svg?branch=master)](https://travis-ci.org/lzkelley/kalepy)
 [![codecov](https://codecov.io/gh/lzkelley/kalepy/branch/master/graph/badge.svg)](https://codecov.io/gh/lzkelley/kalepy)
 [![Documentation Status](https://readthedocs.org/projects/kalepy/badge/?version=latest)](https://kalepy.readthedocs.io/en/latest/?badge=latest)
+[![DOI](https://zenodo.org/badge/187267055.svg)](https://zenodo.org/badge/latestdoi/187267055)
 
 ![kalepy animated logo](https://raw.githubusercontent.com/lzkelley/kalepy/dev/docs/media/logo_anim_small.gif)
 
