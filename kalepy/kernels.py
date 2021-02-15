@@ -137,10 +137,37 @@ class Kernel(object):
         if weights is None:
             weights = np.ones(num_data)
 
+        # '''
         for ii in range(num_data):
             yy = white_points - white_dataset[:, ii, np.newaxis]
             temp = weights[ii] * self.distribution.evaluate(yy)
             result += temp.squeeze()
+            # print(f"{yy.shape=}, {temp.shape=}, {result.shape=}, {num_data=}, {num_points=}")
+            # raise
+        # '''
+
+        # print(f"{white_points.shape=}, {white_dataset.shape=}, {result.shape=}, {weights.shape=}, {num_data=}, {num_points=}")
+        # raise
+
+        '''
+        yy = white_points[:, :, np.newaxis] - white_dataset[:, np.newaxis, :]
+        result = weights[np.newaxis, np.newaxis, :] * self.distribution._evaluate(yy, npar_data)
+        result = np.sum(result, axis=2).squeeze()
+        '''
+
+        print(f"{result.shape=}")
+
+        '''
+        if num_points >= num_data:
+            for ii in range(num_data):
+                yy = white_points - white_dataset[:, ii, np.newaxis]
+                result += weights[ii] * self.distribution.evaluate(yy)
+        else:
+            for jj in range(num_points):
+                yy = white_dataset - white_points[:, jj, np.newaxis]
+                res = weights * self.distribution.evaluate(yy)
+                result[jj] += np.sum(res, axis=0)
+        '''
 
         if reflect is None:
             result = result / norm
