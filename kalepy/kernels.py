@@ -116,7 +116,7 @@ class Kernel(object):
         # '''
         for ii in range(num_data):
             yy = white_points - white_dataset[:, ii, np.newaxis]
-            temp = weights[ii] * self.distribution.evaluate(yy)
+            temp = weights[ii] * self.distribution.evaluate(yy, npar_data)
             result += temp.squeeze()
             # print(f"{yy.shape=}, {temp.shape=}, {result.shape=}, {num_data=}, {num_points=}")
             # raise
@@ -176,11 +176,11 @@ class Kernel(object):
                 if num_points >= num_data:
                     for jj in range(num_data):
                         yy = white_points - white_dataset[:, jj, np.newaxis]
-                        result += weights[jj] * self.distribution.evaluate(yy)
+                        result += weights[jj] * self.distribution.evaluate(yy, npar_data)
                 else:
                     for jj in range(num_points):
                         yy = white_dataset - white_points[:, jj, np.newaxis]
-                        res = weights * self.distribution.evaluate(yy)
+                        res = weights * self.distribution.evaluate(yy, npar_data)
                         result[jj] += np.sum(res, axis=0)
 
             lo = -np.inf if reflect_dim[0] is None else reflect_dim[0]
@@ -371,7 +371,8 @@ class Kernel(object):
 
     def _truncate_reflections(self, data, bounds, weights=None):
         # Determine the bounds outside of which we should truncate
-        trunc = self._get_truncation_bounds(bounds)
+        # trunc = self._get_truncation_bounds(bounds)
+        trunc = bounds
         # Find the data-points outside of those bounds
         idx = utils.bound_indices(data, trunc)
         # Select only points within truncation bounds
@@ -467,19 +468,10 @@ class Distribution(object):
         return name
 
     @classmethod
-    def _parse(cls, xx):
-        squeeze = (np.ndim(xx) < 2)
-        xx = np.atleast_2d(xx)
-        ndim, nval = np.shape(xx)
-        return xx, ndim, squeeze
-
-    @classmethod
-    def evaluate(cls, xx):
-        yy, ndim, squeeze = cls._parse(xx)
-        zz = cls._evaluate(yy, ndim)
-        if squeeze:
-            zz = zz.squeeze()
-        return zz
+    def evaluate(cls, yy, ndim):
+        if np.ndim(yy) < 2:
+            raise RuntimeError("BAD SHAPE!")
+        return cls._evaluate(yy, ndim)
 
     @classmethod
     def _evaluate(cls, yy, ndim):
@@ -487,11 +479,12 @@ class Distribution(object):
         raise NotImplementedError(err)
 
     @classmethod
-    def grid(cls, edges, **kwargs):
+    def grid(cls, edges):
         coords = np.meshgrid(*edges, indexing='ij')
-        shp = np.shape(coords)[1:]
+        shp = np.shape(coords)
+        ndim, *shp = shp
         coords = np.vstack([xx.ravel() for xx in coords])
-        pdf = cls.evaluate(coords, **kwargs)
+        pdf = cls.evaluate(coords, ndim)
         pdf = pdf.reshape(shp)
         return pdf
 
@@ -509,85 +502,10 @@ class Distribution(object):
             samps = samps.squeeze()
         return samps
 
-    def _sample(self, size, ndim):
-        grid, cdf = self.cdf_grid
-        samps = np.random.uniform(0.0, 1.0, ndim*size)
-        samps = sp.interpolate.interp1d(cdf, grid, kind='quadratic')(samps).reshape(ndim, size)
-        return samps
-
-    def cdf(self, xx):
-        if self._cdf_func is None:
-            self._cdf_func = sp.interpolate.interp1d(
-                *self.cdf_grid, fill_value=(0.0, 1.0), **self._INTERP_KWARGS)
-
-        zz = self._cdf_func(xx)
-        return zz
-
-    def ppf(self, cd):
-        """Percentile Point Function - the inverse of the cumulative distribution function.
-
-        NOTE: for symmetric kernels, this (effectively) uses points only with cdf in [0.0, 0.5],
-        which produces better numerical results (unclear why).
-
-        """
-        if self._ppf_func is None:
-            x0, y0 = self.cdf_grid
-            self._ppf_func = sp.interpolate.interp1d(
-                y0, x0, kind='cubic', fill_value='extrapolate')  # **self._INTERP_KWARGS)
-
-        # Symmetry can be utilized to get better accuracy of results, see 'note' above
-        if self.SYMMETRIC:
-            cd = np.atleast_1d(cd)
-            idx = (cd > 0.5)
-            cd = np.copy(cd)
-            cd[idx] = 1 - cd[idx]
-
-        try:
-            xx = self._ppf_func(cd)
-        except ValueError:
-            logging.error("`_ppf_func` failed!")
-            logging.error("input `cd` = {}  <===  {}".format(
-                utils.stats_str(cd), utils.array_str(cd)))
-            for vv in self.cdf_grid:
-                logging.error("\tcdf_grid: {} <== {}".format(
-                    utils.stats_str(vv), utils.array_str(vv)))
-            raise
-
-        if self.SYMMETRIC:
-            xx[idx] = -xx[idx]
-
-        return xx
-
-    @property
-    def cdf_grid(self):
-        if self._cdf_grid is None:
-            if self._FINITE:
-                pad = (1 + _NUM_PAD)
-                args = [-pad, pad]
-            else:
-                args = [-6, 6]
-
-            num = np.diff(args)[0] * _INTERP_NUM_PER_STD
-            args = args + [int(num), ]
-
-            xc = np.linspace(*args)
-            if self._CDF_INTERP:
-                yy = self.evaluate(xc)
-                csum = utils.cumtrapz(yy, xc, prepend=False)
-            else:
-                csum = self.cdf(xc)
-
-            norm = csum[-1]
-            if not np.isclose(norm, 1.0, rtol=1e-5):
-                err = "Failed to reach unitarity in CDF grid norm: {:.4e}!".format(norm)
-                raise ValueError(err)
-
-            # csum = csum / norm
-            # xc = np.concatenate([[args[0]], [args[0]], xc, [args[1]], [args[1]]], axis=0)
-            # csum = np.concatenate([[0.0 - _NUM_PAD], [0.0], csum, [1.0], [1.0+_NUM_PAD]], axis=0)
-            self._cdf_grid = [xc, csum]
-
-        return self._cdf_grid
+    @classmethod
+    def _sample(cls, *args, **kwargs):
+        err = "`_sample` must be overridden by the Distribution subclass!"
+        raise NotImplementedError(err)
 
     @property
     def FINITE(self):
@@ -599,8 +517,8 @@ class Distribution(object):
 
     @classmethod
     def inside(cls, points):
-        idx = (cls.evaluate(points) > 0.0)
-        return idx
+        err = "`inside` must be overridden by the Distribution subclass!"
+        raise NotImplementedError(err)
 
 
 class Gaussian(Distribution):
@@ -622,6 +540,10 @@ class Gaussian(Distribution):
 
     def cdf(self, yy):
         zz = sp.stats.norm.cdf(yy)
+        return zz
+
+    def ppf(self, yy):
+        zz = sp.stats.norm.ppf(yy)
         return zz
 
     def _sample(self, size, ndim):
@@ -666,6 +588,8 @@ class Box_Asym(Distribution):
 
 
 class Parabola(Distribution):
+    """Symmetric parabola.
+    """
 
     _FINITE = True
     _CDF_INTERP = False
@@ -689,6 +613,13 @@ class Parabola(Distribution):
         xx = np.minimum(np.maximum(xx, -1), 1)
         zz = 0.5 + (3/4)*(xx - xx**3 / 3)
         return zz
+
+    @classmethod
+    def inside(cls, points):
+        dist = np.atleast_2d(points)
+        dist = np.linalg.norm(dist, axis=0)
+        idx = (dist < 1.0)
+        return idx
 
 
 '''

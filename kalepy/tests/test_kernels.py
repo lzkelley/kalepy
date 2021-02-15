@@ -36,7 +36,7 @@ class Test_Kernels_Generic(object):
         edges = np.linspace(-10*hh, 10*hh, 10000)
         cents = kale.utils.midpoints(edges, 'lin')
         # width = np.diff(edges)
-        yy = kernel.evaluate(cents)
+        yy = kernel.evaluate(cents[np.newaxis, :], 1).squeeze()
         # Make sure kernel is callable
         # tools.assert_true(np.allclose(yy, kernel().evaluate(cents)))
 
@@ -94,18 +94,18 @@ class Test_Kernels_Generic(object):
 
     @classmethod
     def _test_evaluate_nd(cls, kernel):
-        print("\n|Test_Kernels_Generic:_test_evaluate_nd()|")
-        print(kernel)
+        # print("\n|Test_Kernels_Generic:_test_evaluate_nd()|")
+        # print(kernel)
 
-        kernels = kale.kernels.DISTRIBUTIONS.values()
+        # kernels = kale.kernels.DISTRIBUTIONS.values()
 
         num_dims = [1, 2, 3, 4]
 
-        for kern in kernels:
-            print("\nkern: ", kern)
-            for ndim in num_dims:
-                print("\nndim: ", ndim)
-                cls.kernel_at_dim(kern, ndim)
+        # for kern in kernels:
+        # print("kernel: ", kernel)
+        for ndim in num_dims:
+            # print("\tndim: ", ndim)
+            cls.kernel_at_dim(kernel, ndim)
 
         return
 
@@ -155,10 +155,9 @@ def test_kernels_evaluate():
 
 
 def test_kernels_evaluate_nd():
-    print("\n|test_kernels.py:test_kernels_evaluate_nd()|")
-
+    # print("\n|test_kernels.py:test_kernels_evaluate_nd()|")
     for kernel in kale.kernels.DISTRIBUTIONS.values():
-        print("Testing '{}'".format(kernel))
+        # print("Testing '{}'".format(kernel))
         Test_Kernels_Generic._test_evaluate_nd(kernel)
 
     return

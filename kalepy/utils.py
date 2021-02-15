@@ -1,8 +1,6 @@
 """kalepy's internal, utility functions.
 """
 import logging
-import os
-import re
 import copy
 
 import numpy as np
