@@ -39,33 +39,16 @@ from kalepy import _NUM_PAD, _TRUNCATE_INFINITE_KERNELS
 _INTERP_NUM_PER_STD = int(1e4)
 
 
-__all__ = [
-    'Kernel', 'Distribution', 'Gaussian', 'Box_Asym', 'Parabola',
-    'get_distribution_class', 'get_all_distribution_classes'
-]
-
-
 class Kernel(object):
 
-    def __init__(self, distribution=None, bandwidth=None, covariance=None,
-                 helper=False, chunk=1e5):
-        self._helper = helper
-        distribution = get_distribution_class(distribution)
-        self._distribution = distribution()
-        self._chunk = int(chunk)
-
-        if bandwidth is None:
-            bandwidth = 1.0
-            logging.warning("No `bandwidth` provided, setting to 1.0!")
-
-        if covariance is None:
-            covariance = 1.0
-            logging.warning("No `covariance` provided, setting to 1.0!")
-
+    def __init__(self, distribution, bandwidth, covariance, helper=False, chunk=1e5):
         bandwidth = np.atleast_2d(bandwidth)
         covariance = np.atleast_2d(covariance)
         matrix = covariance * np.square(bandwidth)
 
+        self._helper = helper
+        self._distribution = distribution()
+        self._chunk = int(chunk)
         self._ndim = np.shape(matrix)[0]
         self._matrix = matrix
         self._bandwidth = bandwidth
@@ -115,13 +98,6 @@ class Kernel(object):
                 np.shpae(weights), num_data)
             raise ValueError(err)
 
-        # `reflect` should be sanitized and converted from calling method, not here!
-        # if (reflect is not None) and (len(reflect) != npar_data):
-        #     err = "Length of `reflect` ({}) does not much data dimensions ({})!".format(
-        #         len(reflect), npar_data)
-        #     raise ValueError(err)
-        # reflect = _check_reflect(reflect, data, weights=weights)
-
         # -----------------    Calculate Density
 
         whitening = sp.linalg.cholesky(matrix_inv)
@@ -155,7 +131,7 @@ class Kernel(object):
         result = np.sum(result, axis=2).squeeze()
         '''
 
-        print(f"{result.shape=}")
+        # print(f"{result.shape=}")
 
         '''
         if num_points >= num_data:
@@ -286,7 +262,7 @@ class Kernel(object):
         """
         matrix = self.matrix
         # Modify covariance-matrix for any `keep` dimensions
-        matrix = self._cov_keep_vars(matrix, keep, reflect=reflect)
+        matrix = utils.cov_keep_vars(matrix, keep, reflect=reflect)
 
         ndim, nvals = np.shape(data)
 
@@ -423,45 +399,6 @@ class Kernel(object):
         # Expand the reflection bounds based on the bandwidth interval
         trunc = bounds + qnts
         return trunc
-
-    @classmethod
-    def _cov_keep_vars(cls, matrix, keep, reflect=None):
-        matrix = np.array(matrix)
-        if (keep is None) or (keep is False):
-            return matrix
-
-        if keep is True:
-            keep = np.arange(matrix.shape[0])
-
-        keep = np.atleast_1d(keep)
-        for pp in keep:
-            matrix[pp, :] = 0.0
-            matrix[:, pp] = 0.0
-            # Make sure this isn't also a reflection axis
-            if (reflect is not None) and (reflect[pp] is not None):
-                err = "Cannot both 'keep' and 'reflect' about dimension '{}'".format(pp)
-                raise ValueError(err)
-
-        return matrix
-
-    @classmethod
-    def _params_subset(cls, data, matrix, params):
-        if params is None:
-            raise ValueError("Why is this method being called if `params` are 'None'?")
-            # norm = np.sqrt(np.linalg.det(matrix))
-            # return data, matrix, norm
-
-        params = np.atleast_1d(params)
-        # NOTE/WARNING: don't sort parameters (Changed 2020-04-07)
-        # params = sorted(params)
-        # Get rows corresponding to these parameters
-        # sub_pnts = points[params, :]
-        sub_data = data[params, :]
-        # Get rows & cols corresponding to these parameters
-        sub_mat = matrix[np.ix_(params, params)]
-        # Recalculate norm
-        norm = np.sqrt(np.linalg.det(sub_mat))
-        return params, sub_data, sub_mat, norm
 
     # ==== Properties ====
 
@@ -784,7 +721,7 @@ class Triweight(Distribution):
 
 _DEFAULT_DISTRIBUTION = Gaussian
 
-_index_list = [
+DISTRIBUTIONS = [
     ['gaussian', Gaussian],
     ['box', Box_Asym],
     ['parabola', Parabola],
@@ -792,10 +729,10 @@ _index_list = [
     # ['triweight', Triweight],
 ]
 
-_all_skip = []
-# _all_skip = [Triweight]
+DISTRIBUTIONS = OrderedDict([(nam, val) for nam, val in DISTRIBUTIONS])
 
-_index = OrderedDict([(nam, val) for nam, val in _index_list])
+__all__ = ['Kernel', 'Distribution', 'get_distribution_class', ]
+__all__ += list(DISTRIBUTIONS.keys())
 
 
 def get_distribution_class(arg=None):
@@ -804,13 +741,13 @@ def get_distribution_class(arg=None):
 
     if isinstance(arg, six.string_types):
         arg = arg.lower().strip()
-        names = list(_index.keys())
+        names = list(DISTRIBUTIONS.keys())
         if arg not in names:
             err = "`Distribution` '{}' is not in the index.  Choose one of: '{}'!".format(
                 arg, names)
             raise ValueError(err)
 
-        return _index[arg]
+        return DISTRIBUTIONS[arg]
 
     # This will raise an error if `arg` isn't a class at all
     try:
@@ -820,17 +757,6 @@ def get_distribution_class(arg=None):
         pass
 
     raise ValueError("Unrecognized `Distribution` type '{}'!".format(arg))
-
-
-def get_all_distribution_classes():
-    kerns = []
-    for kk in _index.values():
-        if kk not in kerns:
-            if kk in _all_skip:
-                logging.warning("WARNING: skipping `Distribution` '{}'!".format(kk))
-                continue
-            kerns.append(kk)
-    return kerns
 
 
 def _nball_vol(ndim, rad=1.0):
@@ -896,58 +822,16 @@ def _check_reflect(reflect, data, weights=None, helper=False):
                     frac = np.count_nonzero(bads) / bads.size
                 else:
                     frac = np.sum(weights[bads]) / np.sum(weights)
-                msg = ("A fraction {:.2e} of data[{}] ".format(frac, ii) +
-                       " are outside of `reflect` bounds!")
+                msg = (
+                    "A fraction {:.2e} of data[{}] ".format(frac, ii)
+                    + " are outside of `reflect` bounds!"
+                )
                 logging.warning(msg)
                 msg = (
-                    "`reflect[{}]` = {}; ".format(ii, reflect[ii]) +
-                    "`data[{}]` = {}".format(ii, utils.stats_str(data[ii], weights=weights))
+                    "`reflect[{}]` = {}; ".format(ii, reflect[ii])
+                    + "`data[{}]` = {}".format(ii, utils.stats_str(data[ii], weights=weights))
                 )
                 logging.warning(msg)
                 logging.warning("I hope you know what you're doing.")
 
     return reflect
-
-
-def _check_points(points, data, params=None):
-    """
-
-    Need to end up with (D, N) array of `N` points specified at for each of `D` parameters.
-    (N,)  ==> (1, N)
-    if `params` is None :: (D,N) ==> (D,N)
-    if `params` is not None, and has length 'P' :: (D,N) ==> (P,N)
-
-    """
-    data = np.atleast_2d(data)
-    ndim, nval = np.shape(data)
-    params = params if (params is None) else np.atleast_1d(params)
-
-    # (N,) ==> (1, N)
-    data_is_1d = (ndim == 1)
-    data_will_be_1d = ((params is not None) and (len(params) == 1))
-    # If both `points` and `data` are (or will be) 1D
-    # if (np.ndim(points) == 1) and (data_is_1d or data_will_be_1d):
-    if utils.really1d(points) and (data_is_1d or data_will_be_1d):
-        if len(points) == 0:
-            raise ValueError("Empty `points` given.")
-        points = np.atleast_2d(points)
-        return points
-
-    # if np.ndim(points) != 2:
-    if np.ndim(np.array(points, dtype=object)) != 2:
-        err = "`points` ({}) must be shaped (D,N) for D parameters/dimensions!".format(
-            utils.jshape(points))
-        raise ValueError(err)
-
-    if params is None:
-        if len(points) != ndim:
-            err = "`points` ({}) must have values for each of {} parameters!".format(
-                np.shape(points), ndim)
-            raise ValueError(err)
-    else:
-        if len(points) == ndim:
-            points = [points[pp] for pp in params]
-        elif len(points) != len(params):
-            raise ValueError("Tuple `points` must have length ndim or len(params)!")
-
-    return points

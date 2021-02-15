@@ -14,11 +14,12 @@ from nose import tools
 import kalepy as kale
 from kalepy import utils
 
-GOOD_DISTRIBUTION_NAMES = [val[0] for val in kale.kernels._index_list]
+GOOD_DISTRIBUTION_NAMES = kale.kernels.DISTRIBUTIONS.keys()
 BAD_DISTRIBUTION_NAMES = ['triangle', 'spaceship', '', 0.5]
 
 
-class Test_Distribution_Base(utils.Test_Base):
+# class Test_Distribution_Base(utils.Test_Base):
+class Test_Distribution_Base:
 
     def test_callable(self):
         from kalepy.kernels import Distribution
@@ -112,7 +113,8 @@ class Test_Distribution_Base(utils.Test_Base):
         return
 
 
-class Test_Distribution_Generic(utils.Test_Base):
+# class Test_Distribution_Generic(utils.Test_Base):
+class Test_Distribution_Generic:
 
     @classmethod
     def _test_evaluate(self, kernel):
@@ -178,8 +180,8 @@ class Test_Distribution_Generic(utils.Test_Base):
 
     @classmethod
     def _test_evaluate_nd(cls, kernel):
-        kernels = kale.kernels.get_all_distribution_classes()
-        for kern in kernels:
+        for kern in GOOD_DISTRIBUTION_NAMES:
+            kern = kale.kernels.get_distribution_class(kern)
             for ndim in range(1, 4):
                 cls._test_grid_at_ndim(kern, ndim)
         return
@@ -245,8 +247,8 @@ class Test_Distribution_Generic(utils.Test_Base):
                 # Count the number of samples up to this location
                 cnt = np.count_nonzero(samp[ii, :] < loc)
                 msg = (
-                    "f={:.3f}, loc={:.5e}, exp={:.5e}".format(ff, loc, exp_num) +
-                    " ==> bounds: {:.5e}, {:.5e} ==> cnt: {:.5e}".format(*bounds, cnt)
+                    "f={:.3f}, loc={:.5e}, exp={:.5e}".format(ff, loc, exp_num)
+                    + " ==> bounds: {:.5e}, {:.5e} ==> cnt: {:.5e}".format(*bounds, cnt)
                 )
                 print(msg)
                 # Make sure that the count is within the confidence interval
@@ -258,27 +260,31 @@ class Test_Distribution_Generic(utils.Test_Base):
 class Test_Distribution(Test_Distribution_Generic):
 
     def test_evaluate(self):
-        for kernel in kale.kernels.get_all_distribution_classes():
+        for kernel in GOOD_DISTRIBUTION_NAMES:
+            kernel = kale.kernels.get_distribution_class(kernel)
             self._test_evaluate(kernel)
 
         return
 
     def test_evaluate_nd(self):
 
-        for kernel in kale.kernels.get_all_distribution_classes():
+        for kernel in GOOD_DISTRIBUTION_NAMES:
+            kernel = kale.kernels.get_distribution_class(kernel)
             print("Testing '{}'".format(kernel))
             self._test_evaluate_nd(kernel)
 
         return
 
     def test_kernels_sample(self):
-        for kernel in kale.kernels.get_all_distribution_classes():
+        for kernel in GOOD_DISTRIBUTION_NAMES:
+            kernel = kale.kernels.get_distribution_class(kernel)
             Test_Distribution_Generic._test_sample(kernel)
 
         return
 
     def test_kernels_sample_nd(self):
-        for kernel in kale.kernels.get_all_distribution_classes():
+        for kernel in GOOD_DISTRIBUTION_NAMES:
+            kernel = kale.kernels.get_distribution_class(kernel)
             for ndim in range(1, 4):
                 Test_Distribution_Generic._test_sample_at_ndim(kernel, ndim)
 
@@ -291,7 +297,7 @@ def test_get_distribution_class():
         print("Name: '{}'".format(name))
         kale.kernels.get_distribution_class(name)()
 
-    for name in kale.kernels._index.keys():
+    for name in kale.kernels.DISTRIBUTIONS.keys():
         kale.kernels.get_distribution_class(name)()
 
     for name in BAD_DISTRIBUTION_NAMES:
