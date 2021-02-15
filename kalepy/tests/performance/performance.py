@@ -86,6 +86,11 @@ if __name__ == "__main__":
         stats = pstats.Stats(out_name_prof, stream=stream)
         stats.strip_dirs().sort_stats(SortKey.CUMULATIVE).print_stats(100)
 
+    # Add files to git
+    for fil in [out_name_prof, out_name_txt]:
+        if os.path.basename(fil) not in repo.head.commit.tree:
+            repo.index.add([fil])
+        
     print(f"\nFinished after {datetime.now()-now}")
     # print(f"text output: '{out_name_txt}'")
     sys.exit(0)

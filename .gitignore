@@ -109,3 +109,4 @@ notebooks/*.png
 #*.png
 test_notebooks/
 notebooks/output
+results/
