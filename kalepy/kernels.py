@@ -31,6 +31,7 @@ from collections import OrderedDict
 import numpy as np
 import scipy as sp   # noqa
 import scipy.stats   # noqa
+import numba
 
 from kalepy import utils
 from kalepy import _NUM_PAD, _TRUNCATE_INFINITE_KERNELS
@@ -69,11 +70,11 @@ class Kernel(object):
 
         """
         matrix_inv = self.matrix_inv
-        norm = self.norm
         points = np.atleast_2d(points)
         npar_pnts, num_points = np.shape(points)
+        norm = self.norm * self.distribution.norm(npar_pnts)
 
-        # ----------------    Process Arguments
+        # ----------------    Process Arguments and Sanitize
 
         # Select subset of parameters
         if params is not None:
@@ -93,7 +94,9 @@ class Kernel(object):
                 npar_data, npar_pnts)
             raise ValueError(err)
 
-        if (weights is not None) and (np.shape(weights) != (num_data,)):
+        if weights is None:
+            weights = np.ones(num_data)
+        elif (np.shape(weights) != (num_data,)):
             err = "Shape of `weights` ({}) does not match number of data points ({})!".format(
                 np.shpae(weights), num_data)
             raise ValueError(err)
@@ -101,49 +104,9 @@ class Kernel(object):
         # -----------------    Calculate Density
 
         whitening = sp.linalg.cholesky(matrix_inv)
+        kfunc = self.distribution._kfunc
 
-        # Construct the whitened sampling points
-        white_points = np.dot(whitening, points)
-
-        result = np.zeros((num_points,), dtype=float)
-        # Construct the 'whitened' (independent) dataset
-        white_dataset = np.dot(whitening, data)
-
-        # NOTE: optimize: can the for-loop be sped up?
-        if weights is None:
-            weights = np.ones(num_data)
-
-        # '''
-        for ii in range(num_data):
-            yy = white_points - white_dataset[:, ii, np.newaxis]
-            temp = weights[ii] * self.distribution.evaluate(yy, npar_data)
-            result += temp.squeeze()
-            # print(f"{yy.shape=}, {temp.shape=}, {result.shape=}, {num_data=}, {num_points=}")
-            # raise
-        # '''
-
-        # print(f"{white_points.shape=}, {white_dataset.shape=}, {result.shape=}, {weights.shape=}, {num_data=}, {num_points=}")
-        # raise
-
-        '''
-        yy = white_points[:, :, np.newaxis] - white_dataset[:, np.newaxis, :]
-        result = weights[np.newaxis, np.newaxis, :] * self.distribution._evaluate(yy, npar_data)
-        result = np.sum(result, axis=2).squeeze()
-        '''
-
-        # print(f"{result.shape=}")
-
-        '''
-        if num_points >= num_data:
-            for ii in range(num_data):
-                yy = white_points - white_dataset[:, ii, np.newaxis]
-                result += weights[ii] * self.distribution.evaluate(yy)
-        else:
-            for jj in range(num_points):
-                yy = white_dataset - white_points[:, jj, np.newaxis]
-                res = weights * self.distribution.evaluate(yy)
-                result[jj] += np.sum(res, axis=0)
-        '''
+        result = _evaluate_numba(whitening, data, points, weights, kfunc)
 
         if reflect is None:
             result = result / norm
@@ -167,24 +130,10 @@ class Kernel(object):
                 # shape (D,N) i.e. (dimensions, data-points)
                 refl_data = np.array(data)
                 refl_data[ii, :] = 2*loc - refl_data[ii, :]
-                white_dataset = np.dot(whitening, refl_data)
-                # Construct the whitened sampling points
-                #    shape (D,M) i.e. (dimensions, sample-points)
-                points = np.array(points)
-                white_points = np.dot(whitening, points)
+                result += _evaluate_numba(whitening, refl_data, points, weights, kfunc)
 
-                if num_points >= num_data:
-                    for jj in range(num_data):
-                        yy = white_points - white_dataset[:, jj, np.newaxis]
-                        result += weights[jj] * self.distribution.evaluate(yy, npar_data)
-                else:
-                    for jj in range(num_points):
-                        yy = white_dataset - white_points[:, jj, np.newaxis]
-                        res = weights * self.distribution.evaluate(yy, npar_data)
-                        result[jj] += np.sum(res, axis=0)
-
-            lo = -np.inf if reflect_dim[0] is None else reflect_dim[0]
-            hi = +np.inf if reflect_dim[1] is None else reflect_dim[1]
+            lo = -np.inf if (reflect_dim[0] is None) else reflect_dim[0]
+            hi = +np.inf if (reflect_dim[1] is None) else reflect_dim[1]
             idx = (points[ii, :] < lo) | (hi < points[ii, :])
             result[idx] = 0.0
 
@@ -456,12 +405,6 @@ class Distribution(object):
     _CDF_INTERP = True
     _INTERP_KWARGS = dict(kind='cubic', fill_value=np.nan)
 
-    def __init__(self):
-        self._cdf_grid = None
-        self._cdf_func = None
-        self._ppf_func = None
-        return
-
     @classmethod
     def name(cls):
         name = cls.__name__
@@ -478,6 +421,12 @@ class Distribution(object):
         err = "`_evaluate` must be overridden by the Distribution subclass!"
         raise NotImplementedError(err)
 
+    @staticmethod
+    @numba.njit
+    def _kfunc(y2):
+        err = "`_kfunc` must be overridden by the Distribution subclass!"
+        raise NotImplementedError(err)
+
     @classmethod
     def grid(cls, edges):
         coords = np.meshgrid(*edges, indexing='ij')
@@ -488,16 +437,15 @@ class Distribution(object):
         pdf = pdf.reshape(shp)
         return pdf
 
-    def sample(self, size, ndim=None, squeeze=None):
+    @classmethod
+    def sample(cls, size, ndim=None, squeeze=None):
         if ndim is None:
             ndim = 1
-            if squeeze is None:
-                squeeze = True
 
         if squeeze is None:
             squeeze = (ndim == 1)
 
-        samps = self._sample(size, ndim)
+        samps = cls._sample(size, ndim)
         if squeeze:
             samps = samps.squeeze()
         return samps
@@ -533,19 +481,17 @@ class Gaussian(Distribution):
         result = np.exp(-energy) / norm
         return result
 
+    @staticmethod
+    @numba.njit
+    def _kfunc(y2):
+        return np.exp(-y2 / 2.0)
+
     @classmethod
     def norm(self, ndim=1):
         norm = np.power(2*np.pi, ndim/2)
         return norm
 
-    def cdf(self, yy):
-        zz = sp.stats.norm.cdf(yy)
-        return zz
-
-    def ppf(self, yy):
-        zz = sp.stats.norm.ppf(yy)
-        return zz
-
+    @classmethod
     def _sample(self, size, ndim):
         cov = np.eye(ndim)
         samps = np.random.multivariate_normal(np.zeros(ndim), cov, size=size).T
@@ -557,6 +503,7 @@ class Gaussian(Distribution):
         return np.ones(nvals, dtype=bool)
 
 
+'''
 class Box_Asym(Distribution):
 
     _FINITE = True
@@ -568,6 +515,11 @@ class Box_Asym(Distribution):
         zz = (np.max(np.fabs(yy), axis=0) < 1.0) / norm
         return zz
 
+    @staticmethod
+    @numba.njit
+    def _kfunc(y2):
+        return np.exp(-y2 / 2.0)
+
     @classmethod
     def _sample(self, size, ndim):
         samps = np.random.uniform(-1.0, 1.0, size=ndim*size).reshape(ndim, size)
@@ -577,6 +529,56 @@ class Box_Asym(Distribution):
     def cdf(self, xx):
         zz = 0.5 + np.minimum(np.maximum(xx, -1), 1)/2
         return zz
+
+    @classmethod
+    def inside(cls, points):
+        points = np.atleast_2d(points)
+        ndim, nvals = np.shape(points)
+        bounds = [[-1.0, 1.0] for ii in range(ndim)]
+        idx = utils.bound_indices(points, bounds)
+        return idx
+'''
+
+
+class Box(Distribution):
+
+    _FINITE = True
+    _CDF_INTERP = False
+
+    @classmethod
+    def _evaluate(self, yy, ndim):
+        norm = np.power(2, ndim)
+        zz = (np.max(np.fabs(yy), axis=0) < 1.0) / norm
+        return zz
+
+    @classmethod
+    def norm(self, ndim=1):
+        return _nball_vol(ndim)
+
+    @staticmethod
+    @numba.njit
+    def _kfunc(y2):
+        size = y2.size
+        result = np.zeros(size)
+        for ii in range(size):
+            if (-1.0 < y2[ii] < 1.0):
+                result[ii] = 1.0
+            else:
+                result[ii] = 0.0
+        return result
+
+    @classmethod
+    def _sample(self, size, ndim):
+        """Randomly sample from within ndim-ball, using Muller method.
+        """
+        if ndim == 1:
+            samps = np.random.uniform(-1.0, 1.0, size=(ndim, size))
+        else:
+            samps = np.random.normal(0.0, 1.0, (ndim, size))
+            rads = np.sum(samps**2, axis=0) ** 0.5
+            norm = np.random.random((ndim, size)) ** (1.0 / ndim)
+            samps = norm * samps / rads[np.newaxis, :]
+        return samps
 
     @classmethod
     def inside(cls, points):
@@ -596,23 +598,29 @@ class Parabola(Distribution):
 
     @classmethod
     def _evaluate(self, yy, ndim):
-        norm = 2 * _nball_vol(ndim) / (ndim + 2)
         dist = np.sum(yy**2, axis=0)
-        zz = np.maximum(1 - dist, 0.0) / norm
+        zz = np.maximum(1 - dist, 0.0) / self.norm(ndim)
         # zz = np.product(np.maximum(1 - yy**2, 0.0), axis=0) / norm
         return zz
 
-    def _sample(self, size, ndim):
-        # Use the median trick to draw from the Epanechnikov distribution
-        samp = np.random.uniform(-1, 1, 3*ndim*size).reshape(ndim, size, 3)
-        samp = np.median(samp, axis=-1)
-        return samp
+    @staticmethod
+    @numba.njit
+    def _kfunc(y2):
+        zz = 1.0 - y2
+        zz = np.clip(y2, 0.0, None)
+        return zz
+
+    @staticmethod
+    def norm(ndim):
+        norm = 2 * _nball_vol(ndim) / (ndim + 2)
+        return norm
 
     @classmethod
-    def cdf(self, xx):
-        xx = np.minimum(np.maximum(xx, -1), 1)
-        zz = 0.5 + (3/4)*(xx - xx**3 / 3)
-        return zz
+    def _sample(cls, size, ndim):
+        # Use the median trick to draw from the Epanechnikov distribution
+        samp = np.random.uniform(-1.0, 1.0, (ndim, size, 3))
+        samp = np.median(samp, axis=-1)
+        return samp
 
     @classmethod
     def inside(cls, points):
@@ -640,13 +648,6 @@ class Triweight(Distribution):
         zz = zz / norm
         return zz
 
-    @classmethod
-    def cdf(self, xx):
-        yy = np.minimum(np.maximum(xx, -1), 1)
-        coeffs = [35/32, -35/32, 21/32, -5/32]
-        powers = [1, 3, 5, 7]
-        zz = 0.5 + np.sum([aa*np.power(yy, pp) for aa, pp in zip(coeffs, powers)], axis=0)
-        return zz
 '''
 
 
@@ -654,7 +655,8 @@ _DEFAULT_DISTRIBUTION = Gaussian
 
 DISTRIBUTIONS = [
     ['gaussian', Gaussian],
-    ['box', Box_Asym],
+    # ['box', Box_Asym],
+    ['box', Box],
     ['parabola', Parabola],
     ['epanechnikov', Parabola],
     # ['triweight', Triweight],
@@ -766,3 +768,29 @@ def _check_reflect(reflect, data, weights=None, helper=False):
                 logging.warning("I hope you know what you're doing.")
 
     return reflect
+
+
+@numba.njit
+def _evaluate_numba(white, data, points, weights, kfunc):
+    ndim, ndata = data.shape
+    _, npoints = points.shape
+    zz = np.zeros(npoints)
+    for ii in range(npoints):
+        # Sum over kernels for each `data`-value at this sample-`point`
+        for jj in range(ndata):
+            y2ij = 0.0
+            # Calculate Euclidean distance between whitened-data and whitened-points
+            for kk in range(ndim):
+                xhki = 0.0
+                dhkj = 0.0
+                # Whiten data and points
+                for ll in range(ndim):
+                    xhki += white[kk, ll] * points[ll, ii]
+                    dhkj += white[kk, ll] * data[ll, jj]
+                ss = (xhki - dhkj)
+                y2ij += ss * ss
+
+            # zz[ii] += np.exp(- y2ij / 2.0) * weights[jj]
+            zz[ii] += kfunc(y2ij) * weights[jj]
+
+    return zz
