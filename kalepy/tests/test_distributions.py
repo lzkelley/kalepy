@@ -104,8 +104,6 @@ class Test_Distribution_Generic:
         # Make sure kernel is callable
         # tools.assert_true(np.allclose(yy, kernel().evaluate(cents)))
 
-        print(f"{yy.shape=}, {cents.shape=}")
-
         # Make sure kernel is normalized
         tot = np.trapz(yy, cents)
         msg = "Kernel is {fail:} unitary"
