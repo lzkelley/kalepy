@@ -6,8 +6,8 @@ Can be run with:
 """
 
 import numpy as np
-import scipy as sp
-import scipy.stats  # noqa
+# import scipy as sp
+# import scipy.stats  # noqa
 from numpy.testing import run_module_suite
 from nose import tools
 
@@ -18,6 +18,7 @@ GOOD_DISTRIBUTION_NAMES = kale.kernels.DISTRIBUTIONS.keys()
 BAD_DISTRIBUTION_NAMES = ['triangle', 'spaceship', '', 0.5]
 
 
+'''
 # class Test_Distribution_Base(utils.Test_Base):
 class Test_Distribution_Base:
 
@@ -62,34 +63,6 @@ class Test_Distribution_Base:
 
         return
 
-    '''
-    def test_parse(self):
-        from kalepy.kernels import Distribution
-
-        ndim_max = 5
-        for ndim in range(ndim_max):
-            # Use `ndim` to make sure that a scalar (non-array) is valid, but this still counts
-            # as a "one-dimensional" value (i.e. a single-variate distribution), so set ndim=1
-            if ndim == 0:
-                xx = 0.5
-                ndim = 1
-            else:
-                nvals = np.random.randint(2, 10)
-                # Squeeze this array to test that (N,) will be expanded to (1, N)
-                xx = np.random.uniform(-10.0, 10.0, nvals*ndim).reshape(ndim, nvals).squeeze()
-
-            yy, _ndim, squeeze = Distribution._parse(xx)
-            # Make sure number of dimensions are accurate
-            utils.alltrue(_ndim == ndim)
-            # Squeeze should be true for less than 2D
-            utils.alltrue(squeeze == (ndim < 2))
-            # Make sure values are the same, but 2d
-            utils.allclose(yy, xx)
-            utils.alltrue(np.ndim(yy) == 2)
-
-        return
-    '''
-
     def test_name_finite(self):
         from kalepy.kernels import Distribution
 
@@ -113,6 +86,7 @@ class Test_Distribution_Base:
             tools.assert_true(temp.FINITE is ff)
 
         return
+'''
 
 
 # class Test_Distribution_Generic(utils.Test_Base):
@@ -190,6 +164,7 @@ class Test_Distribution_Generic:
                 cls._test_grid_at_ndim(kern, ndim)
         return
 
+    '''
     @classmethod
     def _test_sample(self, kernel):
         kern = kernel()
@@ -223,6 +198,7 @@ class Test_Distribution_Generic:
             utils.alltrue(x2 < tol)
 
         return
+
 
     @classmethod
     def _test_sample_at_ndim(self, kernel, ndim, num=1e6, conf=0.99):
@@ -259,6 +235,7 @@ class Test_Distribution_Generic:
                 tools.assert_true((bounds[0] < cnt) & (cnt < bounds[1]))
 
         return
+        '''
 
 
 class Test_Distribution(Test_Distribution_Generic):
@@ -279,6 +256,7 @@ class Test_Distribution(Test_Distribution_Generic):
 
         return
 
+    '''
     def test_kernels_sample(self):
         for kernel in GOOD_DISTRIBUTION_NAMES:
             kernel = kale.kernels.get_distribution_class(kernel)
@@ -293,6 +271,7 @@ class Test_Distribution(Test_Distribution_Generic):
                 Test_Distribution_Generic._test_sample_at_ndim(kernel, ndim)
 
         return
+    '''
 
 
 def test_get_distribution_class():
@@ -312,6 +291,7 @@ def test_get_distribution_class():
     kale.kernels.get_distribution_class(None)()
     kale.kernels.get_distribution_class()()
 
+    '''
     # Test custom kernel
     class Good_Kernel(kale.kernels.Distribution):
         pass
@@ -324,6 +304,7 @@ def test_get_distribution_class():
 
     with tools.assert_raises(ValueError):
         kale.kernels.get_distribution_class(Bad_Kernel)
+    '''
 
     return
 
