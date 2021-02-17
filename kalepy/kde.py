@@ -403,6 +403,21 @@ class KDE(object):
 
         return points, values
 
+    @classmethod
+    def from_hist(cls, bins, hist, *args, **kwargs):
+        """Alternative constructor using a histogram as input instead of
+        individual data points.
+        """
+
+        # Convert bins into points
+        dx = bins[2] - bins[1]
+        points = bins[:-1] + 0.5 * dx
+
+        # Normalize into a pdf
+        hist /= hist.sum() * dx
+        
+        return KDE(dataset=points, weights=hist, *args, **kwargs)
+
     def pdf(self, *args, **kwargs):
         kwargs['probability'] = True
         return self.density(*args, **kwargs)

@@ -548,6 +548,32 @@ class Test_KDE_Resample(object):
         return
 
 
+class Test_KDE_Construct_From_Hist(object):
+
+    @classmethod
+    def setup_class(cls):
+        np.random.seed(9865)
+
+    def test_compare_1d(self):
+        print("\n|Test_KDE_Construct_From_Hist:test_compare_1d()|")
+
+        # data = np.random.normal(0.0, 1.0, 1000)
+
+        # Create a pdf and histogram
+        xx = np.linspace(-5, 5, 10000)
+        pdf = np.exp(-xx*xx/2) / np.sqrt(2*np.pi)
+        bins = np.zeros(xx.size + 1)
+        dx = xx[1] - xx[0]
+        bins[:-1] = xx - 0.5 * dx
+        bins[-1] = xx[-1] + 0.5 * dx
+        
+        # Construct a KDE from the histogram
+        kde = kale.KDE.from_hist(bins, pdf)
+
+        # Check that the KDE pdf matches the true pdf
+        xx, pdf_kde = kde.density(xx, probability=True)
+        np.testing.assert_allclose( pdf, pdf_kde, atol=0.01 )
+
 # Run all methods as if with `nosetests ...`
 if __name__ == "__main__":
     run_module_suite()
