@@ -25,7 +25,7 @@ Contents:
 
 """
 import logging
-import six
+import abc
 from collections import OrderedDict
 
 import numpy as np
@@ -36,8 +36,23 @@ import numba
 from kalepy import utils
 from kalepy import _NUM_PAD, _TRUNCATE_INFINITE_KERNELS
 
+_NUM_CDF_INTERP_POINTS = 1e3
 
-_INTERP_NUM_PER_STD = int(1e4)
+
+# def pdf(xx):
+#     return (70.0/32.0) * np.power(1 - xx*xx, 3)
+
+
+def _triweight_cdf(xx):
+    yy = (70.0/32.0) * (((-1.0/7.0) * (xx**7)) + ((3.0/5.0) * (xx**5)) - (xx**3) + xx)
+    return yy
+
+
+xx = np.linspace(0.0, 1.0, int(_NUM_CDF_INTERP_POINTS))
+yy = _triweight_cdf(xx)
+yy[-1] = 1.0
+_triweight_inverse_func = sp.interpolate.interp1d(yy, xx, kind='linear', bounds_error=True)
+del xx, yy
 
 
 class Kernel(object):
@@ -72,7 +87,7 @@ class Kernel(object):
         matrix_inv = self.matrix_inv
         points = np.atleast_2d(points)
         npar_pnts, num_points = np.shape(points)
-        norm = self.norm * self.distribution.norm(npar_pnts)
+        norm = self.norm
 
         # ----------------    Process Arguments and Sanitize
 
@@ -103,9 +118,9 @@ class Kernel(object):
 
         # -----------------    Calculate Density
 
+        norm *= self.distribution.norm(npar_pnts)
         whitening = sp.linalg.cholesky(matrix_inv)
-        kfunc = self.distribution._kfunc
-
+        kfunc = self.distribution._evaluate
         result = _evaluate_numba(whitening, data, points, weights, kfunc)
 
         if reflect is None:
@@ -379,12 +394,8 @@ class Kernel(object):
 
     @property
     def norm(self):
-        try:
-            if self._norm is None:
-                raise AttributeError
-        except AttributeError:
+        if self._norm is None:
             self._norm = np.sqrt(np.fabs(np.linalg.det(self.matrix)))
-
         return self._norm
 
     @property
@@ -392,7 +403,7 @@ class Kernel(object):
         return self.distribution.FINITE
 
 
-class Distribution(object):
+class _Distribution(abc.ABC):
     """
 
     `Distribution` positional arguments (`xx` or `yy`) must be shaped as `(D, N)`
@@ -402,40 +413,19 @@ class Distribution(object):
 
     _FINITE = None
     _SYMMETRIC = True
-    _CDF_INTERP = True
-    _INTERP_KWARGS = dict(kind='cubic', fill_value=np.nan)
+
+    # ---- Core API Wrapper Functions
 
     @classmethod
-    def name(cls):
-        name = cls.__name__
-        return name
-
-    @classmethod
-    def evaluate(cls, yy, ndim):
+    def evaluate(cls, yy, ndim=None):
+        """Evaluate the kernel at the position `yy` (D, N) for D-dimensions.
+        """
         if np.ndim(yy) < 2:
-            raise RuntimeError("BAD SHAPE!")
-        return cls._evaluate(yy, ndim)
-
-    @classmethod
-    def _evaluate(cls, yy, ndim):
-        err = "`_evaluate` must be overridden by the Distribution subclass!"
-        raise NotImplementedError(err)
-
-    @staticmethod
-    @numba.njit
-    def _kfunc(y2):
-        err = "`_kfunc` must be overridden by the Distribution subclass!"
-        raise NotImplementedError(err)
-
-    @classmethod
-    def grid(cls, edges):
-        coords = np.meshgrid(*edges, indexing='ij')
-        shp = np.shape(coords)
-        ndim, *shp = shp
-        coords = np.vstack([xx.ravel() for xx in coords])
-        pdf = cls.evaluate(coords, ndim)
-        pdf = pdf.reshape(shp)
-        return pdf
+            # raise RuntimeError("BAD SHAPE!")
+            yy = np.atleast_2d(yy)
+        ndim = np.shape(yy)[0]
+        y2 = np.linalg.norm(yy, axis=0) ** 2
+        return cls._evaluate(y2) / cls.norm(ndim)
 
     @classmethod
     def sample(cls, size, ndim=None, squeeze=None):
@@ -448,12 +438,50 @@ class Distribution(object):
         samps = cls._sample(size, ndim)
         if squeeze:
             samps = samps.squeeze()
+
         return samps
 
+    # ---- Abstract Methods
+
+    @staticmethod
+    @numba.njit
+    @abc.abstractmethod
+    def _evaluate(cls, y2):
+        """Evaluate the kernel at the Euclidean (scalar) distance, y2 (N,) - NOTE: without normalization!
+        """
+        pass
+
+    @staticmethod
+    @abc.abstractmethod
+    def norm(ndim):
+        pass
+
     @classmethod
+    @abc.abstractmethod
     def _sample(cls, *args, **kwargs):
-        err = "`_sample` must be overridden by the Distribution subclass!"
-        raise NotImplementedError(err)
+        pass
+
+    @staticmethod
+    @abc.abstractmethod
+    def inside(points):
+        pass
+
+    # ---- Additional Functions
+
+    @classmethod
+    def grid(cls, edges):
+        coords = np.meshgrid(*edges, indexing='ij')
+        shp = np.shape(coords)
+        ndim, *shp = shp
+        coords = np.vstack([xx.ravel() for xx in coords])
+        pdf = cls.evaluate(coords, ndim)
+        pdf = pdf.reshape(shp)
+        return pdf
+
+    @classmethod
+    def name(cls):
+        name = cls.__name__
+        return name
 
     @property
     def FINITE(self):
@@ -463,93 +491,39 @@ class Distribution(object):
     def SYMMETRIC(self):
         return self._SYMMETRIC
 
-    @classmethod
-    def inside(cls, points):
-        err = "`inside` must be overridden by the Distribution subclass!"
-        raise NotImplementedError(err)
 
-
-class Gaussian(Distribution):
+class Gaussian(_Distribution):
 
     _FINITE = False
-    _CDF_INTERP = False
-
-    @classmethod
-    def _evaluate(self, yy, ndim):
-        energy = np.sum(yy * yy, axis=0) / 2.0
-        norm = self.norm(ndim)
-        result = np.exp(-energy) / norm
-        return result
 
     @staticmethod
     @numba.njit
-    def _kfunc(y2):
+    def _evaluate(y2):
         return np.exp(-y2 / 2.0)
 
-    @classmethod
-    def norm(self, ndim=1):
+    @staticmethod
+    def norm(ndim):
         norm = np.power(2*np.pi, ndim/2)
         return norm
 
     @classmethod
-    def _sample(self, size, ndim):
+    def _sample(cls, size, ndim):
         cov = np.eye(ndim)
         samps = np.random.multivariate_normal(np.zeros(ndim), cov, size=size).T
         return samps
 
-    @classmethod
-    def inside(cls, points):
-        ndim, nvals = np.shape(np.atleast_2d(points))
-        return np.ones(nvals, dtype=bool)
-
-
-'''
-class Box_Asym(Distribution):
-
-    _FINITE = True
-    _CDF_INTERP = False
-
-    @classmethod
-    def _evaluate(self, yy, ndim):
-        norm = np.power(2, ndim)
-        zz = (np.max(np.fabs(yy), axis=0) < 1.0) / norm
-        return zz
-
     @staticmethod
-    @numba.njit
-    def _kfunc(y2):
-        return np.exp(-y2 / 2.0)
-
-    @classmethod
-    def _sample(self, size, ndim):
-        samps = np.random.uniform(-1.0, 1.0, size=ndim*size).reshape(ndim, size)
-        return samps
-
-    @classmethod
-    def cdf(self, xx):
-        zz = 0.5 + np.minimum(np.maximum(xx, -1), 1)/2
-        return zz
-
-    @classmethod
     def inside(cls, points):
-        points = np.atleast_2d(points)
-        ndim, nvals = np.shape(points)
-        bounds = [[-1.0, 1.0] for ii in range(ndim)]
-        idx = utils.bound_indices(points, bounds)
-        return idx
-'''
+        if np.ndim(points) == 1:
+            shape = points.size
+        else:
+            ndim, *shape = np.shape(points)
+        return np.ones(shape, dtype=bool)
 
 
-class Box(Distribution):
+class Box(_Distribution):
 
     _FINITE = True
-    _CDF_INTERP = False
-
-    @classmethod
-    def _evaluate(self, yy, ndim):
-        norm = np.power(2, ndim)
-        zz = (np.max(np.fabs(yy), axis=0) < 1.0) / norm
-        return zz
 
     @classmethod
     def norm(self, ndim=1):
@@ -557,18 +531,19 @@ class Box(Distribution):
 
     @staticmethod
     @numba.njit
-    def _kfunc(y2):
-        size = y2.size
-        result = np.zeros(size)
-        for ii in range(size):
-            if (-1.0 < y2[ii] < 1.0):
-                result[ii] = 1.0
-            else:
-                result[ii] = 0.0
+    def _evaluate(y2):
+        # size = y2.size
+        # result = np.zeros(size)
+        # for ii in range(size):
+        #     if (-1.0 < y2[ii] < 1.0):
+        #         result[ii] = 1.0
+        #     else:
+        #         result[ii] = 0.0
+        result = (y2 <= 1.0)
         return result
 
     @classmethod
-    def _sample(self, size, ndim):
+    def _sample(cls, size, ndim):
         """Randomly sample from within ndim-ball, using Muller method.
         """
         if ndim == 1:
@@ -580,39 +555,31 @@ class Box(Distribution):
             samps = norm * samps / rads[np.newaxis, :]
         return samps
 
-    @classmethod
-    def inside(cls, points):
-        points = np.atleast_2d(points)
-        ndim, nvals = np.shape(points)
-        bounds = [[-1.0, 1.0] for ii in range(ndim)]
-        idx = utils.bound_indices(points, bounds)
-        return idx
+    @staticmethod
+    def inside(points):
+        return _inside_unit_nball(points)
 
 
-class Parabola(Distribution):
+class Parabola(_Distribution):
     """Symmetric parabola.
     """
 
     _FINITE = True
-    _CDF_INTERP = False
-
-    @classmethod
-    def _evaluate(self, yy, ndim):
-        dist = np.sum(yy**2, axis=0)
-        zz = np.maximum(1 - dist, 0.0) / self.norm(ndim)
-        # zz = np.product(np.maximum(1 - yy**2, 0.0), axis=0) / norm
-        return zz
 
     @staticmethod
     @numba.njit
-    def _kfunc(y2):
-        zz = 1.0 - y2
-        zz = np.clip(y2, 0.0, None)
+    def _evaluate(y2):
+        # zz = np.zeros(y2.size)
+        # for ii in range(y2.size):
+        #     zz[ii] = (1.0 - y2[ii])
+        #     if zz[ii] < 0.0:
+        #         zz[ii] = 0.0
+        zz = np.maximum(1.0 - y2, 0.0)
         return zz
 
     @staticmethod
     def norm(ndim):
-        norm = 2 * _nball_vol(ndim) / (ndim + 2)
+        norm = 2.0 * _nball_vol(ndim) / (ndim + 2.0)
         return norm
 
     @classmethod
@@ -622,80 +589,116 @@ class Parabola(Distribution):
         samp = np.median(samp, axis=-1)
         return samp
 
-    @classmethod
-    def inside(cls, points):
-        dist = np.atleast_2d(points)
-        dist = np.linalg.norm(dist, axis=0)
-        idx = (dist < 1.0)
-        return idx
+    @staticmethod
+    def inside(points):
+        return _inside_unit_nball(points)
 
 
-'''
-NOTE: THIS ISN"T WORKING!  NON-UNITARY for ND > 1.  Something wrong with normalization?  NBall?
-
-class Triweight(Distribution):
+class Triweight(_Distribution):
 
     _FINITE = True
-    _CDF_INTERP = False
 
-    @classmethod
-    def _evaluate(self, yy, ndim):
-        norm = (32.0 / 35.0) * _nball_vol(ndim) / (ndim + 1)
-        dist = np.sum(yy**2, axis=0)
-        # dist = np.linalg.norm(yy, 2, axis=0) ** 2
-        zz = np.maximum((1 - dist)**3, 0.0)
-        # zz = np.product(np.maximum((1 - yy*yy)**3, 0.0), axis=0)
-        zz = zz / norm
+    @staticmethod
+    def norm(ndim):
+        return _beta_kernel_norm(3, ndim)
+
+    @staticmethod
+    @numba.njit
+    def _evaluate(y2):
+        # zz = np.zeros(y2.size)
+        # for ii in range(y2.size):
+        #     zz[ii] = (1 - y2[ii])**3
+        #     if zz[ii] < 0.0:
+        #         zz[ii] = 0.0
+        zz = np.maximum((1 - y2)**3, 0.0)
         return zz
 
-'''
+    @classmethod
+    def _sample(cls, size, ndim):
+        samps = np.random.normal(0.0, 1.0, (ndim, size))
+        rads = np.linalg.norm(samps, axis=0)
+        norm = _triweight_inverse_func(np.random.random((ndim, size)))
+        samps = norm * samps / rads[np.newaxis, :]
+        return samps
+
+    @staticmethod
+    def inside(points):
+        return _inside_unit_nball(points)
 
 
 _DEFAULT_DISTRIBUTION = Gaussian
 
 DISTRIBUTIONS = [
     ['gaussian', Gaussian],
-    # ['box', Box_Asym],
     ['box', Box],
     ['parabola', Parabola],
     ['epanechnikov', Parabola],
-    # ['triweight', Triweight],
+    ['triweight', Triweight],
 ]
 
 DISTRIBUTIONS = OrderedDict([(nam, val) for nam, val in DISTRIBUTIONS])
 
-__all__ = ['Kernel', 'Distribution', 'get_distribution_class', ]
+__all__ = ['Kernel', 'get_distribution_class', ]
 __all__ += list(DISTRIBUTIONS.keys())
+
+
+def _get_all_distribution_classes():
+    dists = []
+    _dists = list(DISTRIBUTIONS.values())
+    # dists = np.unique(dists).tolist()
+    for dd in _dists:
+        if dd in dists:
+            continue
+        dists.append(dd)
+
+    return dists
 
 
 def get_distribution_class(arg=None):
     if arg is None:
         return _DEFAULT_DISTRIBUTION
 
-    if isinstance(arg, six.string_types):
-        arg = arg.lower().strip()
-        names = list(DISTRIBUTIONS.keys())
-        if arg not in names:
-            err = "`Distribution` '{}' is not in the index.  Choose one of: '{}'!".format(
-                arg, names)
-            raise ValueError(err)
-
-        return DISTRIBUTIONS[arg]
-
     # This will raise an error if `arg` isn't a class at all
     try:
-        if issubclass(arg, Distribution):
+        if issubclass(arg, _Distribution):
             return arg
     except:
         pass
 
-    raise ValueError("Unrecognized `Distribution` type '{}'!".format(arg))
+    try:
+        arg = arg.lower().strip()
+        return DISTRIBUTIONS[arg]
+    except:
+        pass
+
+    raise ValueError("Argument '{}' is not a known distribution!".format(arg))
+
+
+def _inside_unit_nball(points):
+    if np.ndim(points) == 1:
+        idx = (-1.0 < points < 1.0)
+    else:
+        points = np.linalg.norm(points, axis=0)
+        idx = (points < 1.0)
+    return idx
 
 
 def _nball_vol(ndim, rad=1.0):
     vol = np.pi**(ndim/2)
     vol = (rad**ndim) * vol / sp.special.gamma((ndim/2) + 1)
     return vol
+
+
+def _beta_kernel_norm(order, ndim):
+    """Note: this is the inverse normalization (i.e. divide by this).
+
+    See: Duong-2015 - Spherically symmetric multivariate beta family kernels
+         https://doi.org/10.1016/j.spl.2015.05.012
+    """
+    rr = 3
+    bvol = _nball_vol(ndim) / 2.0
+    norm = ndim * bvol * sp.special.beta(rr + 1, ndim / 2.0)
+    return norm
 
 
 def _check_reflect(reflect, data, weights=None, helper=False):
