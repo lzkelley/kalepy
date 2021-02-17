@@ -82,7 +82,7 @@ class Test_KDE_PDF(object):
                     test = cc(data, mm).pdf(grid).reshape(xc.shape).T
 
                 kdes_list.append(test)
-                
+
             assert_true(np.allclose(kdes_list[0], kdes_list[1]))
 
         return
@@ -144,9 +144,9 @@ class Test_KDE_PDF(object):
         yy = np.concatenate([yy, np.random.choice(yy, NUM-yy.size)])
 
         data = [xx, yy]
-        edges = [kale.utils.spacing(aa, 'lin', 30) for aa in [xx, yy]]
-        egrid = [kale.utils.spacing(ee, 'lin', 100, stretch=0.5) for ee in edges]
-        cgrid = [kale.utils.midpoints(ee, 'lin') for ee in egrid]
+        edges = [utils.spacing(aa, 'lin', 30) for aa in [xx, yy]]
+        egrid = [utils.spacing(ee, 'lin', 100, stretch=0.5) for ee in edges]
+        cgrid = [utils.midpoints(ee, 'lin') for ee in egrid]
         width = [np.diff(ee) for ee in egrid]
 
         xc, yc = np.meshgrid(*cgrid, indexing='ij')
@@ -222,8 +222,8 @@ class Test_KDE_PDF(object):
 
         kde = kale.KDE(data, bandwidth=bandwidth, kernel=kernel)
 
-        edges = [kale.utils.spacing(dd, 'lin', 200, stretch=0.1) for dd in data]
-        cents = [kale.utils.midpoints(ee, 'lin') for ee in edges]
+        edges = [utils.spacing(dd, 'lin', 200, stretch=0.1) for dd in data]
+        cents = [utils.midpoints(ee, 'lin') for ee in edges]
         widths = [np.diff(ee) for ee in edges]
         # area = widths[0][:, np.newaxis] * widths[1][np.newaxis, :]
 
@@ -239,6 +239,8 @@ class Test_KDE_PDF(object):
             kde_1d = kale.KDE(data[par, :], bandwidth=bandwidth, kernel=kernel)
             pdf_1d = kde_1d.density(xx, probability=True)[1]
             # print("matrix : ", kde.bandwidth.matrix, kde_1d.bandwidth.matrix)
+            print(f"pdf_1d = {utils.stats_str(pdf_1d)}")
+            print(f"pdf_2d = {utils.stats_str(pdf_2d)}")
             assert_true(np.allclose(pdf_2d, pdf_1d, rtol=1e-3))
 
             for pdf, ls, lw in zip([pdf_2d, pdf_1d], ['-', '--'], [1.5, 3.0]):
@@ -285,17 +287,17 @@ class Test_KDE_PDF_Box(Test_KDE_PDF):
 
     def test_reflect_1d(self):
         print("\n|Test_KDE_PDF:test_reflect_1d()|")
-        self.reflect_1d(kale.kernels.Box_Asym)
+        self.reflect_1d(kale.kernels.Box)
         return
 
     def test_reflect_2d(self):
         print("\n|Test_KDE_PDF:test_reflect_2d()|")
-        self.reflect_2d(kale.kernels.Box_Asym)
+        self.reflect_2d(kale.kernels.Box)
         return
 
     def test_pdf_params_fixed_bandwidth(self):
         print("\n|Test_KDE_PDF_Box:test_pdf_params_fixed_bandwidth()|")
-        self.pdf_params_fixed_bandwidth(kale.kernels.Box_Asym)
+        self.pdf_params_fixed_bandwidth(kale.kernels.Box)
         return
 
 
@@ -379,8 +381,8 @@ class Test_KDE_Resample(object):
                 stuff = [samples[jj], data[jj]]
                 ks, pv = sp.stats.ks_2samp(*stuff)
                 msg = "{} {} :: {:.2e} {:.2e}".format(ii, jj, ks, pv)
-                print("\t" + kale.utils.stats_str(stuff[0]))
-                print("\t" + kale.utils.stats_str(stuff[1]))
+                print("\t" + utils.stats_str(stuff[0]))
+                print("\t" + utils.stats_str(stuff[1]))
                 print(msg)
                 assert_true(pv > 0.05)
 
@@ -434,8 +436,8 @@ class Test_KDE_Resample(object):
                 ks, pv = sp.stats.ks_2samp(*stuff)
                 msg = "\t:: {:.2e} {:.2e}".format(ks, pv)
                 print(msg)
-                print("\t\t" + kale.utils.stats_str(stuff[0]))
-                print("\t\t" + kale.utils.stats_str(stuff[1]))
+                print("\t\t" + utils.stats_str(stuff[0]))
+                print("\t\t" + utils.stats_str(stuff[1]))
                 assert_true(pv > 0.01)
 
         return
@@ -494,9 +496,9 @@ class Test_KDE_Resample(object):
         yy = np.concatenate([yy, np.random.choice(yy, NUM-yy.size)])
 
         data = [xx, yy]
-        edges = [kale.utils.spacing(aa, 'lin', 30) for aa in [xx, yy]]
-        egrid = [kale.utils.spacing(ee, 'lin', 100, stretch=0.5) for ee in edges]
-        cgrid = [kale.utils.midpoints(ee, 'lin') for ee in egrid]
+        edges = [utils.spacing(aa, 'lin', 30) for aa in [xx, yy]]
+        egrid = [utils.spacing(ee, 'lin', 100, stretch=0.5) for ee in edges]
+        cgrid = [utils.midpoints(ee, 'lin') for ee in egrid]
         # width = [np.diff(ee) for ee in egrid]
 
         xc, yc = np.meshgrid(*cgrid, indexing='ij')

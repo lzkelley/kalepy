@@ -383,6 +383,8 @@ class KDE(object):
             shape = np.shape(points[0])
             points = [pp.flatten() for pp in points]
 
+        reflect = kernels._check_reflect(reflect, data, weights=self.weights)
+
         values = self.kernel.density(points, data, self.weights, reflect=reflect, params=params)
 
         if probability:
@@ -447,25 +449,6 @@ class KDE(object):
         # `scipy.interplate.RegularGridInterpolator` expects shape (N,D,) -- so transpose
         pnts = np.asarray(pnts).T
         cdf = self._cdf_func(pnts)
-        return cdf
-
-    def cdf_grid(self, edges, **kwargs):
-        """
-
-        NOTE: optimize: there are likely much faster methods than broadcasting and flattening,
-                        use a different method to calculate cdf on a grid.
-        """
-        ndim = self.ndim
-        if len(edges) != ndim:
-            err = "`edges` must be (D,)=({},): an arraylike of edges for each dim/param!"
-            err = err.format(ndim)
-            raise ValueError(err)
-
-        coords = np.meshgrid(*edges, indexing='ij')
-        shp = np.shape(coords)[1:]
-        coords = np.vstack([xx.ravel() for xx in coords])
-        cdf = self.cdf(coords, **kwargs)
-        cdf = cdf.reshape(shp)
         return cdf
 
     def resample(self, size=None, keep=None, reflect=None, squeeze=True):

@@ -1,8 +1,6 @@
 """kalepy's internal, utility functions.
 """
 import logging
-import os
-import re
 import copy
 
 import numpy as np
@@ -43,17 +41,6 @@ def array_str(data, num=3, format=':.2e'):
 
     rv = '[' + rv + ']'
     return rv
-
-
-def assert_true(val, msg=None):
-    msg_succ, msg_fail = _prep_msg(msg)
-    if not val:
-        raise AssertionError(msg_fail)
-
-    if msg_succ is not None:
-        print(msg_succ)
-
-    return
 
 
 def allclose(xx, yy, msg=None, **kwargs):
@@ -134,34 +121,24 @@ def bound_indices(data, bounds, outside=False):
     return idx
 
 
-def check_path(fname):
-    """Make sure the given path exists. Create directories as needed.
-    """
-    path, fname = os.path.split(fname)
-    if len(path) > 0 and not os.path.exists(path):
-        os.makedirs(path)
-    return
+def cov_keep_vars(matrix, keep, reflect=None):
+    matrix = np.array(matrix)
+    if (keep is None) or (keep is False):
+        return matrix
 
+    if keep is True:
+        keep = np.arange(matrix.shape[0])
 
-def cov_from_var_cor(var, corr):
-    var = np.atleast_1d(var)
-    assert _ndim(var) == 1, "`var` should be 1D!"
-    ndim = len(var)
-    # Covariance matrix diagonals should be the variance (of each parameter)
-    cov = np.identity(ndim) * var
+    keep = np.atleast_1d(keep)
+    for pp in keep:
+        matrix[pp, :] = 0.0
+        matrix[:, pp] = 0.0
+        # Make sure this isn't also a reflection axis
+        if (reflect is not None) and (reflect[pp] is not None):
+            err = "Cannot both 'keep' and 'reflect' about dimension '{}'".format(pp)
+            raise ValueError(err)
 
-    if np.isscalar(corr):
-        corr = corr * np.ones((ndim, ndim))
-    elif np.shape(corr) != (ndim, ndim):
-        raise ValueError("`corr` must be either a scalar or (D,D) matrix!")
-
-    # Set the off-diagonals to be the correlation, times the product of standard-deviations
-    for ii, jj in np.ndindex(cov.shape):
-        if ii == jj:
-            continue
-        cov[ii, jj] = np.sqrt(var[ii]) * np.sqrt(var[jj]) * corr[ii, jj]
-
-    return cov
+    return matrix
 
 
 def cumsum(vals, axis=None):
@@ -357,27 +334,14 @@ def minmax(data, positive=False, prev=None, stretch=None, log_stretch=None, limi
     return minmax
 
 
-def modify_exists(path_fname):
-    """Modify the given filename if it already exists.
-    """
-    path_fname = os.path.abspath(path_fname)
-    if not os.path.exists(path_fname):
-        return path_fname
-
-    fname, vers = _fname_match_vers(path_fname)
-    vers = 0 if (vers is None) else vers + 1
-    fname = fname.format(vers)
-    return fname
-
-
 def parse_edges(data, edges=None, extrema=None, weights=None, params=None,
                 nmin=5, nmax=1000, pad=None, refine=1.0, bw=None):
     """
     """
     if _ndim(data) not in [1, 2]:
         err = (
-            "`data` (shape: {}) ".format(np.shape(data)) +
-            "must have shape (N,) or (D, N) for `N` data points and `D` parameters!"
+            "`data` (shape: {}) ".format(np.shape(data))
+            + "must have shape (N,) or (D, N) for `N` data points and `D` parameters!"
         )
         raise ValueError(err)
 
@@ -526,12 +490,6 @@ def iqrange(data, log=False, weights=None):
         data = np.log10(data)
     iqr = np.subtract(*quantiles(data, percs=[0.75, 0.25], weights=weights))
     return iqr
-
-
-def iqcenter(data, weights=None, axis=None):
-    qr = quantiles(data, percs=[0.75, 0.25], weights=weights, axis=axis)
-    # print("qr = ", qr.shape)
-    return np.mean(qr, axis=0)
 
 
 def quantiles(values, percs=None, sigmas=None, weights=None, axis=None, values_sorted=False):
@@ -942,42 +900,6 @@ def run_if_script(func, *args, otherwise=None, **kwargs):
     return run_if(func, target, *args, otherwise=otherwise, **kwargs)
 
 
-def _is_notebook():
-    return _python_environment().startswith('notebook')
-
-
-def _is_script():
-    return _python_environment().startswith('script')
-
-
-def _fname_match_vers(path_fname, digits=2):
-    path, fname = os.path.split(path_fname)
-    match = re.search('_[0-9]{1,}', fname)
-    if match is None:
-        fname_comps = fname.split('.')
-        idx = 0 if (len(fname_comps) == 1) else -2
-        fname_comps[idx] = fname_comps[idx] + '_{{:0{:}d}}'.format(digits)
-        fname = ".".join(fname_comps)
-        fname = os.path.join(path, fname)
-        fname, num = _fname_match_vers(fname.format(0), digits=digits)
-        num = num if os.path.exists(fname.format(0)) else None
-        return fname, num
-
-    match_str = match.group()
-    match_str = match_str.strip('_')
-    num_digits = len(match_str)
-    num = int(match_str)
-
-    form = "_{{:0{:}d}}".format(num_digits)
-    fname = fname.replace('_' + match_str, form)
-    fname = os.path.join(path, fname)
-    num_max = 10**num_digits - 1
-    while os.path.exists(fname.format(num+1)) and (num < num_max - 1):
-        num += 1
-
-    return fname, num
-
-
 def _guess_str_format_from_range(arr, prec=2, log_limit=2, allow_int=True):
     """
     """
@@ -1033,33 +955,6 @@ def _ndim(vals):
     with warnings.catch_warnings():
         warnings.simplefilter("ignore")
         return np.ndim(vals)
-
-
-class _DummyError(Exception):
-    pass
-
-
-class Test_Base(object):
-
-    DEF_SEED = 1234
-
-    @classmethod
-    def setup_class(cls):
-        np.random.seed(cls.DEF_SEED)
-        return
-
-    # Override `__getattribute__` to print the class and function name whenever they are called
-    def __getattribute__(self, attr):
-        value = object.__getattribute__(self, attr)
-        if attr.startswith('__'):
-            return value
-
-        name = object.__getattribute__(self, "__class__").__name__
-        if callable(value):
-            print("\n|{}:{}|".format(name, attr))
-
-        np.random.seed(object.__getattribute__(self, "DEF_SEED"))
-        return value
 
 
 def _parse_extrema(data, extrema=None, params=None, warn=True):
@@ -1134,71 +1029,6 @@ def _parse_extrema(data, extrema=None, params=None, warn=True):
                     logging.warning(msg)
 
     return extrema
-
-
-def _dep_warn(old_name, new_name=None, msg=None, lvl=3, type='function'):
-    """Standardized deprecation warning for `zcode` package.
-    """
-    import warnings
-    warnings.simplefilter('always', DeprecationWarning)
-    warn = "WARNING: {} `{}` is deprecated.".format(type, old_name)
-    if new_name is not None:
-        warn += "  Use `{}` instead.".format(new_name)
-    if msg is not None:
-        warn += "  '{}'".format(msg)
-
-    warnings.warn(warn, DeprecationWarning, stacklevel=lvl)
-    return
-
-
-'''
-# NOTE: this is SLOWER
-def _bound_indices(data, bounds, outside=False):
-    """Find the indices of the `data` array that are bounded by the given `bounds`.
-
-    If `outside` is True, then indices for values *outside* of the bounds are returned.
-    """
-    data = np.atleast_2d(data)
-    bounds = np.atleast_2d(bounds)
-    ndim, nvals = np.shape(data)
-    # shape = (ndim, 2, nvals)
-    shape = (ndim, nvals)
-
-    if outside:
-        idx = np.zeros(shape, dtype=int)
-    else:
-        idx = np.ones(shape, dtype=int)
-
-    for ii, bnd in enumerate(bounds):
-        if ((len(bnd) == 1) and (bnd[0] is None)):
-            continue
-
-        if bnd[0] is None:
-            bnd[0] = -np.inf
-        if bnd[1] is None:
-            bnd[1] = +np.inf
-
-        temp = np.searchsorted(bnd, data[ii, :])
-        temp = (temp + outside) % 2
-        idx[ii, :] = temp
-
-    idx = np.product(idx, axis=0).astype(bool)
-
-    return idx
-'''
-
-
-'''
-def ave_std(values, weights=None, **kwargs):
-    """
-    Return the weighted average and (biased[1]) standard deviation.
-
-    [1]: i.e. we are dividing by the size `n` of values, not `n-1`.
-    """
-    average = np.average(values, weights=weights, **kwargs)
-    variance = np.average((values - average)**2, weights=weights, **kwargs)
-    return average, np.sqrt(variance)
-'''
 
 
 def _random_data_1d_01(num=1e4):

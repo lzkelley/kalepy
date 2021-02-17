@@ -25,47 +25,46 @@ Contents:
 
 """
 import logging
-import six
+import abc
 from collections import OrderedDict
 
 import numpy as np
 import scipy as sp   # noqa
 import scipy.stats   # noqa
+import numba
 
 from kalepy import utils
 from kalepy import _NUM_PAD, _TRUNCATE_INFINITE_KERNELS
 
+_NUM_CDF_INTERP_POINTS = 1e3
 
-_INTERP_NUM_PER_STD = int(1e4)
+
+# def pdf(xx):
+#     return (70.0/32.0) * np.power(1 - xx*xx, 3)
 
 
-__all__ = [
-    'Kernel', 'Distribution', 'Gaussian', 'Box_Asym', 'Parabola',
-    'get_distribution_class', 'get_all_distribution_classes'
-]
+def _triweight_cdf(xx):
+    yy = (70.0/32.0) * (((-1.0/7.0) * (xx**7)) + ((3.0/5.0) * (xx**5)) - (xx**3) + xx)
+    return yy
+
+
+xx = np.linspace(0.0, 1.0, int(_NUM_CDF_INTERP_POINTS))
+yy = _triweight_cdf(xx)
+yy[-1] = 1.0
+_triweight_inverse_func = sp.interpolate.interp1d(yy, xx, kind='linear', bounds_error=True)
+del xx, yy
 
 
 class Kernel(object):
 
-    def __init__(self, distribution=None, bandwidth=None, covariance=None,
-                 helper=False, chunk=1e5):
-        self._helper = helper
-        distribution = get_distribution_class(distribution)
-        self._distribution = distribution()
-        self._chunk = int(chunk)
-
-        if bandwidth is None:
-            bandwidth = 1.0
-            logging.warning("No `bandwidth` provided, setting to 1.0!")
-
-        if covariance is None:
-            covariance = 1.0
-            logging.warning("No `covariance` provided, setting to 1.0!")
-
+    def __init__(self, distribution, bandwidth, covariance, helper=False, chunk=1e5):
         bandwidth = np.atleast_2d(bandwidth)
         covariance = np.atleast_2d(covariance)
         matrix = covariance * np.square(bandwidth)
 
+        self._helper = helper
+        self._distribution = distribution()
+        self._chunk = int(chunk)
         self._ndim = np.shape(matrix)[0]
         self._matrix = matrix
         self._bandwidth = bandwidth
@@ -86,11 +85,11 @@ class Kernel(object):
 
         """
         matrix_inv = self.matrix_inv
-        norm = self.norm
         points = np.atleast_2d(points)
         npar_pnts, num_points = np.shape(points)
+        norm = self.norm
 
-        # ----------------    Process Arguments
+        # ----------------    Process Arguments and Sanitize
 
         # Select subset of parameters
         if params is not None:
@@ -110,37 +109,19 @@ class Kernel(object):
                 npar_data, npar_pnts)
             raise ValueError(err)
 
-        if (weights is not None) and (np.shape(weights) != (num_data,)):
+        if weights is None:
+            weights = np.ones(num_data)
+        elif (np.shape(weights) != (num_data,)):
             err = "Shape of `weights` ({}) does not match number of data points ({})!".format(
                 np.shpae(weights), num_data)
             raise ValueError(err)
 
-        # `reflect` should be sanitized and converted from calling method, not here!
-        # if (reflect is not None) and (len(reflect) != npar_data):
-        #     err = "Length of `reflect` ({}) does not much data dimensions ({})!".format(
-        #         len(reflect), npar_data)
-        #     raise ValueError(err)
-        # reflect = _check_reflect(reflect, data, weights=weights)
-
         # -----------------    Calculate Density
 
+        norm *= self.distribution.norm(npar_pnts)
         whitening = sp.linalg.cholesky(matrix_inv)
-
-        # Construct the whitened sampling points
-        white_points = np.dot(whitening, points)
-
-        result = np.zeros((num_points,), dtype=float)
-        # Construct the 'whitened' (independent) dataset
-        white_dataset = np.dot(whitening, data)
-
-        # NOTE: optimize: can the for-loop be sped up?
-        if weights is None:
-            weights = np.ones(num_data)
-
-        for ii in range(num_data):
-            yy = white_points - white_dataset[:, ii, np.newaxis]
-            temp = weights[ii] * self.distribution.evaluate(yy)
-            result += temp.squeeze()
+        kfunc = self.distribution._evaluate
+        result = _evaluate_numba(whitening, data, points, weights, kfunc)
 
         if reflect is None:
             result = result / norm
@@ -164,24 +145,10 @@ class Kernel(object):
                 # shape (D,N) i.e. (dimensions, data-points)
                 refl_data = np.array(data)
                 refl_data[ii, :] = 2*loc - refl_data[ii, :]
-                white_dataset = np.dot(whitening, refl_data)
-                # Construct the whitened sampling points
-                #    shape (D,M) i.e. (dimensions, sample-points)
-                points = np.array(points)
-                white_points = np.dot(whitening, points)
+                result += _evaluate_numba(whitening, refl_data, points, weights, kfunc)
 
-                if num_points >= num_data:
-                    for jj in range(num_data):
-                        yy = white_points - white_dataset[:, jj, np.newaxis]
-                        result += weights[jj] * self.distribution.evaluate(yy)
-                else:
-                    for jj in range(num_points):
-                        yy = white_dataset - white_points[:, jj, np.newaxis]
-                        res = weights * self.distribution.evaluate(yy)
-                        result[jj] += np.sum(res, axis=0)
-
-            lo = -np.inf if reflect_dim[0] is None else reflect_dim[0]
-            hi = +np.inf if reflect_dim[1] is None else reflect_dim[1]
+            lo = -np.inf if (reflect_dim[0] is None) else reflect_dim[0]
+            hi = +np.inf if (reflect_dim[1] is None) else reflect_dim[1]
             idx = (points[ii, :] < lo) | (hi < points[ii, :])
             result[idx] = 0.0
 
@@ -259,7 +226,7 @@ class Kernel(object):
         """
         matrix = self.matrix
         # Modify covariance-matrix for any `keep` dimensions
-        matrix = self._cov_keep_vars(matrix, keep, reflect=reflect)
+        matrix = utils.cov_keep_vars(matrix, keep, reflect=reflect)
 
         ndim, nvals = np.shape(data)
 
@@ -368,7 +335,8 @@ class Kernel(object):
 
     def _truncate_reflections(self, data, bounds, weights=None):
         # Determine the bounds outside of which we should truncate
-        trunc = self._get_truncation_bounds(bounds)
+        # trunc = self._get_truncation_bounds(bounds)
+        trunc = bounds
         # Find the data-points outside of those bounds
         idx = utils.bound_indices(data, trunc)
         # Select only points within truncation bounds
@@ -396,45 +364,6 @@ class Kernel(object):
         # Expand the reflection bounds based on the bandwidth interval
         trunc = bounds + qnts
         return trunc
-
-    @classmethod
-    def _cov_keep_vars(cls, matrix, keep, reflect=None):
-        matrix = np.array(matrix)
-        if (keep is None) or (keep is False):
-            return matrix
-
-        if keep is True:
-            keep = np.arange(matrix.shape[0])
-
-        keep = np.atleast_1d(keep)
-        for pp in keep:
-            matrix[pp, :] = 0.0
-            matrix[:, pp] = 0.0
-            # Make sure this isn't also a reflection axis
-            if (reflect is not None) and (reflect[pp] is not None):
-                err = "Cannot both 'keep' and 'reflect' about dimension '{}'".format(pp)
-                raise ValueError(err)
-
-        return matrix
-
-    @classmethod
-    def _params_subset(cls, data, matrix, params):
-        if params is None:
-            raise ValueError("Why is this method being called if `params` are 'None'?")
-            # norm = np.sqrt(np.linalg.det(matrix))
-            # return data, matrix, norm
-
-        params = np.atleast_1d(params)
-        # NOTE/WARNING: don't sort parameters (Changed 2020-04-07)
-        # params = sorted(params)
-        # Get rows corresponding to these parameters
-        # sub_pnts = points[params, :]
-        sub_data = data[params, :]
-        # Get rows & cols corresponding to these parameters
-        sub_mat = matrix[np.ix_(params, params)]
-        # Recalculate norm
-        norm = np.sqrt(np.linalg.det(sub_mat))
-        return params, sub_data, sub_mat, norm
 
     # ==== Properties ====
 
@@ -465,12 +394,8 @@ class Kernel(object):
 
     @property
     def norm(self):
-        try:
-            if self._norm is None:
-                raise AttributeError
-        except AttributeError:
+        if self._norm is None:
             self._norm = np.sqrt(np.fabs(np.linalg.det(self.matrix)))
-
         return self._norm
 
     @property
@@ -478,7 +403,7 @@ class Kernel(object):
         return self.distribution.FINITE
 
 
-class Distribution(object):
+class _Distribution(abc.ABC):
     """
 
     `Distribution` positional arguments (`xx` or `yy`) must be shaped as `(D, N)`
@@ -488,142 +413,75 @@ class Distribution(object):
 
     _FINITE = None
     _SYMMETRIC = True
-    _CDF_INTERP = True
-    _INTERP_KWARGS = dict(kind='cubic', fill_value=np.nan)
 
-    def __init__(self):
-        self._cdf_grid = None
-        self._cdf_func = None
-        self._ppf_func = None
-        return
+    # ---- Core API Wrapper Functions
+
+    @classmethod
+    def evaluate(cls, yy, ndim=None):
+        """Evaluate the kernel at the position `yy` (D, N) for D-dimensions.
+        """
+        if np.ndim(yy) < 2:
+            # raise RuntimeError("BAD SHAPE!")
+            yy = np.atleast_2d(yy)
+        ndim = np.shape(yy)[0]
+        y2 = np.linalg.norm(yy, axis=0) ** 2
+        return cls._evaluate(y2) / cls.norm(ndim)
+
+    @classmethod
+    def sample(cls, size, ndim=None, squeeze=None):
+        if ndim is None:
+            ndim = 1
+
+        if squeeze is None:
+            squeeze = (ndim == 1)
+
+        samps = cls._sample(size, ndim)
+        if squeeze:
+            samps = samps.squeeze()
+
+        return samps
+
+    # ---- Abstract Methods
+
+    @staticmethod
+    @numba.njit
+    @abc.abstractmethod
+    def _evaluate(cls, y2):
+        """Evaluate the kernel at the Euclidean (scalar) distance, y2 (N,) - NOTE: without normalization!
+        """
+        pass
+
+    @staticmethod
+    @abc.abstractmethod
+    def norm(ndim):
+        pass
+
+    @classmethod
+    @abc.abstractmethod
+    def _sample(cls, *args, **kwargs):
+        pass
+
+    @staticmethod
+    @abc.abstractmethod
+    def inside(points):
+        pass
+
+    # ---- Additional Functions
+
+    @classmethod
+    def grid(cls, edges):
+        coords = np.meshgrid(*edges, indexing='ij')
+        shp = np.shape(coords)
+        ndim, *shp = shp
+        coords = np.vstack([xx.ravel() for xx in coords])
+        pdf = cls.evaluate(coords, ndim)
+        pdf = pdf.reshape(shp)
+        return pdf
 
     @classmethod
     def name(cls):
         name = cls.__name__
         return name
-
-    @classmethod
-    def _parse(cls, xx):
-        squeeze = (np.ndim(xx) < 2)
-        xx = np.atleast_2d(xx)
-        ndim, nval = np.shape(xx)
-        return xx, ndim, squeeze
-
-    @classmethod
-    def evaluate(cls, xx):
-        yy, ndim, squeeze = cls._parse(xx)
-        zz = cls._evaluate(yy, ndim)
-        if squeeze:
-            zz = zz.squeeze()
-        return zz
-
-    @classmethod
-    def _evaluate(cls, yy, ndim):
-        err = "`_evaluate` must be overridden by the Distribution subclass!"
-        raise NotImplementedError(err)
-
-    @classmethod
-    def grid(cls, edges, **kwargs):
-        coords = np.meshgrid(*edges, indexing='ij')
-        shp = np.shape(coords)[1:]
-        coords = np.vstack([xx.ravel() for xx in coords])
-        pdf = cls.evaluate(coords, **kwargs)
-        pdf = pdf.reshape(shp)
-        return pdf
-
-    def sample(self, size, ndim=None, squeeze=None):
-        if ndim is None:
-            ndim = 1
-            if squeeze is None:
-                squeeze = True
-
-        if squeeze is None:
-            squeeze = (ndim == 1)
-
-        samps = self._sample(size, ndim)
-        if squeeze:
-            samps = samps.squeeze()
-        return samps
-
-    def _sample(self, size, ndim):
-        grid, cdf = self.cdf_grid
-        samps = np.random.uniform(0.0, 1.0, ndim*size)
-        samps = sp.interpolate.interp1d(cdf, grid, kind='quadratic')(samps).reshape(ndim, size)
-        return samps
-
-    def cdf(self, xx):
-        if self._cdf_func is None:
-            self._cdf_func = sp.interpolate.interp1d(
-                *self.cdf_grid, fill_value=(0.0, 1.0), **self._INTERP_KWARGS)
-
-        zz = self._cdf_func(xx)
-        return zz
-
-    def ppf(self, cd):
-        """Percentile Point Function - the inverse of the cumulative distribution function.
-
-        NOTE: for symmetric kernels, this (effectively) uses points only with cdf in [0.0, 0.5],
-        which produces better numerical results (unclear why).
-
-        """
-        if self._ppf_func is None:
-            x0, y0 = self.cdf_grid
-            self._ppf_func = sp.interpolate.interp1d(
-                y0, x0, kind='cubic', fill_value='extrapolate')  # **self._INTERP_KWARGS)
-
-        # Symmetry can be utilized to get better accuracy of results, see 'note' above
-        if self.SYMMETRIC:
-            cd = np.atleast_1d(cd)
-            idx = (cd > 0.5)
-            cd = np.copy(cd)
-            cd[idx] = 1 - cd[idx]
-
-        try:
-            xx = self._ppf_func(cd)
-        except ValueError:
-            logging.error("`_ppf_func` failed!")
-            logging.error("input `cd` = {}  <===  {}".format(
-                utils.stats_str(cd), utils.array_str(cd)))
-            for vv in self.cdf_grid:
-                logging.error("\tcdf_grid: {} <== {}".format(
-                    utils.stats_str(vv), utils.array_str(vv)))
-            raise
-
-        if self.SYMMETRIC:
-            xx[idx] = -xx[idx]
-
-        return xx
-
-    @property
-    def cdf_grid(self):
-        if self._cdf_grid is None:
-            if self._FINITE:
-                pad = (1 + _NUM_PAD)
-                args = [-pad, pad]
-            else:
-                args = [-6, 6]
-
-            num = np.diff(args)[0] * _INTERP_NUM_PER_STD
-            args = args + [int(num), ]
-
-            xc = np.linspace(*args)
-            if self._CDF_INTERP:
-                yy = self.evaluate(xc)
-                csum = utils.cumtrapz(yy, xc, prepend=False)
-            else:
-                csum = self.cdf(xc)
-
-            norm = csum[-1]
-            if not np.isclose(norm, 1.0, rtol=1e-5):
-                err = "Failed to reach unitarity in CDF grid norm: {:.4e}!".format(norm)
-                raise ValueError(err)
-
-            # csum = csum / norm
-            # xc = np.concatenate([[args[0]], [args[0]], xc, [args[1]], [args[1]]], axis=0)
-            # csum = np.concatenate([[0.0 - _NUM_PAD], [0.0], csum, [1.0], [1.0+_NUM_PAD]], axis=0)
-            self._cdf_grid = [xc, csum]
-
-        return self._cdf_grid
 
     @property
     def FINITE(self):
@@ -633,183 +491,214 @@ class Distribution(object):
     def SYMMETRIC(self):
         return self._SYMMETRIC
 
-    @classmethod
-    def inside(cls, points):
-        idx = (cls.evaluate(points) > 0.0)
-        return idx
 
-
-class Gaussian(Distribution):
+class Gaussian(_Distribution):
 
     _FINITE = False
-    _CDF_INTERP = False
 
-    @classmethod
-    def _evaluate(self, yy, ndim):
-        energy = np.sum(yy * yy, axis=0) / 2.0
-        norm = self.norm(ndim)
-        result = np.exp(-energy) / norm
-        return result
+    @staticmethod
+    @numba.njit
+    def _evaluate(y2):
+        return np.exp(-y2 / 2.0)
 
-    @classmethod
-    def norm(self, ndim=1):
+    @staticmethod
+    def norm(ndim):
         norm = np.power(2*np.pi, ndim/2)
         return norm
 
-    def cdf(self, yy):
-        zz = sp.stats.norm.cdf(yy)
-        return zz
-
-    def _sample(self, size, ndim):
+    @classmethod
+    def _sample(cls, size, ndim):
         cov = np.eye(ndim)
         samps = np.random.multivariate_normal(np.zeros(ndim), cov, size=size).T
         return samps
 
-    @classmethod
+    @staticmethod
     def inside(cls, points):
-        ndim, nvals = np.shape(np.atleast_2d(points))
-        return np.ones(nvals, dtype=bool)
+        if np.ndim(points) == 1:
+            shape = points.size
+        else:
+            ndim, *shape = np.shape(points)
+        return np.ones(shape, dtype=bool)
 
 
-class Box_Asym(Distribution):
+class Box(_Distribution):
 
     _FINITE = True
-    _CDF_INTERP = False
 
     @classmethod
-    def _evaluate(self, yy, ndim):
-        norm = np.power(2, ndim)
-        zz = (np.max(np.fabs(yy), axis=0) < 1.0) / norm
-        return zz
+    def norm(self, ndim=1):
+        return _nball_vol(ndim)
+
+    @staticmethod
+    @numba.njit
+    def _evaluate(y2):
+        # size = y2.size
+        # result = np.zeros(size)
+        # for ii in range(size):
+        #     if (-1.0 < y2[ii] < 1.0):
+        #         result[ii] = 1.0
+        #     else:
+        #         result[ii] = 0.0
+        result = (y2 <= 1.0)
+        return result
 
     @classmethod
-    def _sample(self, size, ndim):
-        samps = np.random.uniform(-1.0, 1.0, size=ndim*size).reshape(ndim, size)
+    def _sample(cls, size, ndim):
+        """Randomly sample from within ndim-ball, using Muller method.
+        """
+        if ndim == 1:
+            samps = np.random.uniform(-1.0, 1.0, size=(ndim, size))
+        else:
+            samps = np.random.normal(0.0, 1.0, (ndim, size))
+            rads = np.sum(samps**2, axis=0) ** 0.5
+            norm = np.random.random((ndim, size)) ** (1.0 / ndim)
+            samps = norm * samps / rads[np.newaxis, :]
         return samps
 
-    @classmethod
-    def cdf(self, xx):
-        zz = 0.5 + np.minimum(np.maximum(xx, -1), 1)/2
-        return zz
-
-    @classmethod
-    def inside(cls, points):
-        points = np.atleast_2d(points)
-        ndim, nvals = np.shape(points)
-        bounds = [[-1.0, 1.0] for ii in range(ndim)]
-        idx = utils.bound_indices(points, bounds)
-        return idx
+    @staticmethod
+    def inside(points):
+        return _inside_unit_nball(points)
 
 
-class Parabola(Distribution):
+class Parabola(_Distribution):
+    """Symmetric parabola.
+    """
 
     _FINITE = True
-    _CDF_INTERP = False
 
-    @classmethod
-    def _evaluate(self, yy, ndim):
-        norm = 2 * _nball_vol(ndim) / (ndim + 2)
-        dist = np.sum(yy**2, axis=0)
-        zz = np.maximum(1 - dist, 0.0) / norm
-        # zz = np.product(np.maximum(1 - yy**2, 0.0), axis=0) / norm
+    @staticmethod
+    @numba.njit
+    def _evaluate(y2):
+        # zz = np.zeros(y2.size)
+        # for ii in range(y2.size):
+        #     zz[ii] = (1.0 - y2[ii])
+        #     if zz[ii] < 0.0:
+        #         zz[ii] = 0.0
+        zz = np.maximum(1.0 - y2, 0.0)
         return zz
 
-    def _sample(self, size, ndim):
+    @staticmethod
+    def norm(ndim):
+        norm = 2.0 * _nball_vol(ndim) / (ndim + 2.0)
+        return norm
+
+    @classmethod
+    def _sample(cls, size, ndim):
         # Use the median trick to draw from the Epanechnikov distribution
-        samp = np.random.uniform(-1, 1, 3*ndim*size).reshape(ndim, size, 3)
+        samp = np.random.uniform(-1.0, 1.0, (ndim, size, 3))
         samp = np.median(samp, axis=-1)
         return samp
 
-    @classmethod
-    def cdf(self, xx):
-        xx = np.minimum(np.maximum(xx, -1), 1)
-        zz = 0.5 + (3/4)*(xx - xx**3 / 3)
-        return zz
+    @staticmethod
+    def inside(points):
+        return _inside_unit_nball(points)
 
 
-'''
-NOTE: THIS ISN"T WORKING!  NON-UNITARY for ND > 1.  Something wrong with normalization?  NBall?
-
-class Triweight(Distribution):
+class Triweight(_Distribution):
 
     _FINITE = True
-    _CDF_INTERP = False
 
-    @classmethod
-    def _evaluate(self, yy, ndim):
-        norm = (32.0 / 35.0) * _nball_vol(ndim) / (ndim + 1)
-        dist = np.sum(yy**2, axis=0)
-        # dist = np.linalg.norm(yy, 2, axis=0) ** 2
-        zz = np.maximum((1 - dist)**3, 0.0)
-        # zz = np.product(np.maximum((1 - yy*yy)**3, 0.0), axis=0)
-        zz = zz / norm
+    @staticmethod
+    def norm(ndim):
+        return _beta_kernel_norm(3, ndim)
+
+    @staticmethod
+    @numba.njit
+    def _evaluate(y2):
+        # zz = np.zeros(y2.size)
+        # for ii in range(y2.size):
+        #     zz[ii] = (1 - y2[ii])**3
+        #     if zz[ii] < 0.0:
+        #         zz[ii] = 0.0
+        zz = np.maximum((1 - y2)**3, 0.0)
         return zz
 
     @classmethod
-    def cdf(self, xx):
-        yy = np.minimum(np.maximum(xx, -1), 1)
-        coeffs = [35/32, -35/32, 21/32, -5/32]
-        powers = [1, 3, 5, 7]
-        zz = 0.5 + np.sum([aa*np.power(yy, pp) for aa, pp in zip(coeffs, powers)], axis=0)
-        return zz
-'''
+    def _sample(cls, size, ndim):
+        samps = np.random.normal(0.0, 1.0, (ndim, size))
+        rads = np.linalg.norm(samps, axis=0)
+        norm = _triweight_inverse_func(np.random.random((ndim, size)))
+        samps = norm * samps / rads[np.newaxis, :]
+        return samps
+
+    @staticmethod
+    def inside(points):
+        return _inside_unit_nball(points)
 
 
 _DEFAULT_DISTRIBUTION = Gaussian
 
-_index_list = [
+DISTRIBUTIONS = [
     ['gaussian', Gaussian],
-    ['box', Box_Asym],
+    ['box', Box],
     ['parabola', Parabola],
     ['epanechnikov', Parabola],
-    # ['triweight', Triweight],
+    ['triweight', Triweight],
 ]
 
-_all_skip = []
-# _all_skip = [Triweight]
+DISTRIBUTIONS = OrderedDict([(nam, val) for nam, val in DISTRIBUTIONS])
 
-_index = OrderedDict([(nam, val) for nam, val in _index_list])
+__all__ = ['Kernel', 'get_distribution_class', ]
+__all__ += list(DISTRIBUTIONS.keys())
+
+
+def _get_all_distribution_classes():
+    dists = []
+    _dists = list(DISTRIBUTIONS.values())
+    # dists = np.unique(dists).tolist()
+    for dd in _dists:
+        if dd in dists:
+            continue
+        dists.append(dd)
+
+    return dists
 
 
 def get_distribution_class(arg=None):
     if arg is None:
         return _DEFAULT_DISTRIBUTION
 
-    if isinstance(arg, six.string_types):
-        arg = arg.lower().strip()
-        names = list(_index.keys())
-        if arg not in names:
-            err = "`Distribution` '{}' is not in the index.  Choose one of: '{}'!".format(
-                arg, names)
-            raise ValueError(err)
-
-        return _index[arg]
-
     # This will raise an error if `arg` isn't a class at all
     try:
-        if issubclass(arg, Distribution):
+        if issubclass(arg, _Distribution):
             return arg
     except:
         pass
 
-    raise ValueError("Unrecognized `Distribution` type '{}'!".format(arg))
+    try:
+        arg = arg.lower().strip()
+        return DISTRIBUTIONS[arg]
+    except:
+        pass
+
+    raise ValueError("Argument '{}' is not a known distribution!".format(arg))
 
 
-def get_all_distribution_classes():
-    kerns = []
-    for kk in _index.values():
-        if kk not in kerns:
-            if kk in _all_skip:
-                logging.warning("WARNING: skipping `Distribution` '{}'!".format(kk))
-                continue
-            kerns.append(kk)
-    return kerns
+def _inside_unit_nball(points):
+    if np.ndim(points) == 1:
+        idx = (-1.0 < points < 1.0)
+    else:
+        points = np.linalg.norm(points, axis=0)
+        idx = (points < 1.0)
+    return idx
 
 
 def _nball_vol(ndim, rad=1.0):
     vol = np.pi**(ndim/2)
     vol = (rad**ndim) * vol / sp.special.gamma((ndim/2) + 1)
     return vol
+
+
+def _beta_kernel_norm(order, ndim):
+    """Note: this is the inverse normalization (i.e. divide by this).
+
+    See: Duong-2015 - Spherically symmetric multivariate beta family kernels
+         https://doi.org/10.1016/j.spl.2015.05.012
+    """
+    rr = 3
+    bvol = _nball_vol(ndim) / 2.0
+    norm = ndim * bvol * sp.special.beta(rr + 1, ndim / 2.0)
+    return norm
 
 
 def _check_reflect(reflect, data, weights=None, helper=False):
@@ -869,12 +758,14 @@ def _check_reflect(reflect, data, weights=None, helper=False):
                     frac = np.count_nonzero(bads) / bads.size
                 else:
                     frac = np.sum(weights[bads]) / np.sum(weights)
-                msg = ("A fraction {:.2e} of data[{}] ".format(frac, ii) +
-                       " are outside of `reflect` bounds!")
+                msg = (
+                    "A fraction {:.2e} of data[{}] ".format(frac, ii)
+                    + " are outside of `reflect` bounds!"
+                )
                 logging.warning(msg)
                 msg = (
-                    "`reflect[{}]` = {}; ".format(ii, reflect[ii]) +
-                    "`data[{}]` = {}".format(ii, utils.stats_str(data[ii], weights=weights))
+                    "`reflect[{}]` = {}; ".format(ii, reflect[ii])
+                    + "`data[{}]` = {}".format(ii, utils.stats_str(data[ii], weights=weights))
                 )
                 logging.warning(msg)
                 logging.warning("I hope you know what you're doing.")
@@ -882,45 +773,27 @@ def _check_reflect(reflect, data, weights=None, helper=False):
     return reflect
 
 
-def _check_points(points, data, params=None):
-    """
+@numba.njit
+def _evaluate_numba(white, data, points, weights, kfunc):
+    ndim, ndata = data.shape
+    _, npoints = points.shape
+    zz = np.zeros(npoints)
+    for ii in range(npoints):
+        # Sum over kernels for each `data`-value at this sample-`point`
+        for jj in range(ndata):
+            y2ij = 0.0
+            # Calculate Euclidean distance between whitened-data and whitened-points
+            for kk in range(ndim):
+                xhki = 0.0
+                dhkj = 0.0
+                # Whiten data and points
+                for ll in range(ndim):
+                    xhki += white[kk, ll] * points[ll, ii]
+                    dhkj += white[kk, ll] * data[ll, jj]
+                ss = (xhki - dhkj)
+                y2ij += ss * ss
 
-    Need to end up with (D, N) array of `N` points specified at for each of `D` parameters.
-    (N,)  ==> (1, N)
-    if `params` is None :: (D,N) ==> (D,N)
-    if `params` is not None, and has length 'P' :: (D,N) ==> (P,N)
+            # zz[ii] += np.exp(- y2ij / 2.0) * weights[jj]
+            zz[ii] += kfunc(y2ij) * weights[jj]
 
-    """
-    data = np.atleast_2d(data)
-    ndim, nval = np.shape(data)
-    params = params if (params is None) else np.atleast_1d(params)
-
-    # (N,) ==> (1, N)
-    data_is_1d = (ndim == 1)
-    data_will_be_1d = ((params is not None) and (len(params) == 1))
-    # If both `points` and `data` are (or will be) 1D
-    # if (np.ndim(points) == 1) and (data_is_1d or data_will_be_1d):
-    if utils.really1d(points) and (data_is_1d or data_will_be_1d):
-        if len(points) == 0:
-            raise ValueError("Empty `points` given.")
-        points = np.atleast_2d(points)
-        return points
-
-    # if np.ndim(points) != 2:
-    if np.ndim(np.array(points, dtype=object)) != 2:
-        err = "`points` ({}) must be shaped (D,N) for D parameters/dimensions!".format(
-            utils.jshape(points))
-        raise ValueError(err)
-
-    if params is None:
-        if len(points) != ndim:
-            err = "`points` ({}) must have values for each of {} parameters!".format(
-                np.shape(points), ndim)
-            raise ValueError(err)
-    else:
-        if len(points) == ndim:
-            points = [points[pp] for pp in params]
-        elif len(points) != len(params):
-            raise ValueError("Tuple `points` must have length ndim or len(params)!")
-
-    return points
+    return zz

@@ -23,7 +23,16 @@ __version__ = _version
 __author__ = "Luke Zoltan Kelley <lzkelley@northwestern.edu>"
 __copyright__ = "Copyright (C) 2020 Luke Zoltan Kelley and Contributors"
 # __contributors__ = []
-# __bibtex__ = ""
+__bibtex__ = (
+    """
+    @article{kalepy,
+      author = {Luke Zoltan Kelley},
+      title = {kalepy: a python package for kernel density estimation and sampling},
+      journal = {The Journal of Open Source Software},
+      publisher = {The Open Journal},
+    }
+    """
+)
 
 # Numerical padding parameter (e.g. to avoid edge issues, etc)
 _NUM_PAD = 1e-8

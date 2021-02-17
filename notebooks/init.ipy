@@ -20,4 +20,4 @@ import kalepy.plot
 from kalepy.plot import nbshow
 
 import warnings
-warnings.simplefilter("error")
+# warnings.simplefilter("error")   # WARNING: this is breaking jupyter at the moment (2021-02-14)

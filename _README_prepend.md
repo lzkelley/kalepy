@@ -3,6 +3,8 @@
 [![Build Status](https://travis-ci.org/lzkelley/kalepy.svg?branch=master)](https://travis-ci.org/lzkelley/kalepy)
 [![codecov](https://codecov.io/gh/lzkelley/kalepy/branch/master/graph/badge.svg)](https://codecov.io/gh/lzkelley/kalepy)
 [![Documentation Status](https://readthedocs.org/projects/kalepy/badge/?version=latest)](https://kalepy.readthedocs.io/en/latest/?badge=latest)
+[![DOI](https://joss.theoj.org/papers/10.21105/joss.02784/status.svg)](https://doi.org/10.21105/joss.02784)
+[![DOI](https://zenodo.org/badge/187267055.svg)](https://zenodo.org/badge/latestdoi/187267055)
 
 ![kalepy animated logo](https://raw.githubusercontent.com/lzkelley/kalepy/dev/docs/media/logo_anim_small.gif)
 
@@ -10,7 +12,7 @@ This package performs KDE operations on multidimensional data to: **1) calculate
 
 ## Documentation
 
-A number of examples (also used for continuous integration testing) are included in [the package notebooks](https://github.com/lzkelley/kalepy/tree/master/notebooks).  Some background information and references are included in [the JOSS paper]().
+A number of examples (also used for continuous integration testing) are included in [the package notebooks](https://github.com/lzkelley/kalepy/tree/master/notebooks).  Some background information and references are included in [the JOSS paper](https://joss.theoj.org/papers/10.21105/joss.02784).
 
 Full documentation is available on [kalepy.readthedocs.io](https://kalepy.readthedocs.io/en/latest/).
 

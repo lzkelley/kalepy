@@ -2,3 +2,4 @@ numpy
 scipy
 six
 matplotlib>=3
+numba

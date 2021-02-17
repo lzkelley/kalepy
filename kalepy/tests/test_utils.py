@@ -13,7 +13,8 @@ from nose.tools import assert_true
 from kalepy import utils
 
 
-class Test_Bound_Indices(utils.Test_Base):
+# class Test_Bound_Indices(utils.Test_Base):
+class Test_Bound_Indices:
 
     def test_1d(self):
         aa = np.random.uniform(*[-100, 100], 1000)
@@ -395,7 +396,8 @@ class Test_Trapz(object):
         return
 
 
-class Test_Trapz_Dens_To_Mass(utils.Test_Base):
+# class Test_Trapz_Dens_To_Mass(utils.Test_Base):
+class Test_Trapz_Dens_To_Mass:
 
     def _test_ndim(self, ndim):
         from kalepy import utils
@@ -549,7 +551,8 @@ class Test_Trapz_Dens_To_Mass(utils.Test_Base):
         return
 
 
-class Test_Cumsum(utils.Test_Base):
+# class Test_Cumsum(utils.Test_Base):
+class Test_Cumsum:
 
     def _brute_force_cumsum(self, vals):
         """Brute-force cumulative sum calculation as comparison
@@ -665,7 +668,8 @@ class Test_Cumsum(utils.Test_Base):
         return
 
 
-class Test_Really1D(utils.Test_Base):
+# class Test_Really1D(utils.Test_Base):
+class Test_Really1D:
 
     def _test_vals(self, vals, truth):
         print("`vv` should be: {} :: shape = {} :: '{}'".format(truth, utils.jshape(vals), vals))
