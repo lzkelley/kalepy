@@ -433,7 +433,7 @@ class KDE(object):
         """
 
         # For one dimension
-        if len( bins.shape ) == 1:
+        if utils.really1d( bins ):
 
             # Convert bins into points
             dx = bins[2] - bins[1]
