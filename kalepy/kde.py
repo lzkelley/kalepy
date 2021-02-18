@@ -474,7 +474,7 @@ class KDE(object):
             hist /= hist.sum() * dx_mult
 
             # Transform into points
-            points = np.meshgrid( *centers )
+            points = np.meshgrid( *centers, indexing='ij' )
             points = [ _.flatten() for _ in points ]
 
             if bandwidth == 'bin width':
