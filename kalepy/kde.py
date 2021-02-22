@@ -134,7 +134,7 @@ class KDE(object):
     _EDGE_REFINEMENT = np.sqrt(10.0)
 
     def __init__(self, dataset, bandwidth=None, weights=None, kernel=None,
-                 extrema=None, points=None, reflect=None,
+                 extrema=None, points=None, reflect=None, covariance=None,
                  neff=None, diagonal=False, helper=True, bw_rescale=None, **kwargs):
         """Initialize the `KDE` class with the given dataset and optional specifications.
 
@@ -189,9 +189,12 @@ class KDE(object):
         # The first time `points` are used, they need to be 'checked' for consistency
         self._check_points_flag = True
         self._points = points
-        if ndata < 3:
-            err = "ERROR: too few data points!  Dataset shape: ({}, {})".format(ndim, ndata)
+        if ndata == 0:
+            err = "ERROR: no data points provided!  Dataset shape: ({}, {})".format(ndim, ndata)
             raise ValueError(err)
+        if (ndata < 3) and (bandwidth is None):
+            err = "WARNING: very few data points ({}, {}), recommend providing manual `bandwidth`!".format(ndim, ndata)
+            logging.warning(err)
 
         # Set `weights`
         # --------------------------------
@@ -218,7 +221,8 @@ class KDE(object):
 
         # Set covariance, bandwidth, distribution and kernel
         # -----------------------------------------------------------
-        covariance = np.cov(dataset, rowvar=True, bias=False, aweights=weights)
+        if covariance is None:
+            covariance = np.cov(dataset, rowvar=True, bias=False, aweights=weights)
         self._covariance = np.atleast_2d(covariance)
 
         if bandwidth is None:

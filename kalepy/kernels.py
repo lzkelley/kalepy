@@ -90,11 +90,11 @@ class Kernel(object):
         norm = self.norm
 
         # ----------------    Process Arguments and Sanitize
-
+        matrix = self.matrix
         # Select subset of parameters
         if params is not None:
             params = np.atleast_1d(params)
-            matrix = self.matrix[np.ix_(params, params)]
+            matrix = matrix[np.ix_(params, params)]
             # Recalculate norm & matrix-inverse
             norm = np.sqrt(np.linalg.det(matrix))
             matrix_inv = utils.matrix_invert(matrix, helper=self._helper)
@@ -119,7 +119,11 @@ class Kernel(object):
         # -----------------    Calculate Density
 
         norm *= self.distribution.norm(npar_pnts)
-        whitening = sp.linalg.cholesky(matrix_inv)
+        try:
+            whitening = sp.linalg.cholesky(matrix_inv)
+        except:
+            logging.error(f"Failed to construct cholesky on {matrix_inv=}, {matrix=}")
+            raise
         kfunc = self.distribution._evaluate
         result = _evaluate_numba(whitening, data, points, weights, kfunc)
 
