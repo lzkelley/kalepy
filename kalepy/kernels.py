@@ -122,7 +122,7 @@ class Kernel(object):
         try:
             whitening = sp.linalg.cholesky(matrix_inv)
         except:
-            logging.error(f"Failed to construct cholesky on {matrix_inv=}, {matrix=}")
+            logging.error("Failed to construct cholesky on {}, {}".format(matrix_inv, matrix))
             raise
         kfunc = self.distribution._evaluate
         result = _evaluate_numba(whitening, data, points, weights, kfunc)
