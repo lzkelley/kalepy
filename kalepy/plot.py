@@ -176,7 +176,10 @@ class Corner:
 
             # Bottom row
             if ii == last:
-                ax.set_xlabel(labels[jj])
+                if rotate and (jj == last):
+                    ax.set_ylabel(labels[jj])   # currently this is being reset to empty later, that's okay
+                else:
+                    ax.set_xlabel(labels[jj])
             # Non-bottom row
             else:
                 ax.set_xlabel('')
@@ -190,6 +193,7 @@ class Corner:
                     ax.set_ylabel(labels[ii])
             # Not-first columns
             else:
+                # if (jj != last) or (not rotate):
                 ax.set_ylabel('')
                 for tlab in ax.yaxis.get_ticklabels():
                     tlab.set_visible(False)
