@@ -885,7 +885,8 @@ def carpet(xx, weights=None, ax=None, ystd=None, yave=None, shift=0.0,
     alpha = kwargs.pop('alpha', None)
     if alpha is None:
         alpha = _scatter_alpha(xx)
-
+        
+    alpha = np.clip(alpha, 0.0, 1.0)
     # Choose sizes proportional to their deviation (to make outliers more visible)
     size = 300 * ww / np.sqrt(xx.size)
     size = np.clip(size, 5, 100)
@@ -1950,6 +1951,7 @@ def _scatter_alpha(xx, norm=10.0):
     """Choose a transparency for the given number of scatter points.
     """
     alpha = norm / np.sqrt(len(xx))
+    alpha = np.clip(alpha, 0.0, 1.0)
     # NOTE: array values dont work for alpha parameters (added to `colors`)
     # if alpha is None:
     #     aa = 10 / np.sqrt(xx.size)
