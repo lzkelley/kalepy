@@ -222,6 +222,7 @@ class Corner:
         self._limits = limits
         self._limit_flag = limit_flag
         self._rotate = rotate
+        self._labels = labels
 
         return
 
@@ -746,6 +747,73 @@ class Corner:
         leg = fig.legend(handles, labels, fancybox=fancybox,
                          borderaxespad=borderaxespad, loc=loc, **kwargs)
         return leg
+
+    def target(self, targets, upper_limits=None, lower_limits=None, lw=1.0, fill_alpha=0.1, **kwargs):
+        size = self.size
+        axes = self.axes
+        last = size - 1
+        labs = self._labels
+        extr = self._limits
+
+        # ---- check / sanitize arguments
+        if len(targets) != size:
+            err = "`targets` (shape: {}) must be shaped ({},)!".format(np.shape(targets), size)
+            raise ValueError(err)
+
+        if lower_limits is None:
+            lower_limits = [None] * size
+        if len(lower_limits) != size:
+            err = "`lower_limits` (shape: {}) must be shaped ({},)!".format(np.shape(lower_limits), size)
+            raise ValueError(err)
+
+        if upper_limits is None:
+            upper_limits = [None] * size
+        if len(upper_limits) != size:
+            err = "`upper_limits` (shape: {}) must be shaped ({},)!".format(np.shape(upper_limits), size)
+            raise ValueError(err)
+
+        # ---- configure settings
+        kwargs.setdefault('color', 'red')
+        kwargs.setdefault('alpha', 0.50)
+        kwargs.setdefault('zorder', 20)
+        line_kw = dict()
+        line_kw.update(kwargs)
+        line_kw['lw'] = lw
+        span_kw = dict()
+        span_kw.update(kwargs)
+        span_kw['alpha'] = fill_alpha
+
+        # ---- draw 1D targets and limits
+        for jj, ax in enumerate(axes.diagonal()):
+            if (self._rotate and (jj == last)):
+                func = ax.axhline
+                func_up = lambda xx: ax.axhspan(extr[jj][0], xx, **span_kw)
+                func_lo = lambda xx: ax.axhspan(xx, extr[jj][1], **span_kw)
+            else:
+                func = ax.axvline
+                func_up = lambda xx: ax.axvspan(extr[jj][0], xx, **span_kw)
+                func_lo = lambda xx: ax.axvspan(xx, extr[jj][1], **span_kw)
+
+            if targets[jj] is not None:
+                func(targets[jj], **line_kw)
+            if upper_limits[jj] is not None:
+                func_up(upper_limits[jj])
+            if lower_limits[jj] is not None:
+                func_lo(lower_limits[jj])
+
+        # ---- draw 2D targets and limits
+        for (ii, jj), ax in np.ndenumerate(axes):
+            if jj >= ii:
+                continue
+            for kk, func, func_lim in zip([ii, jj], [ax.axhline, ax.axvline], [ax.axhspan, ax.axvspan]):
+                if targets[kk] is not None:
+                    func(targets[kk], **line_kw)
+                if upper_limits[kk] is not None:
+                    func_lim(extr[kk][0], upper_limits[kk], **span_kw)
+                if lower_limits[kk] is not None:
+                    func_lim(lower_limits[kk], extr[kk][0], **span_kw)
+                
+        return
 
 
 def corner(kde_data, labels=None, kwcorner={}, **kwplot):
