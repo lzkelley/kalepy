@@ -875,7 +875,7 @@ def plot_kde(kde, labels=None, kwcorner={}, **kwplot):
 # ======================================
 
 
-def carpet(xx, weights=None, ax=None, ystd=None, yave=None, shift=0.0,
+def carpet(xx, weights=None, ax=None, ystd=None, yave=None, shift=0.0, limit=None,
            fancy=False, random='normal', rotate=False, **kwargs):
     """Draw a 'carpet plot' that shows semi-quantitatively the distribution of points.
 
@@ -908,6 +908,10 @@ def carpet(xx, weights=None, ax=None, ystd=None, yave=None, shift=0.0,
         A systematic ordinate shift of all data-points, particularly useful when multiple datasets
         are being plotted, such that one carpet plot can be offset from the other(s).
 
+    limit : int or `None`,
+        Maximum number of points to draw.  If more data points are provided, a `limit` subset of
+        them are chosen and plotted.
+
     fancy : bool,
         *Experimental* resizing of data-points to visually emphasize outliers.
 
@@ -922,6 +926,12 @@ def carpet(xx, weights=None, ax=None, ystd=None, yave=None, shift=0.0,
     """
 
     xx = np.asarray(xx)
+    if (limit is not None) and (limit < xx.size):
+        logging.debug("limiting carpet points from {:.2e} ==> {:.2e}".format(xx.size, limit))
+        sel = np.random.choice(xx.size, limit, replace=False)
+        xx = xx[sel]
+        weights = weights if (weights is None) else weights[sel]
+
     if ax is None:
         ax = plt.gca()
 
@@ -1192,7 +1202,8 @@ def dist1d(kde_data, ax=None, edges=None, weights=None, probability=True, param=
     hist : bool or `None`, whether a histogram is plotted from the given data.
         If `None`, then the value is chosen based on the given `kde_data` argument.
 
-    carpet : bool, whether or not a 'carpet plot' is shown from the given data.
+    carpet : bool or number, whether or not a 'carpet plot' is shown from the given data.
+        If `carpet` is a number, it is the maximum number of points that are plotted.
 
     color : matplotlib color specification (i.e. named color, hex or rgb) or `None`.
         If `None` then the color will be determined by the next value of the default matplotlib
@@ -1227,6 +1238,10 @@ def dist1d(kde_data, ax=None, edges=None, weights=None, probability=True, param=
 
     if ax is None:
         ax = plt.gca()
+
+    # Use `scatter` as the limiting-number of scatter-points
+    #    To disable scatter, `scatter` will be set to `None`
+    carpet = _scatter_limit(carpet, "carpet")
 
     # set default color to next from axes' color-cycle
     if color is None:
@@ -1292,8 +1307,8 @@ def dist1d(kde_data, ax=None, edges=None, weights=None, probability=True, param=
             handle = hh
 
     # Draw Carpet Plot
-    if carpet:
-        hh = _carpet(data, weights=weights, ax=ax, color=color, rotate=rotate)
+    if carpet is not None:
+        hh = _carpet(data, weights=weights, ax=ax, color=color, rotate=rotate, limit=carpet)
         if handle is None:
             handle = hh
 
@@ -1377,7 +1392,9 @@ def dist2d(kde_data, ax=None, edges=None, weights=None, params=[0, 1], quantiles
 
     median : bool, mark the location of the median values in both dimensions (cross-hairs style).
 
-    scatter : bool, whether to plot scatter points of the data points.
+    scatter : bool or number, whether to plot a 2D scatter of the data points.
+        If `scatter` is a number, it is the maximum number of scatter points plotted
+        (including those that may be masked over).
         The `mask_dense` parameter determines if some of these points are masked over.
 
     contour : bool, whether or not contours are plotted at the given `quantiles`.
@@ -1418,8 +1435,9 @@ def dist2d(kde_data, ax=None, edges=None, weights=None, params=[0, 1], quantiles
             data = kde_data
             kde = kale.KDE(data, weights=weights)
         except:
-            logging.error("Failed to construct KDE from given data!")
-            raise
+            err = "Failed to construct KDE from given data!"
+            logging.error(err)
+            raise RuntimeError(err)
 
     if ax is None:
         ax = plt.gca()
@@ -1427,9 +1445,13 @@ def dist2d(kde_data, ax=None, edges=None, weights=None, params=[0, 1], quantiles
     # Set default color or cmap as needed
     color, cmap = _parse_color_cmap(ax=ax, color=color, cmap=cmap)
 
+    # Use `scatter` as the limiting-number of scatter-points
+    #    To disable scatter, `scatter` will be set to `None`
+    scatter = _scatter_limit(scatter, "scatter")
+            
     # Default: if either hist or contour is being plotted, mask over high-density scatter points
     if mask_dense is None:
-        mask_dense = scatter and (hist or contour)
+        mask_dense = (scatter is not None) and (hist or contour)
 
     # Calculate histogram (used for hist and contours)
     edges = utils.parse_edges(data, edges=edges, extrema=kde.reflect, params=params)
@@ -1449,8 +1471,8 @@ def dist2d(kde_data, ax=None, edges=None, weights=None, params=[0, 1], quantiles
     # ------------------------------------
 
     # ---- Draw Scatter Points
-    if scatter:
-        draw_scatter(ax, *data, color=color, zorder=5)
+    if (scatter is not None):
+        draw_scatter(ax, *data, color=color, zorder=5, limit=scatter)
 
     # ---- Draw Median Lines (cross-hairs style)
     if median:
@@ -1787,13 +1809,19 @@ def draw_contour2d(ax, edges, hist, quantiles=None, levels=None,
     return edges, hist, cont
 
 
-def draw_scatter(ax, xx, yy, alpha=None, s=4, **kwargs):
+def draw_scatter(ax, xx, yy, alpha=None, s=4, limit=None, **kwargs):
     # color = kwargs.pop('color', kwargs.pop('c', None))
     # fc = kwargs.pop('facecolor', kwargs.pop('fc', None))
     # if fc is None:
     #     fc = ax._get_lines.get_next_color()
     # kwargs.setdefault('facecolor', color)
     # kwargs.setdefault('edgecolor', 'none')
+    if (limit is not None) and (limit < xx.size):
+        logging.debug("limiting scatter points from {:.2e} ==> {:.2e}".format(xx.size, limit))
+        sel = np.random.choice(xx.size, limit, replace=False)
+        xx = xx[sel]
+        yy = yy[sel]
+
     if alpha is None:
         alpha = _scatter_alpha(xx)
     kwargs.setdefault('alpha', alpha)
@@ -2085,6 +2113,24 @@ def _cut_colormap(cmap, min=0.0, max=1.0, n=10):
     new_cmap = mpl.colors.LinearSegmentedColormap.from_list(
         name, cmap(np.linspace(min, max, n)))
     return new_cmap
+
+
+def _scatter_limit(scatter, name):
+    if scatter is True:
+        scatter = np.inf
+    elif (scatter is False) or (scatter is None):
+        scatter = None
+    else:
+        try:
+            scatter = int(scatter)
+            if scatter < 1:
+                raise ValueError
+        except ValueError:
+            err = "Failed to parse `{}`={}; must be [True, False, number]!".format(name, scatter)
+            logging.error(err)
+            raise ValueError(err)
+
+    return scatter
 
 
 def _draw_colorbar_contours(cbar, levels, invert=True, colors=None, smap=None):
