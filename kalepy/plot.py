@@ -1315,7 +1315,7 @@ def dist1d(kde_data, ax=None, edges=None, weights=None, probability=True, param=
     return handle
 
 
-def dist2d(kde_data, ax=None, edges=None, weights=None, params=[0, 1], quantiles=None,
+def dist2d(kde_data, ax=None, edges=None, weights=None, params=[0, 1], quantiles=None, sigmas=None,
            color=None, cmap=None, smooth=None, upsample=None, pad=True, ls='-', outline=True,
            median=True, scatter=True, contour=True, hist=True, mask_dense=None, mask_below=True):
     """Draw 2D data distributions with numerous possible components.
@@ -1358,6 +1358,8 @@ def dist2d(kde_data, ax=None, edges=None, weights=None, params=[0, 1], quantiles
         dimensions/parameters of data, then this argument determines which parameters are plotted.
 
     quantiles : array_like of scalar values in [0.0, 1.0] denoting the fractions of data to contour.
+
+    sigmas : array_like of positive scalar values denoting contour levels.
 
     color : matplotlib color specification (i.e. named color, hex or rgb) or `None`.
         If `None`:
@@ -1418,7 +1420,7 @@ def dist2d(kde_data, ax=None, edges=None, weights=None, params=[0, 1], quantiles
     """
 
     # ---- Process parameters
-
+        
     if isinstance(kde_data, kale.KDE):
         if weights is not None:
             raise ValueError("`weights` of given `KDE` instance cannot be overridden!")
@@ -1453,19 +1455,13 @@ def dist2d(kde_data, ax=None, edges=None, weights=None, params=[0, 1], quantiles
     if mask_dense is None:
         mask_dense = (scatter is not None) and (hist or contour)
 
-    # Calculate histogram (used for hist and contours)
+    # Calculate histogram 
     edges = utils.parse_edges(data, edges=edges, extrema=kde.reflect, params=params)
     hh, *_ = np.histogram2d(*data, bins=edges, weights=weights, density=True)
 
-    _, levels, quantiles = _dfm_levels(hh, quantiles=quantiles)
+    _, levels, quantiles = _dfm_levels(hh, quantiles=quantiles, sigmas=sigmas)
     if mask_below is True:
         mask_below = levels.min()
-        # # no weights : Mask out empty bins
-        # if weights is None:
-        #     mask_below = 0.9 / len(data[0])
-        # # weights : Mask out bins with less than average weight
-        # else:
-        #     mask_below = len(data[0]) / np.sum(weights)
 
     # ---- Draw components
     # ------------------------------------
