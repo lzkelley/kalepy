@@ -548,6 +548,54 @@ class Test_KDE_Resample(object):
         return
 
 
+class Test_KDE_Construct_From_Hist(object):
+
+    @classmethod
+    def setup_class(cls):
+        np.random.seed(9865)
+
+    def test_compare_1d(self):
+        print("\n|Test_KDE_Construct_From_Hist:test_compare_1d()|")
+
+        # Create a pdf and histogram
+        xx = np.linspace(-5, 5, 10001)
+        pdf = np.exp(-xx*xx/2) / np.sqrt(2*np.pi)
+        bins = np.zeros(xx.size + 1)
+        dx = xx[1] - xx[0]
+        bins[:-1] = xx - 0.5 * dx
+        bins[-1] = xx[-1] + 0.5 * dx
+        
+        # Construct a KDE from the histogram
+        kde = kale.KDE.from_hist(bins, pdf)
+
+        # Check that the KDE pdf matches the true pdf
+        xx, pdf_kde = kde.density(xx, probability=True)
+        np.testing.assert_allclose( pdf, pdf_kde, atol=1e-5 )
+
+    def test_compare_2d(self):
+        print("\n|Test_KDE_Construct_From_Hist:test_compare_2d()|")
+
+        # Create a pdf and histogram
+        xx = np.linspace(-5, 5, 101)
+        yy = np.linspace(-5, 5, 101)
+        xx_grid, yy_grid = np.meshgrid( xx, yy )
+        hist = np.exp(-xx_grid*xx_grid/2 - yy_grid*yy_grid/2 - xx_grid*yy_grid/2)
+        bins = np.zeros(xx.size + 1)
+        dx = xx[1] - xx[0]
+        bins[:-1] = xx - 0.5 * dx
+        bins[-1] = xx[-1] + 0.5 * dx
+        bins = np.array([ bins, ]*2)
+                
+        # Construct a KDE from the histogram
+        kde = kale.KDE.from_hist(bins, hist)
+
+        # Check that the KDE pdf matches the true pdf
+        points = [ xx_grid.flatten(), yy_grid.flatten() ]
+        points, pdf_kde = kde.density( points, probability=True)
+        pdf = hist / ( hist.sum() * dx * dx )
+        np.testing.assert_allclose( pdf.flatten(), pdf_kde, atol=0.01 )
+
+
 # Run all methods as if with `nosetests ...`
 if __name__ == "__main__":
     run_module_suite()

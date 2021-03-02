@@ -407,6 +407,91 @@ class KDE(object):
 
         return points, values
 
+    @classmethod
+    def from_hist(cls, bins, hist, bandwidth='bin width', *args, **kwargs):
+        """Alternative constructor using a histogram as input instead of
+        individual data points.
+
+        Arguments
+        ---------
+        bins : ([D,]N,) array_like of scalar
+            Histogram bins. If using multiple dimensions N can be different
+            for different dimensions.
+
+        hist : (N,[N,...]) array_like of scalar
+            Histogram to construct KDE from. If in multiple dimensions
+            dimensions can have different N.
+
+        bandwidth : str or float
+            Bandwidth. Defaults to width of bin in each dimension. Accepts
+            all arguments passed to bandwidth when constructed using __init__.
+
+        *args, **kwargs : tuple, dict
+            Arguments passed to __init__ constructor.
+
+        Returns
+        -------
+        kde : instance of KDE
+            Initialized KDE instance.
+
+        """
+
+        # For one dimension
+        if utils.really1d(bins):
+
+            # Convert bins into points
+            dx = bins[2] - bins[1]
+            points = bins[:-1] + 0.5 * dx
+
+            # Normalize into a pdf
+            hist = hist / (hist.sum() * dx)
+
+            if bandwidth == 'bin width':
+                bandwidth = dx
+            
+            return KDE(
+                dataset=points,
+                weights=hist,
+                bandwidth=bandwidth,
+                *args,
+                **kwargs
+            )
+
+        # For multiple dimensions
+        else:
+
+            # Convert bins into points
+            centers = []
+            dx_mult = 1.
+            dxs = []
+            
+            for bins_i in bins:
+                # Convert bins into points
+                dx = bins_i[2] - bins_i[1]
+                centers_i = bins_i[:-1] + 0.5 * dx
+                centers.append(centers_i)
+
+                dx_mult *= dx
+                dxs.append(dx)
+
+            # Normalize into a pdf
+            hist = hist / (hist.sum() * dx_mult)
+
+            # Transform into points
+            points = np.meshgrid(*centers, indexing='ij')
+            points = [_.flatten() for _ in points]
+
+            if bandwidth == 'bin width':
+                bandwidth = dxs
+
+            return KDE(
+                dataset=points,
+                weights=hist.flatten(),
+                bandwidth=bandwidth,
+                *args,
+                **kwargs
+            )
+
     def pdf(self, *args, **kwargs):
         kwargs['probability'] = True
         return self.density(*args, **kwargs)
