@@ -3,6 +3,15 @@
 
 Please visit the `github page <https://github.com/lzkelley/kalepy>`_ for issues or bug reports.  Contributions and feedback are very welcome.
 
+Contributors:
+* Luke Zoltan Kelley (@lzkelley)
+* Zachary Hafen (@zhafen)
+
+JOSS Paper:
+* Kexin Rong (@kexinrong)
+* Arfon Smith (@arfon)
+* Will Handley (@williamjameshandley)
+
 
 ## Attribution
 

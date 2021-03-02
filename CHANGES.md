@@ -1,10 +1,7 @@
 ## To-Do / Known-Issues
 - **Optimization needed**.  Things are done in (generally) the simplest ways, currently, need to be optimized for performance (both speed and memory [e.g. with reflections]).  Especially in the case of finite-support kernels, the calculations can be drastically sped up.  Can also use an approximation for infinite-support kernels, truncating at some threshold value of sigma (or percentile; etc).
 - Try using `sp.stats.rv_continuous` as base-class for 'Distribution' to provide functionality like 'ppf' etc.
-- `Triweight` kernel is currently NOT-WORKING
-  - The distribution is non-unitary for 2D distributions.  This might be a normalization issue when constructing the PDF (i.e. in `Triweight._evaluate()`) --- is this scaling for the nball correct??
 - Differences between covariance-matrix elements of numerous orders of magnitude can cause spurious results, in particular in the PDF marginalized over parameters.  See "KDE::Dynamic Range" docstrings.  Currently this is checked for in the `KDE._finalize()` method, at the end of initialization, and a warning is given if the dynamic range seems too large.
-- BUG: calculating marginalized PDF's by integrating over dimensions differs from calculating them directly
 - Move all checking/sanitizing functionality to `KDE` and have `kernels` (etc) assume it's correct.
   - e.g. extrema, points, reflection, params, etc
 - Add documenation/examples for base drawing functions in plotting submodule (e.g. `draw_contour2d`, `draw_hist1d`, etc).
@@ -17,13 +14,27 @@
         - No tests currently check that proper errors are raised.
         - Make sure tests check both cases of `num_points > num_data` and visa-versa (e.g. in PDF calculation).
     - `kernels.py`
-        - Use meta-classes to register subclasses of `Distribution`.
         - See if `_resample_clear` and `_resample_reflect` can be combined.
     - `kde.py`
       - `KDE`
         - Explore more efficient ways of calculating the CDF using the underlying kernels instead of integrating the PDF.
         - Use different methods for `grid` edges in ND, instead of broadcasting and flattening (inefficient).
 
+
+## v1.1 - 2021/03/02
+
+- Allow `covariance` to be manually specified in KDE constructor.
+- New `KDE.from_hist()` method for constructing KDEs based on existing distributions (instead of finite points).
+- Deprecated CDF functionality removed (for the time being).
+- `Triweight` distribution works.
+- Significant PDF evaluation speed improvements using numba
+  - Sampling and evaluation code simplified.
+- Use `abc.ABC` base classes
+  - `Distribution(object)` ==> `_Distribution(abc.ABC)`
+- Plotting improvements
+  - BUG: fix incorrect label in rotate bottom-right panels of corner plots
+  - Allow `target` lines to be drawn on corner plots using `Corner.target()`
+  - Add arguments to limit the number of carpet and scatter points drawn
 
 
 ## v1.0.0 - 2021/01/21
