@@ -433,22 +433,22 @@ class KDE(object):
         """
 
         # For one dimension
-        if utils.really1d( bins ):
+        if utils.really1d(bins):
 
             # Convert bins into points
             dx = bins[2] - bins[1]
             points = bins[:-1] + 0.5 * dx
 
             # Normalize into a pdf
-            hist /= hist.sum() * dx
+            hist = hist / (hist.sum() * dx)
 
             if bandwidth == 'bin width':
                 bandwidth = dx
             
             return KDE(
-                dataset = points,
-                weights = hist,
-                bandwidth = bandwidth,
+                dataset=points,
+                weights=hist,
+                bandwidth=bandwidth,
                 *args,
                 **kwargs
             )
@@ -460,30 +460,30 @@ class KDE(object):
             centers = []
             dx_mult = 1.
             dxs = []
+            
             for bins_i in bins:
-
                 # Convert bins into points
                 dx = bins_i[2] - bins_i[1]
                 centers_i = bins_i[:-1] + 0.5 * dx
-                centers.append( centers_i )
+                centers.append(centers_i)
 
                 dx_mult *= dx
-                dxs.append( dx )
+                dxs.append(dx)
 
             # Normalize into a pdf
-            hist /= hist.sum() * dx_mult
+            hist = hist / (hist.sum() * dx_mult)
 
             # Transform into points
-            points = np.meshgrid( *centers, indexing='ij' )
-            points = [ _.flatten() for _ in points ]
+            points = np.meshgrid(*centers, indexing='ij')
+            points = [_.flatten() for _ in points]
 
             if bandwidth == 'bin width':
                 bandwidth = dxs
 
             return KDE(
-                dataset = points,
-                weights = hist.flatten(),
-                bandwidth = bandwidth,
+                dataset=points,
+                weights=hist.flatten(),
+                bandwidth=bandwidth,
                 *args,
                 **kwargs
             )
