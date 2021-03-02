@@ -26,7 +26,16 @@ Plot some three-dimensional data called ``data3`` with shape (3, N) with
 
 
 
-.. image:: https://raw.githubusercontent.com/lzkelley/kalepy/dev/docs/media/demo_plot_files/demo_plot_9_0.png
+
+.. parsed-literal::
+
+    (<kalepy.plot.Corner at 0x7ff9b6f08b50>,
+     <matplotlib.lines.Line2D at 0x7ff9ba7ac550>)
+
+
+
+
+.. image:: https://raw.githubusercontent.com/lzkelley/kalepy/dev/docs/media/demo_plot_files/demo_plot_9_1.png
 
 
 Extensive modifications are possible with passed arguments, for example:
@@ -43,7 +52,16 @@ Extensive modifications are possible with passed arguments, for example:
 
 
 
-.. image:: https://raw.githubusercontent.com/lzkelley/kalepy/dev/docs/media/demo_plot_files/demo_plot_11_0.png
+
+.. parsed-literal::
+
+    (<kalepy.plot.Corner at 0x7ff9bb17a250>,
+     <matplotlib.lines.Line2D at 0x7ff9bb8f9460>)
+
+
+
+
+.. image:: https://raw.githubusercontent.com/lzkelley/kalepy/dev/docs/media/demo_plot_files/demo_plot_11_1.png
 
 
 The ``kalepy.corner`` method is a wrapper that builds a
@@ -63,7 +81,15 @@ distributions, or using preconfigured plotting styles.
 
 
 
-.. image:: https://raw.githubusercontent.com/lzkelley/kalepy/dev/docs/media/demo_plot_files/demo_plot_13_0.png
+
+.. parsed-literal::
+
+    <matplotlib.lines.Line2D at 0x7ff9bab90790>
+
+
+
+
+.. image:: https://raw.githubusercontent.com/lzkelley/kalepy/dev/docs/media/demo_plot_files/demo_plot_13_1.png
 
 
 kalepy.dist1d and kalepy.dist2d
@@ -86,7 +112,15 @@ For the full documentation, see:
 
 
 
-.. image:: https://raw.githubusercontent.com/lzkelley/kalepy/dev/docs/media/demo_plot_files/demo_plot_17_0.png
+
+.. parsed-literal::
+
+    <matplotlib.lines.Line2D at 0x7ff9bbb7c0d0>
+
+
+
+
+.. image:: https://raw.githubusercontent.com/lzkelley/kalepy/dev/docs/media/demo_plot_files/demo_plot_17_1.png
 
 
 .. code:: ipython3
