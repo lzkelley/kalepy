@@ -12,17 +12,19 @@ trap 'last_command=$current_command; current_command=$BASH_COMMAND' DEBUG
 trap 'echo "\"${last_command}\" command filed with exit code $?."' EXIT
 
 
-echo "\n\n\n=====================  RUNNING TEST SUITE  ========================"
+printf $"\n\n=====================  RUNNING TEST SUITE  ========================\n\n"
 bash tester.sh
 
-echo "\n\n\n================  RUNNING NOTEBOOK CONVERSIONS  ==================="
+printf $"\n\n================  RUNNING NOTEBOOK CONVERSIONS  ===================\n\n"
 
 python gen_kde_api.py
 python gen_plot_api.py
-python gen_readme.py
+python gen_readme.py -v 0
 
-echo "\n\n\n====================  BUILDING SPHINX DOCS  ======================="
+printf $"\n\n====================  BUILDING SPHINX DOCS  =======================\n\n"
 cd docs/
 bash docs.sh
 
-echo "\n\n\n=======================  KALEPY DONE  ============================="
+printf $"\n\n=======================  KALEPY DONE  =============================\n\n"
+
+exit

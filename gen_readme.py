@@ -38,7 +38,7 @@ def main():
     if '-v' in sys.argv:
         idx = sys.argv.index('-v')
         level = 20
-        if len(sys.argv) > idx:
+        if len(sys.argv) > idx + 1:
             _lev = sys.argv[idx+1]
             if not _lev.startswith('-'):
                 level = int(_lev)
@@ -53,14 +53,17 @@ def main():
     logging.debug("\t`EXECUTE` = {}".format(EXECUTE))
     logging.debug("sys.argv = '{}'".format(sys.argv))
 
+    # Make sure files exist
     for rmf in [README_PREPEND, README_APPEND]:
         if not os.path.isfile(rmf):
             raise ValueError("Base/template readme file '{}' does not exist!".format(rmf))
 
+    # initialize git repo
     repo = git.Repo('.')
     if repo.bare:
         raise RuntimeError("Failed to initialize `git.Repo`!")
 
+    # get current branch
     try:
         branch = [bb for bb in repo.git.branch().split('\n') if bb.strip().startswith('* ')]
         if len(branch) != 1:
@@ -70,6 +73,7 @@ def main():
         logging.error("Failed to get current git branch!")
         raise
 
+    # make sure current branch is valid
     logging.info("Current branch: '{}'".format(branch))
     if branch not in ALLOWED_BRANCHES:
         raise ValueError("Current branch '{}' not expected!".format(branch))
@@ -88,18 +92,27 @@ def main():
     out_dir_temp = nb_base[0] + "_files"
     out_fil = os.path.abspath(OUTPUT_FNAME)
     out_dir = os.path.basename(out_dir_temp)
+    logging.debug("out_fil={}, out_dir={}".format(out_fil, out_dir))
     # if `out_dir_temp` ends with a '/' then basename is empty string
     if len(out_dir) == 0:
         raise ValueError("Something wrong with output path!")
     out_dir = os.path.join(os.path.abspath(OUTPUT_PATH_RESOURCES), out_dir, '')
     # Remove previously added image files (in `out_dir`) from the git repo before deleting
     for fil in os.listdir(out_dir):
+        # ignore hidden files
+        if fil.startswith('.'):
+            continue
         if not fil.endswith('.png'):
             raise ValueError("`out_dir` '{}' contains non-png files!".format(out_dir))
         _fil = os.path.join(out_dir, fil)
         logging.info("Removing '{}' from repo".format(_fil))
-        repo.index.remove([_fil])  # , working_tree = True)
+        try:
+            repo.index.remove([_fil])  # , working_tree = True)
+        except Exception as err:
+            logging.info("Failed to remove '{}': {}".format(_fil, str(err)))
+            continue
 
+    # make sure files and directories exist as expected
     check_names = [out_fil_temp, out_fil, out_dir_temp, out_dir]
     check_types = [False, False, True, True]
     for dpath, isdir in zip(check_names, check_types):
@@ -113,6 +126,7 @@ def main():
             if os.path.exists(dpath):
                 raise ValueError("Output still exists '{}'!".format(dpath))
 
+    # ---- convert
     args = ['jupyter', 'nbconvert', nb_fname]
     if EXECUTE:
         args.append('--execute')
@@ -123,6 +137,7 @@ def main():
     subprocess.run(args, timeout=500, check=True,
                    stderr=subprocess.PIPE, stdout=subprocess.PIPE)
 
+    # move files around
     names_in = [out_fil_temp, out_dir_temp]
     names_out = [out_fil, out_dir]
     types = [False, True]
