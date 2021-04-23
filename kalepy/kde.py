@@ -201,7 +201,8 @@ class KDE(object):
         weights_uniform = True
         if weights is not None:
             if np.shape(weights) != (ndata,):
-                raise ValueError("`weights` input should be shaped as (N,)!")
+                err = "`weights` input (shape={}) should be shaped as (N,)=({},)!".format(np.shape(weights), ndata)
+                raise ValueError(err)
 
             if np.count_nonzero(weights) == 0 or np.any(~np.isfinite(weights) | (weights < 0)):
                 raise ValueError("Invalid `weights` entries, all must be finite and > 0!")
@@ -448,7 +449,7 @@ class KDE(object):
 
             if bandwidth == 'bin width':
                 bandwidth = dx
-            
+
             return KDE(
                 dataset=points,
                 weights=hist,
@@ -464,7 +465,7 @@ class KDE(object):
             centers = []
             dx_mult = 1.
             dxs = []
-            
+
             for bins_i in bins:
                 # Convert bins into points
                 dx = bins_i[2] - bins_i[1]
