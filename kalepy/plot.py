@@ -105,7 +105,8 @@ class Corner:
     #    the units are fractions of the data-range, i.e. '0.1' would mean 10% beyond data range.
     _LIMITS_STRETCH = 0.1
 
-    def __init__(self, kde_data, weights=None, labels=None, limits=None, rotate=True, axes=None, **kwfig):
+    def __init__(self, kde_data, weights=None, origin='tl', rotate=True, axes=None,
+                 labels=None, limits=None, ticks=None, **kwfig):
         """Initialize Corner instance and construct figure and axes based on the given arguments.
 
         Arguments
@@ -147,11 +148,12 @@ class Corner:
             kde, data, weights = _parse_kde_data(kde_data, weights=weights)
             size = kde._ndim
 
+        origin = _parse_origin(origin)
+
         # -- Construct figure and axes
         if axes is None:
             fig, axes = _figax(size, **kwfig)
             self.fig = fig
-            self.axes = axes
         else:
             try:
                 self.fig = axes[0, 0].figure
@@ -161,17 +163,26 @@ class Corner:
                 logging.error(str(err), exc_info=True)
                 raise err
 
-            self.axes = axes
+        if origin[0] == 1:
+            axes = axes[::-1]
+        if origin[1] == 1:
+            axes = axes.T[::-1].T
+
+        self.origin = origin
+        self.axes = axes
 
         last = size - 1
         if labels is None:
             labels = [''] * size
+        if ticks is None:
+            ticks = [None] * size
 
         for (ii, jj), ax in np.ndenumerate(axes):
             # Set upper-right plots to invisible
             if jj > ii:
                 ax.set_visible(False)
                 continue
+
             ax.grid(True)
 
             # Bottom row
@@ -180,6 +191,12 @@ class Corner:
                     ax.set_ylabel(labels[jj])   # currently this is being reset to empty later, that's okay
                 else:
                     ax.set_xlabel(labels[jj])
+
+                # If vertical origin is the top
+                if origin[0] == 1:
+                    ax.xaxis.set_label_position('top')
+                    ax.xaxis.set_ticks_position('top')
+
             # Non-bottom row
             else:
                 ax.set_xlabel('')
@@ -191,6 +208,12 @@ class Corner:
                 # Not-first rows
                 if ii != 0:
                     ax.set_ylabel(labels[ii])
+
+                # If horizontal origin is the right
+                if origin[1] == 1:
+                    ax.yaxis.set_label_position('right')
+                    ax.yaxis.set_ticks_position('right')
+
             # Not-first columns
             else:
                 # if (jj != last) or (not rotate):
@@ -201,13 +224,26 @@ class Corner:
             # Diagonals
             if ii == jj:
                 # not top-left
-                if ii != 0:
+                if (ii != 0) and (origin[1] == 0):
                     ax.yaxis.set_label_position('right')
                     ax.yaxis.set_ticks_position('right')
+                else:
+                    ax.yaxis.set_label_position('left')
+                    ax.yaxis.set_ticks_position('left')
+
+                if (ii == last) and rotate:
+                    if ticks[jj] is not None:
+                        ax.set_yticks(ticks[jj])
+                else:
+                    if ticks[jj] is not None:
+                        ax.set_xticks(ticks[jj])
 
             # Off-Diagonals
             else:
-                pass
+                if ticks[jj] is not None:
+                    ax.set_xticks(ticks[jj])
+                if ticks[ii] is not None:
+                    ax.set_yticks(ticks[ii])
 
         # If axes limits are given, set axes to them
         if limits is not None:
@@ -727,7 +763,7 @@ class Corner:
         if bbox is None:
             if index is None:
                 size = self.size
-                if size in [2, 3]:
+                if size in [2, 3, 4]:
                     index = (0, -1)
                     loc = 'lower left'
                 elif size == 1:
@@ -736,11 +772,13 @@ class Corner:
                 elif size % 2 == 0:
                     index = size // 2
                     index = (1, index)
-                    loc = 'upper right'
+                    loc = 'lower left'
                 else:
                     index = (size // 2) + 1
                     loc = 'lower left'
                     index = (size-index-1, index)
+
+            # print(f"{size=}, {index=}, {loc=}")
 
             bbox = self.axes[index].get_position()
             bbox = (bbox.x0, bbox.y0)
@@ -756,7 +794,7 @@ class Corner:
         size = self.size
         axes = self.axes
         last = size - 1
-        labs = self._labels
+        # labs = self._labels
         extr = self._limits
 
         # ---- check / sanitize arguments
@@ -816,7 +854,7 @@ class Corner:
                     func_lim(extr[kk][0], upper_limits[kk], **span_kw)
                 if lower_limits[kk] is not None:
                     func_lim(lower_limits[kk], extr[kk][0], **span_kw)
-                
+
         return
 
 
@@ -967,7 +1005,7 @@ def carpet(xx, weights=None, ax=None, ystd=None, yave=None, shift=0.0, limit=Non
     alpha = kwargs.pop('alpha', None)
     if alpha is None:
         alpha = _scatter_alpha(xx)
-        
+
     alpha = np.clip(alpha, 0.0, 1.0)
     # Choose sizes proportional to their deviation (to make outliers more visible)
     size = 300 * ww / np.sqrt(xx.size)
@@ -1063,10 +1101,11 @@ def confidence(data, ax=None, weights=None, quantiles=[0.5, 0.9],
     locs = np.interp(qnts, cdf, data).reshape(2, len(quantiles)).T
 
     # Draw median line
+    handle = None
     if median:
         mm = np.interp(0.5, cdf, data)
         line_func = ax.axhline if rotate else ax.axvline
-        line_func(mm, ls='--', color=color, alpha=0.25)
+        handle = line_func(mm, ls='--', color=color, alpha=0.25)
 
     # Draw confidence bands
     for lo, hi in locs:
@@ -1112,9 +1151,10 @@ def contour(data, edges=None, ax=None, weights=None,
         This parameter effects the color of 1D: histograms, confidence intervals, and carpet;
         2D: scatter points.
 
-    cmap : matplotlib colormap specification, or `None`
+    cmap : matplotlib colormap specification, color or list of colors, or `None`
         * All valid matplotlib specifications can be used, e.g. named value (like 'Reds' or
           'viridis') or a `matplotlib.colors.Colormap` instance.
+        * color or list of colors: `matplotlib.colors.ListedColormap` is constructed.
         * If `None` then a colormap is constructed based on the value of `color` (see above).
 
     quantiles : `None` or array_like of scalar values in [0.0, 1.0] denoting the fractions of
@@ -1317,7 +1357,7 @@ def dist1d(kde_data, ax=None, edges=None, weights=None, probability=True, param=
 
 def dist2d(kde_data, ax=None, edges=None, weights=None, params=[0, 1], quantiles=None, sigmas=None,
            color=None, cmap=None, smooth=None, upsample=None, pad=True, ls='-', outline=True,
-           median=True, scatter=True, contour=True, hist=True, mask_dense=None, mask_below=True):
+           median=True, scatter=True, contour=True, hist=True, mask_dense=None, mask_below=True, mask_alpha=0.9):
     """Draw 2D data distributions with numerous possible components.
 
     The components of the plot are controlled by the arguments:
@@ -1420,7 +1460,7 @@ def dist2d(kde_data, ax=None, edges=None, weights=None, params=[0, 1], quantiles
     """
 
     # ---- Process parameters
-        
+
     if isinstance(kde_data, kale.KDE):
         if weights is not None:
             raise ValueError("`weights` of given `KDE` instance cannot be overridden!")
@@ -1450,12 +1490,12 @@ def dist2d(kde_data, ax=None, edges=None, weights=None, params=[0, 1], quantiles
     # Use `scatter` as the limiting-number of scatter-points
     #    To disable scatter, `scatter` will be set to `None`
     scatter = _scatter_limit(scatter, "scatter")
-            
+
     # Default: if either hist or contour is being plotted, mask over high-density scatter points
     if mask_dense is None:
         mask_dense = (scatter is not None) and (hist or contour)
 
-    # Calculate histogram 
+    # Calculate histogram
     edges = utils.parse_edges(data, edges=edges, extrema=kde.reflect, params=params)
     hh, *_ = np.histogram2d(*data, bins=edges, weights=weights, density=True)
 
@@ -1465,10 +1505,11 @@ def dist2d(kde_data, ax=None, edges=None, weights=None, params=[0, 1], quantiles
 
     # ---- Draw components
     # ------------------------------------
+    handle = None
 
     # ---- Draw Scatter Points
     if (scatter is not None):
-        draw_scatter(ax, *data, color=color, zorder=5, limit=scatter)
+        handle = draw_scatter(ax, *data, color=color, zorder=5, limit=scatter)
 
     # ---- Draw Median Lines (cross-hairs style)
     if median:
@@ -1489,7 +1530,7 @@ def dist2d(kde_data, ax=None, edges=None, weights=None, params=[0, 1], quantiles
     _ee = None
     _hh = None
     if hist:
-        _ee, _hh, _ = draw_hist2d(
+        _ee, _hh, handle = draw_hist2d(
             ax, edges, hh, mask_below=mask_below, cmap=cmap, zorder=10
         )
         # Convert from edges to centers, then to meshgrid (if we need it)
@@ -1509,33 +1550,73 @@ def dist2d(kde_data, ax=None, edges=None, weights=None, params=[0, 1], quantiles
         # Calculate PDF
         points, pdf = kde.density(params=params)
         # Plot
-        _ee, _hh, _ = draw_contour2d(
+        _ee, _hh, _handle = draw_contour2d(
             ax, points, pdf, quantiles=quantiles, smooth=smooth, upsample=upsample, pad=pad,
             cmap=contour_cmap, zorder=20, ls=ls, outline=outline,
         )
+        if handle is None:
+            handle = _handle.collections[-1]
 
     # Mask dense scatter-points
     if mask_dense:
-        # Load the histogram or PDF
-        hh = _hh if (_hh is not None) else hh
-        # Load the bin edges
-        if _ee is not None:
+        if _hh is not None:
+            hh = _hh
             ee = _ee
-        # Convert to mesh-grid of centerpoints if needed
         else:
-            ee = [utils.midpoints(ee, axis=-1) for ee in edges]
-            ee = np.meshgrid(*ee, indexing='ij')
+            ee, hh = _prep_hist(edges, hh, smooth, upsample, pad)
+
+        # # Load the histogram or PDF
+        # hh = _hh if (_hh is not None) else hh
+        # # Load the bin edges
+        # if _ee is not None:
+        #     ee = _ee
+        # # Convert to mesh-grid of centerpoints if needed
+        # else:
+        #     ee = [utils.midpoints(ee, axis=-1) for ee in edges]
+        #     ee = np.meshgrid(*ee, indexing='ij')
 
         # NOTE: levels need to be recalculated here!
         _, levels, quantiles = _dfm_levels(hh, quantiles=quantiles)
         span = [levels.min(), hh.max()]
-        # Set mask as white-to-white
-        mask_cmap = [(1, 1, 1), (1, 1, 1)]
-        mask_cmap = mpl.colors.LinearSegmentedColormap.from_list("mask", mask_cmap, N=2)
+        mask_cmap = mpl.colors.ListedColormap('white')
         # Draw
-        ax.contourf(*ee, hh, span, cmap=mask_cmap, antialiased=True, zorder=9)
+        ax.contourf(*ee, hh, span, cmap=mask_cmap, antialiased=True, zorder=9, alpha=mask_alpha)
 
-    return
+    return handle
+
+
+def _prep_hist(edges, hist, smooth, upsample, pad):
+    # Pad Histogram for Smoother Contour Edges
+    if pad not in [False, None]:
+        if pad is True:
+            pad = _PAD
+        edges, hist = _pad_hist(edges, hist, pad)
+
+    # Convert from bin edges to centers as needed
+    xx, yy = _match_edges_to_hist(edges, hist)
+
+    # Construct grid from center values
+    xx, yy = np.meshgrid(xx, yy, indexing='ij')
+
+    # Perform upsampling
+    if (upsample not in [None, False]):
+        import scipy as sp
+        if upsample is True:
+            upsample = 2
+        xx = sp.ndimage.zoom(xx, upsample)
+        yy = sp.ndimage.zoom(yy, upsample)
+        hist = sp.ndimage.zoom(hist, upsample)
+
+    # perform smoothing
+    if (smooth not in [None, False]):
+        import scipy as sp
+        if upsample is not None:
+            smooth *= upsample
+        hist = sp.ndimage.filters.gaussian_filter(hist, smooth)
+
+    # Update edges based on pre-processing
+    edges = [xx, yy]
+    return edges, hist
 
 
 def hist1d(data, edges=None, ax=None, weights=None, density=False, probability=False,
@@ -1730,36 +1811,7 @@ def draw_contour2d(ax, edges, hist, quantiles=None, levels=None,
     LW = 1.5
 
     # ---- (Pre-)Process histogram and bin edges
-
-    # Pad Histogram for Smoother Contour Edges
-    if pad not in [False, None]:
-        if pad is True:
-            pad = _PAD
-        edges, hist = _pad_hist(edges, hist, pad)
-
-    # Convert from bin edges to centers as needed
-    xx, yy = _match_edges_to_hist(edges, hist)
-
-    # Construct grid from center values
-    xx, yy = np.meshgrid(xx, yy, indexing='ij')
-
-    # Perform upsampling
-    if (upsample not in [None, False]):
-        import scipy as sp
-        if upsample is True:
-            upsample = 2
-        xx = sp.ndimage.zoom(xx, upsample)
-        yy = sp.ndimage.zoom(yy, upsample)
-        hist = sp.ndimage.zoom(hist, upsample)
-    # perform smoothing
-    if (smooth not in [None, False]):
-        import scipy as sp
-        if upsample is not None:
-            smooth *= upsample
-        hist = sp.ndimage.filters.gaussian_filter(hist, smooth)
-
-    # Update edges based on pre-processing
-    edges = [xx, yy]
+    edges, hist = _prep_hist(edges, hist, smooth, upsample, pad)
 
     # ---- Setup parameters
     if levels is None:
@@ -1771,7 +1823,7 @@ def draw_contour2d(ax, edges, hist, quantiles=None, levels=None,
     kwargs.setdefault('zorder', 10)
 
     # ---- Draw contours
-    cont = ax.contour(xx, yy, hist, levels=levels, linewidths=lw, **kwargs)
+    cont = ax.contour(*edges, hist, levels=levels, linewidths=lw, **kwargs)
 
     # ---- Add Outline path effect to contours
     if (outline is True):
@@ -1976,12 +2028,38 @@ def _parse_color_cmap(ax=None, color=None, cmap=None):
         color = _get_next_color(ax)
         cmap = _color_to_cmap(color)
     elif (color is None):
-        cmap = plt.get_cmap(cmap)
+        try:
+            cmap = plt.get_cmap(cmap)
+        except ValueError:
+            cmap = mpl.colors.ListedColormap(cmap)
+
         color = cmap(0.5)
     else:
         cmap = _color_to_cmap(color)
 
     return color, cmap
+
+
+def _parse_origin(origin):
+    if len(origin) != 2:
+        raise ValueError("`origin`={} must be two characters long!".format(origin))
+
+    origin = [orig.lower() for orig in origin]
+    if origin[0] == 't':
+        vert = 1
+    elif origin[0] == 'b':
+        vert = 0
+    else:
+        raise ValueError("Unrecognized `origin[0]`={}, must be one of ['t'op, 'b'ottom]!".format(origin[0]))
+
+    if origin[1] == 'r':
+        hori = 1
+    elif origin[1] == 'l':
+        hori = 0
+    else:
+        raise ValueError("Unrecognized `origin[1]`={}, must be one of ['l'eft, 'r'ight]!".format(origin[1]))
+
+    return [vert, hori]
 
 
 def _dfm_levels(data, quantiles=None, sigmas=None):

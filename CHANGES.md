@@ -21,6 +21,14 @@
         - Use different methods for `grid` edges in ND, instead of broadcasting and flattening (inefficient).
 
 
+
+## Current
+
+- Plotting Improvements
+  - Allow an `origin` argument to be specified for corner plots, placing the location of the triangle at one of `bl` (default), `tl`, `tr`, `br`.
+
+
+
 ## v1.1 - 2021/03/02
 
 - Allow `covariance` to be manually specified in KDE constructor.
