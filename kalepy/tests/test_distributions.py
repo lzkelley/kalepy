@@ -98,7 +98,7 @@ class Test_Distribution_Generic:
 
         hh = 1.0
         edges = np.linspace(-4*hh, 4*hh, 10000)
-        cents = kale.utils.midpoints(edges, 'lin')
+        cents = kale.utils.midpoints(edges)
 
         yy = kernel.evaluate(cents[np.newaxis, :], 1).squeeze()
         # Make sure kernel is callable

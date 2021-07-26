@@ -63,7 +63,7 @@ class Test_KDE_PDF(object):
 
         data = [aa, bb]
         edges = [utils.spacing(dd, 'lin', 30, stretch=0.5) for dd in data]
-        cents = [utils.midpoints(ee, 'lin') for ee in edges]
+        cents = [utils.midpoints(ee, log=False) for ee in edges]
 
         xe, ye = np.meshgrid(*edges, indexing='ij')
         xc, yc = np.meshgrid(*cents, indexing='ij')
@@ -96,7 +96,7 @@ class Test_KDE_PDF(object):
         aa = np.random.uniform(*EXTR, NUM)
 
         egrid = utils.spacing(aa, 'lin', 2000, stretch=0.5)
-        cgrid = utils.midpoints(egrid, 'lin')
+        cgrid = utils.midpoints(egrid, log=False)
         delta = np.diff(egrid)
 
         boundaries = [None, EXTR]
@@ -146,7 +146,7 @@ class Test_KDE_PDF(object):
         data = [xx, yy]
         edges = [utils.spacing(aa, 'lin', 30) for aa in [xx, yy]]
         egrid = [utils.spacing(ee, 'lin', 100, stretch=0.5) for ee in edges]
-        cgrid = [utils.midpoints(ee, 'lin') for ee in egrid]
+        cgrid = [utils.midpoints(ee, log=False) for ee in egrid]
         width = [np.diff(ee) for ee in egrid]
 
         xc, yc = np.meshgrid(*cgrid, indexing='ij')
@@ -223,7 +223,7 @@ class Test_KDE_PDF(object):
         kde = kale.KDE(data, bandwidth=bandwidth, kernel=kernel)
 
         edges = [utils.spacing(dd, 'lin', 200, stretch=0.1) for dd in data]
-        cents = [utils.midpoints(ee, 'lin') for ee in edges]
+        cents = [utils.midpoints(ee, log=False) for ee in edges]
         widths = [np.diff(ee) for ee in edges]
         # area = widths[0][:, np.newaxis] * widths[1][np.newaxis, :]
 
@@ -319,7 +319,7 @@ class Test_KDE_Resample(object):
 
         data = [aa, bb]
         edges = [utils.spacing(dd, 'lin', 100, stretch=1.0) for dd in data]
-        cents = [utils.midpoints(ee, 'lin') for ee in edges]
+        cents = [utils.midpoints(ee, log=False) for ee in edges]
 
         xe, ye = np.meshgrid(*edges, indexing='ij')
         xc, yc = np.meshgrid(*cents, indexing='ij')
@@ -498,7 +498,7 @@ class Test_KDE_Resample(object):
         data = [xx, yy]
         edges = [utils.spacing(aa, 'lin', 30) for aa in [xx, yy]]
         egrid = [utils.spacing(ee, 'lin', 100, stretch=0.5) for ee in edges]
-        cgrid = [utils.midpoints(ee, 'lin') for ee in egrid]
+        cgrid = [utils.midpoints(ee, log=False) for ee in egrid]
         # width = [np.diff(ee) for ee in egrid]
 
         xc, yc = np.meshgrid(*cgrid, indexing='ij')
@@ -564,7 +564,7 @@ class Test_KDE_Construct_From_Hist(object):
         dx = xx[1] - xx[0]
         bins[:-1] = xx - 0.5 * dx
         bins[-1] = xx[-1] + 0.5 * dx
-        
+
         # Construct a KDE from the histogram
         kde = kale.KDE.from_hist(bins, pdf)
 
@@ -585,7 +585,7 @@ class Test_KDE_Construct_From_Hist(object):
         bins[:-1] = xx - 0.5 * dx
         bins[-1] = xx[-1] + 0.5 * dx
         bins = np.array([ bins, ]*2)
-                
+
         # Construct a KDE from the histogram
         kde = kale.KDE.from_hist(bins, hist)
 

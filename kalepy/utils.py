@@ -242,39 +242,94 @@ def meshgrid(*args, indexing='ij', **kwargs):
     return np.meshgrid(*args, indexing=indexing, **kwargs)
 
 
-def midpoints(data, scale='lin', frac=0.5, axis=-1, squeeze=True):
+def midpoints(arr, log=False, frac=0.5, axis=-1, squeeze=False):
     """Return the midpoints between values in the given array.
+
+    If the given array is N-dimensional, midpoints are calculated from the last dimension.
+
+    Arguments
+    ---------
+    arr : ndarray of scalars,
+        Input array.
+    log : bool or None,
+        Find midpoints in log-space
+    frac : float,
+        Fraction of the way between intervals (e.g. `0.5` for half-way midpoints).
+    axis : int, sequence, or `None`,
+        The axis about which to find the midpoints.  If `None`, find the midpoints along all axes.
+        If a sequence (tuple, list, or array), take the midpoints along each specified axis.
+
+    Returns
+    -------
+    mids : ndarray of floats,
+        The midpoints of the input array.
+        The resulting shape will be the same as the input array `arr`, except that
+        `mids.shape[axis] == arr.shape[axis]-1`.
+
     """
 
-    if (np.shape(data)[axis] < 2):
-        raise RuntimeError("Input ``arr`` does not have a valid shape!")
-
-    if scale.lower().startswith('lin'):
-        log = False
-    elif scale.lower().startswith('log'):
-        log = True
+    if axis is None:
+        axis = [ii for ii in range(np.ndim(arr))]
     else:
-        raise ValueError("`scale` must be either 'lin' or 'log'!")
+        axis = np.atleast_1d(axis)
 
     # Convert to log-space
     if log:
-        data = np.log10(data)
+        mids = np.log10(arr)
     else:
-        data = np.array(data)
+        mids = np.array(arr)
 
-    diff = np.diff(data, axis=axis)
-
-    cut = [slice(None)] * data.ndim
-    cut[axis] = slice(0, -1, None)
-    cut = tuple(cut)
-
-    start = data[cut]
-    mids = start + frac*diff
+    # Take the midpoints along each of the desired axes
+    for ax in axis:
+        mids = _midpoints_1d(mids, frac=frac, axis=ax)
 
     if log:
         mids = np.power(10.0, mids)
     if squeeze:
         mids = mids.squeeze()
+
+    return mids
+
+
+def _midpoints_1d(arr, frac=0.5, axis=-1):
+    """Return the midpoints between values in the given array.
+
+    If the given array is N-dimensional, midpoints are calculated from the last dimension.
+
+    Arguments
+    ---------
+    arr : ndarray of scalars,
+        Input array.
+    frac : float,
+        Fraction of the way between intervals (e.g. `0.5` for half-way midpoints).
+    axis : int,
+        Which axis about which to find the midpoints.
+
+    Returns
+    -------
+    mids : ndarray of floats,
+        The midpoints of the input array.
+        The resulting shape will be the same as the input array `arr`, except that
+        `mids.shape[axis] == arr.shape[axis]-1`.
+
+    """
+
+    if not np.isscalar(axis):
+        raise ValueError("Input `axis` argument must be an integer less than ndim={np.ndim(arr)}!")
+
+    if (np.shape(arr)[axis] < 2):
+        raise RuntimeError("Input ``arr`` does not have a valid shape!")
+
+    diff = np.diff(arr, axis=axis)
+
+    # skip the last element, or the last axis
+    # cut = slice_for_axis(arr, axis=axis, stop=-1
+    cut = [slice(None)] * arr.ndim
+    cut[axis] = slice(0, -1, None)
+    cut = tuple(cut)
+
+    start = arr[cut]
+    mids = start + frac*diff
 
     return mids
 
