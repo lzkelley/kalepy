@@ -226,7 +226,7 @@ class Test_Midpoints(object):
         ]
 
         for ii, tr in enumerate(truth):
-            vals = utils.midpoints(test, log=False, axis=ii)
+            vals = utils.midpoints(test, log=False, axis=ii, squeeze=True)
             assert_true(np.all(np.shape(tr) == np.shape(vals)))
             assert_true(np.all(tr == vals))
 
@@ -261,7 +261,7 @@ class Test_Midpoints(object):
         ]
 
         for ii, tr in enumerate(truth):
-            vals = utils.midpoints(test, log=True, axis=ii)
+            vals = utils.midpoints(test, log=True, axis=ii, squeeze=True)
             assert_true(np.all(np.shape(tr) == np.shape(vals)))
             assert_true(np.allclose(tr, vals))
 
