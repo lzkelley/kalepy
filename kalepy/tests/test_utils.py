@@ -192,20 +192,20 @@ class Test_Midpoints(object):
         shp = (12, 14, 16)
         test = np.ones(shp)
         for ii in range(test.ndim):
-            vals = utils.midpoints(test, 'lin', axis=ii)
+            vals = utils.midpoints(test, log=False, axis=ii)
             new_shape = np.array(shp)
             new_shape[ii] -= 1
             assert_true(np.all(vals.shape == new_shape))
             assert_true(np.all(vals == 1.0))
 
-            vals = utils.midpoints(test, 'log', axis=ii)
+            vals = utils.midpoints(test, log=True, axis=ii)
             new_shape = np.array(shp)
             new_shape[ii] -= 1
             assert_true(np.all(vals.shape == new_shape))
             assert_true(np.all(vals == 1.0))
 
         test = np.arange(10)
-        vals = utils.midpoints(test, 'lin')
+        vals = utils.midpoints(test, log=False)
         true = 0.5 * (test[:-1] + test[1:])
         assert_true(np.allclose(vals, true))
         return
@@ -226,14 +226,14 @@ class Test_Midpoints(object):
         ]
 
         for ii, tr in enumerate(truth):
-            vals = utils.midpoints(test, 'lin', axis=ii)
+            vals = utils.midpoints(test, log=False, axis=ii)
             assert_true(np.all(np.shape(tr) == np.shape(vals)))
             assert_true(np.all(tr == vals))
 
         shp = (4, 5)
         test = np.random.uniform(-1.0, 1.0, np.product(shp)).reshape(shp)
         for ii in range(2):
-            vals = utils.midpoints(test, 'lin', axis=ii)
+            vals = utils.midpoints(test, log=False, axis=ii)
 
             temp = np.moveaxis(test, ii, 0)
             true = temp[:-1, :] + 0.5*np.diff(temp, axis=0)
@@ -261,7 +261,7 @@ class Test_Midpoints(object):
         ]
 
         for ii, tr in enumerate(truth):
-            vals = utils.midpoints(test, 'log', axis=ii)
+            vals = utils.midpoints(test, log=True, axis=ii)
             assert_true(np.all(np.shape(tr) == np.shape(vals)))
             assert_true(np.allclose(tr, vals))
 
@@ -270,8 +270,8 @@ class Test_Midpoints(object):
         test_lin = 10**test_log
         for ii in range(2):
             # Make sure `midpoints` gives consistent results itself
-            vals_log = utils.midpoints(test_log, 'lin', axis=ii)
-            vals_lin = utils.midpoints(test_lin, 'log', axis=ii)
+            vals_log = utils.midpoints(test_log, log=False, axis=ii)
+            vals_lin = utils.midpoints(test_lin, log=True, axis=ii)
             assert_true(np.all(np.shape(vals_log) == np.shape(vals_lin)))
             assert_true(np.allclose(10**vals_log, vals_lin))
 

@@ -34,7 +34,7 @@ class Test_Kernels_Generic(object):
 
         hh = 1.0
         edges = np.linspace(-10*hh, 10*hh, 10000)
-        cents = kale.utils.midpoints(edges, 'lin')
+        cents = kale.utils.midpoints(edges, log=False)
         # width = np.diff(edges)
         yy = kernel.evaluate(cents[np.newaxis, :], 1).squeeze()
         # Make sure kernel is callable
