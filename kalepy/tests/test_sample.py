@@ -10,7 +10,7 @@ import numpy as np
 from numpy.testing import run_module_suite
 from nose import tools
 
-import kalepy as kale
+# import kalepy as kale
 from kalepy import sample
 
 

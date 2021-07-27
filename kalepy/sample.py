@@ -103,7 +103,9 @@ class Sampler_Grid:
 
                 # Find fractional gradient slope to filter out near-zero values
                 grad_frac = np.fabs(grad)
-                grad_frac /= grad_frac.max()
+                _gf_max = grad_frac.max()
+                if _gf_max > 0.0:
+                    grad_frac /= grad_frac.max()
                 # define 'flat' as below `flat_tol` threshold
                 flat = (grad_frac < flat_tol)
                 zer = np.ones_like(flat)
