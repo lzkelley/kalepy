@@ -21,7 +21,7 @@ with open(_vers_path) as inn:
 
 __version__ = _version
 __author__ = "Luke Zoltan Kelley <lzkelley@northwestern.edu>"
-__copyright__ = "Copyright (C) 2020 Luke Zoltan Kelley and Contributors"
+__copyright__ = "Copyright (C) 2021 Luke Zoltan Kelley and Contributors"
 # __contributors__ = []
 __bibtex__ = (
     """
@@ -49,6 +49,7 @@ from kalepy import utils    # noqa
 from kalepy.kde import KDE  # noqa
 import kalepy.plot          # noqa
 from kalepy.plot import *   # noqa
+from kalepy.sample import Sampler_Grid, sample_grid  # noqa
 
 # cleanup imports and objects so they're not visible in the imported package
 del os

@@ -857,6 +857,22 @@ class Corner:
 
         return
 
+    '''
+    def scatter(self, values, **kw):
+        axes = self.axes
+        # size = self.size
+
+        # ---- draw 2D targets and limits
+        for (ii, jj), ax in np.ndenumerate(axes):
+            if jj >= ii:
+                continue
+            xx = values[jj]
+            yy = values[ii]
+            draw_scatter(ax, xx, yy, **kw)
+
+        return
+    '''
+
 
 def corner(kde_data, labels=None, kwcorner={}, **kwplot):
     """Simple wrapper function to construct a `Corner` instance and plot the given data.

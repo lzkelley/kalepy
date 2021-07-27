@@ -6,7 +6,6 @@
   - e.g. extrema, points, reflection, params, etc
 - Add documenation/examples for base drawing functions in plotting submodule (e.g. `draw_contour2d`, `draw_hist1d`, etc).
 
-
 - `kalepy/`
     - Allow for calculating PDF and resampling in only particular dimensions/parameters.
         - FIX: Doesn't work quite right for non-fixed bandwidth, bandwidth needs to be re-calculated for different number of dimensions
@@ -19,6 +18,9 @@
       - `KDE`
         - Explore more efficient ways of calculating the CDF using the underlying kernels instead of integrating the PDF.
         - Use different methods for `grid` edges in ND, instead of broadcasting and flattening (inefficient).
+    - `plot.py`
+      - Add some way of tracking how many carpet plots have been added to an axis to automatically offset them appropriately in different situations
+      - Finish `scatter` method, including 1D carpet (optional)
 
 
 
@@ -26,6 +28,9 @@
 
 - Plotting Improvements
   - Allow an `origin` argument to be specified for corner plots, placing the location of the triangle at one of `bl` (default), `tl`, `tr`, `br`.
+
+- New `kalepy.sample` submodule for sampling from continuously defined functions.
+  - Functionality is defined in the `Sampler_Grid` class, and the function `sample_grid()` provides a simple API to construct an instance and use it to construct sample points.  Both class and function are imported into the top-level module, i.e. `kalepy.Sampler_Grid` and `kalepy.sample_grid()`.
 
 
 
