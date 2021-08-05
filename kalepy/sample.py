@@ -6,10 +6,12 @@ import numpy as np
 
 from kalepy import utils
 
-__all__ = ['Sampler_Grid', 'sample_grid', 'sample_grid_proportional']
+__all__ = [
+    'Sample_Grid', 'Sample_Outliers', 'sample_grid', 'sample_outliers', 'sample_grid_proportional'
+]
 
 
-class Sampler_Grid:
+class Sample_Grid:
 
     def __init__(self, edges, data, scalar=None):
         data = np.asarray(data)
@@ -97,7 +99,7 @@ class Sampler_Grid:
                 edge = np.asarray(edge)
 
                 # Find the gradient along this dimension (using center-values in other dimensions)
-                grad = grad_along(data_edge, dim)
+                grad = _grad_along(data_edge, dim)
                 # get the gradient for each sample
                 grad = grad.flatten()[bin_numbers_flat]
 
@@ -106,7 +108,7 @@ class Sampler_Grid:
 
             # interpolate scalar values also
             if return_scalar and interpolate:
-                grad = grad_along(scalar, dim)
+                grad = _grad_along(scalar, dim)
                 grad = grad.flatten()[bin_numbers_flat]
                 # shift `loc` (location within bin) to center point
                 scalar_values += grad * (loc - 0.5)
@@ -147,8 +149,7 @@ class Sampler_Grid:
         return idx, csum
 
 
-# class Tracer_Outlier(Sampler_Grid):
-class Outlier(Sampler_Grid):
+class Sample_Outliers(Sample_Grid):
 
     def __init__(self, edges, data, threshold=10.0, *args, **kwargs):
         super().__init__(edges, data, *args, **kwargs)
@@ -176,11 +177,12 @@ class Outlier(Sampler_Grid):
         if rv is not False:
             raise ValueError(f"Cannot use `scalar` values in `{self.__class__}`!")
 
+        # if `nsamp` isn't given, assume outlier distribution values correspond to numbers
+        #    and Poisson sample them
+        # NOTE: `nsamp` corresponds only to the _"outliers"_ not the 'interior' points also
         if nsamp is None:
             nsamp = self._data_outs.sum()
-            print(f"sum over data_outs: {nsamp:.4e}")
             nsamp = np.random.poisson(nsamp)
-            print(f"\tpoisson: {nsamp:.4e}")
 
         # sample outliers normally (using modified csum from `self._data_outs`)
         vals_outs = super().sample(nsamp, **kwargs)
@@ -189,25 +191,28 @@ class Outlier(Sampler_Grid):
         data_ins = self._data_ins
         nin = np.count_nonzero(data_ins)
         ntot = nsamp + nin
-        print(f"num nonzero data_ins: {nin=:.4e}, {ntot=:.4e}")
+        # weights needed for all points, but "outlier" points will have weigtht 1.0
         weights = np.ones(ntot)
 
+        # Get the bin indices of all of the 'interior' bins (those where `data_ins` are nonzero)
         bin_numbers_flat = (data_ins.flatten() > 0.0)
         bin_numbers_flat = np.arange(bin_numbers_flat.size)[bin_numbers_flat]
+        # Convert from 1D index to ND
         bin_numbers = np.unravel_index(bin_numbers_flat, self._shape_cent)
+        # Set the weights to be the value of the bin-centers
         weights[nsamp:] = data_ins[bin_numbers]
-        print(f"{utils.stats(weights)=}")
-        print(f"{utils.stats(weights[nsamp:])=}")
 
+        # Find the 'interior' bin centers and use those as tracer points for well-sampled data
         vals_ins = np.zeros((self._ndim, nin))
         for dim, (edge, bidx) in enumerate(zip(self._edges, bin_numbers)):
             vals_ins[dim, :] = utils.midpoints(edge, log=False)[bidx]
 
+        # Combine interior-tracers and outlier-samples
         vals = np.concatenate([vals_outs, vals_ins], axis=-1)
         return nsamp, vals, weights
 
 
-def sample_grid(edges, dist, nsamp, scalar=None, **kwargs):
+def sample_grid(edges, dist, nsamp, scalar=None, **sample_kwargs):
     """Draw samples following the given distribution.
 
     Arguments
@@ -226,6 +231,8 @@ def sample_grid(edges, dist, nsamp, scalar=None, **kwargs):
     scalar : None, or array_like of scalar
         Scalar values to associate with the given distribution.  Can be specified at either
         grid-centers or grid-edges, but the latter will be averaged down to grid-center values.
+    sample_kwargs : additional keyword-arguments, optional
+        Additional arguments passed to the `Sample_Grid.sample()` method.
 
     Returns
     -------
@@ -236,19 +243,26 @@ def sample_grid(edges, dist, nsamp, scalar=None, **kwargs):
         Scalar factors for each sample point.
 
     """
-    sampler = Sampler_Grid(edges, dist, scalar=scalar)
-    return sampler.sample(nsamp, **kwargs)
+    sampler = Sample_Grid(edges, dist, scalar=scalar)
+    return sampler.sample(nsamp, **sample_kwargs)
 
 
-def sample_grid_proportional(edges, data, portion, nsamp, **kwargs):
-    scalar = data/portion
+def sample_grid_proportional(edges, data, portion, nsamp, **sample_kwargs):
+    scalar = data / portion
+    # Avoid NaN values
     scalar[portion == 0.0] = 0.0
-    sampler = Sampler_Grid(edges, portion, scalar=scalar)
-    vals, weight = sampler.sample(nsamp, **kwargs)
+    sampler = Sample_Grid(edges, portion, scalar=scalar)
+    vals, weight = sampler.sample(nsamp, **sample_kwargs)
     return vals, weight
 
 
-def grad_along(data_edge, dim):
+def sample_outliers(edges, data, threshold, nsamp=None, **sample_kwargs):
+    outliers = Sample_Outliers(edges, data, threshold=threshold)
+    nsamp, vals, weights = outliers.sample(nsamp=nsamp, **sample_kwargs)
+    return vals, weights
+
+
+def _grad_along(data_edge, dim):
     grad = np.diff(data_edge, axis=dim)
     nums = list(np.arange(grad.ndim))
     nums.pop(dim)
