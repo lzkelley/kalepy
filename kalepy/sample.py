@@ -161,7 +161,9 @@ class Sample_Outliers(Sample_Grid):
         #     recalc `csum` zeroing out the values above threshold
         outs = (data_outs > threshold)
         data_outs[outs] = 0.0
-        idx, csum = self._data_to_cumulative(data_cent)
+        idx, csum = self._data_to_cumulative(data_outs)
+        self._idx = idx
+        self._csum = csum
 
         # We'll manually sample bins above threshold, so store those for later
         data_ins = np.copy(data_cent)
@@ -186,6 +188,7 @@ class Sample_Outliers(Sample_Grid):
 
         # sample outliers normally (using modified csum from `self._data_outs`)
         vals_outs = super().sample(nsamp, **kwargs)
+        print(f"sample out: {utils.stats(vals_outs[0])=}")
 
         # sample tracer/representative points from `self._data_ins`
         data_ins = self._data_ins
