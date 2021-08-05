@@ -5,6 +5,7 @@
 - Move all checking/sanitizing functionality to `KDE` and have `kernels` (etc) assume it's correct.
   - e.g. extrema, points, reflection, params, etc
 - Add documenation/examples for base drawing functions in plotting submodule (e.g. `draw_contour2d`, `draw_hist1d`, etc).
+- Add tests/documentation for `sample` submodule.
 
 - `kalepy/`
     - Allow for calculating PDF and resampling in only particular dimensions/parameters.
@@ -26,13 +27,17 @@
 
 ## Current
 
+
+
+## v1.2 - 2021/08/05
+
 - Plotting Improvements
   - Allow an `origin` argument to be specified for corner plots, placing the location of the triangle at one of `bl` (default), `tl`, `tr`, `br`.
 
 - New `kalepy.sample` submodule for sampling from continuously defined functions.
   - Functionality is defined in the `Sample_Grid` class, and the function `sample_grid()` provides a simple API to construct an instance and use it to construct sample points.  Accessible directly from top-level of package.
   - `sample_grid_proportional()` and `sample_outliers()`
-  
+
 
 
 ## v1.1 - 2021/03/02
