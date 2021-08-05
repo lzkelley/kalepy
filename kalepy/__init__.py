@@ -44,10 +44,10 @@ _BANDWIDTH_DEFAULT = 'scott'
 _PATH_NB = os.path.join(_path, os.path.pardir, 'notebooks', '')
 _PATH_NB_OUT = os.path.join(_PATH_NB, 'output', '')
 
-from kalepy import kernels    # noqa
-from kalepy import utils      # noqa
+# from kalepy import kernels    # noqa
+# from kalepy import utils      # noqa
 from kalepy.kde import KDE    # noqa
-import kalepy.plot            # noqa
+# import kalepy.plot            # noqa
 from kalepy.plot import *     # noqa
 from kalepy.sample import *   # noqa
 
