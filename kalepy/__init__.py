@@ -25,11 +25,17 @@ __copyright__ = "Copyright (C) 2021 Luke Zoltan Kelley and Contributors"
 # __contributors__ = []
 __bibtex__ = (
     """
-    @article{kalepy,
-      author = {Luke Zoltan Kelley},
-      title = {kalepy: a python package for kernel density estimation and sampling},
-      journal = {The Journal of Open Source Software},
+    @article{Kelley2021,
+      doi = {10.21105/joss.02784},
+      url = {https://doi.org/10.21105/joss.02784},
+      year = {2021},
       publisher = {The Open Journal},
+      volume = {6},
+      number = {57},
+      pages = {2784},
+      author = {Luke Zoltan Kelley},
+      title = {kalepy: a Python package for kernel density estimation, sampling and plotting},
+      journal = {Journal of Open Source Software}
     }
     """
 )
