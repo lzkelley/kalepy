@@ -30,8 +30,9 @@
   - Allow an `origin` argument to be specified for corner plots, placing the location of the triangle at one of `bl` (default), `tl`, `tr`, `br`.
 
 - New `kalepy.sample` submodule for sampling from continuously defined functions.
-  - Functionality is defined in the `Sampler_Grid` class, and the function `sample_grid()` provides a simple API to construct an instance and use it to construct sample points.  Both class and function are imported into the top-level module, i.e. `kalepy.Sampler_Grid` and `kalepy.sample_grid()`.
-
+  - Functionality is defined in the `Sample_Grid` class, and the function `sample_grid()` provides a simple API to construct an instance and use it to construct sample points.  Accessible directly from top-level of package.
+  - `sample_grid_proportional()` and `sample_outliers()`
+  
 
 
 ## v1.1 - 2021/03/02
