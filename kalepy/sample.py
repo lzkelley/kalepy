@@ -186,9 +186,7 @@ class Sample_Outliers(Sample_Grid):
             nsamp = self._data_outs.sum()
             nsamp = np.random.poisson(nsamp)
 
-        # sample outliers normally (using modified csum from `self._data_outs`)
         vals_outs = super().sample(nsamp, **kwargs)
-        print(f"sample out: {utils.stats(vals_outs[0])=}")
 
         # sample tracer/representative points from `self._data_ins`
         data_ins = self._data_ins
@@ -246,8 +244,72 @@ def sample_grid(edges, dist, nsamp, scalar=None, **sample_kwargs):
         Scalar factors for each sample point.
 
     """
+
+    # ---- Check/Sanitize input arguments
+
+    if not utils.really1d(edges):
+        elens = [len(ee) for ee in edges]
+        if not np.all(elens == dist.shape):
+            err = f"Lengths of edges ({elens}) does not match distribution shape ({dist.shape})!"
+            raise ValueError(err)
+        edges = np.concatenate(edges)
+        if not utils.really1d(edges):
+            raise ValueError("Failed to concatenate `edges` into 1D array!")
+
+    if len(edges) != np.sum(dist.shape):
+        err = f"Length of 1D edges ({len(edges)}) does not match distribution shape ({dist.shape})!"
+        raise ValueError(err)
+
+    if (scalar is not None) and (np.shape(dist) != np.shape(scalar)):
+        raise ValueError(f"Shape of scalar ({scalar.shape}) does not match distribution ({dist.shape})!")
+
+    # ---- Draw Samples
+
+    if scalar is None:
+        samples = _sample(edges, dist, nsamp, **sample_kwargs)
+        rv = samples
+    else:
+        samples, scalars = _sample_scalar(edges, dist, scalar, nsamp, **sample_kwargs)
+        rv = (samples, scalars)
+
+    return rv
+
+
+'''
+def sample_grid(edges, dist, nsamp, scalar=None, **sample_kwargs):
+    """Draw samples following the given distribution.
+
+    Arguments
+    ---------
+    edges : (D,) list/tuple of array_like,
+        Edges of the (parameter space) grid.  For `D` dimensions, this is a list/tuple of D
+        entries, where each entry is an array_like of scalars giving the grid-points along
+        that dimension.
+        e.g. if edges=([x, y], [a, b, c]) is a (2x3) dim array with coordinates
+             [(x,a), (x,b), (x,c)], [(y,a), (y,b), (y,c)]
+    dist : (N1,...,ND) array_like of scalar,
+        Distribution values specified at either the grid edges, or grid centers.
+        e.g. for the (2x3) example above, `dist` should be either (2,3) or (1, 2)
+    nsamp : int
+        Number of samples to draw (floats are cast to integers).
+    scalar : None, or array_like of scalar
+        Scalar values to associate with the given distribution.  Can be specified at either
+        grid-centers or grid-edges, but the latter will be averaged down to grid-center values.
+    sample_kwargs : additional keyword-arguments, optional
+        Additional arguments passed to the `Sample_Grid.sample()` method.
+
+    Returns
+    -------
+    vals : (D, N) array of sample points,
+        Sample points drawn from the given distribution in `D`, number of points `N` is that
+        specified by `nsamp` param.
+    [weights] : (N,) array of weights, returned if `scalar` is given
+        Scalar factors for each sample point.
+
+    """
     sampler = Sample_Grid(edges, dist, scalar=scalar)
     return sampler.sample(nsamp, **sample_kwargs)
+'''
 
 
 def sample_grid_proportional(edges, data, portion, nsamp, **sample_kwargs):
@@ -299,3 +361,892 @@ def _intrabin_linear_interp(edge, wid, loc, bidx, grad, flat_tol=1e-2):
     vals[zer] = edge[bidx][zer] + wid[bidx][zer] * loc[zer]
 
     return vals
+
+
+import numba
+from numba.np.unsafe.ndarray import to_fixed_tuple
+
+
+# T_INT = np.int64
+# T_INT = numba.int64
+T_INT = 'int32'
+T_FLT = numba.float64
+
+NUMBA = numba.njit
+# NUMBA = numba.jit
+
+
+@NUMBA
+def _unravel_index(idx, shape_rev_prod):
+    ndim = len(shape_rev_prod)
+    loc = np.zeros(ndim, dtype=T_INT)
+    for dd in range(ndim):
+        if dd < ndim - 1:
+            sz = shape_rev_prod[dd]
+            loc[dd] = idx // sz
+            idx = idx % sz
+        else:
+            loc[dd] = idx
+    return loc
+
+
+@NUMBA
+def _ravel_index(idx, shape_rev_prod):
+    ndim = len(idx)
+    jj = 0
+    last = ndim - 1
+    for dd in range(ndim):
+        jj += shape_rev_prod[last-dd] * idx[last-dd]
+    return jj
+
+
+@NUMBA
+def _get_shape_rev_prod(shape):
+    ndim = len(shape)
+    last = ndim - 1
+    shape_rev_prod = np.ones((ndim,), dtype=T_INT)
+    for dd in range(ndim-1):
+        if dd == 0:
+            shape_rev_prod[last-1] = shape[last]
+        else:
+            shape_rev_prod[last-dd-1] = shape[last-dd] * shape_rev_prod[last-dd]
+    return shape_rev_prod
+
+
+@NUMBA
+def _get_centers(data_edge):
+    ndim = data_edge.ndim
+    eshape = data_edge.shape
+    cshape = np.zeros((ndim,), dtype='int32')
+    for dd in range(ndim):
+        cshape[dd] = eshape[dd] - 1
+
+    cshape = to_fixed_tuple(cshape, ndim)
+    cshape_rev_prod = _get_shape_rev_prod(cshape)
+    eshape_rev_prod = _get_shape_rev_prod(eshape)
+
+    corners_shape = 2 * np.ones((ndim,), dtype=T_INT)
+    corners_shape = to_fixed_tuple(corners_shape, ndim)
+    corners_num = 2 ** ndim
+
+    corner = np.zeros(ndim, dtype=T_INT)
+    data_cent = np.zeros(cshape)
+
+    # ------------- find center values ----------------
+    for cbin3d in np.ndindex(cshape):
+        cbin1d = _ravel_index(cbin3d, cshape_rev_prod)
+
+        tt = 0.0
+        for offset in np.ndindex(corners_shape):
+            for dd in range(ndim):
+                corner[dd] = cbin3d[dd] + offset[dd]
+
+            ebin1d = _ravel_index(corner, eshape_rev_prod)
+            tt = tt + data_edge.ravel()[ebin1d]
+
+        data_cent.ravel()[cbin1d] = tt / corners_num
+
+    return data_cent
+
+
+@NUMBA
+def _get_centers_scalar(data_edge, scalar_edge):
+    ndim = data_edge.ndim
+    eshape = data_edge.shape
+    cshape = np.zeros((ndim,), dtype='int32')
+    for dd in range(ndim):
+        cshape[dd] = eshape[dd] - 1
+
+    cshape = to_fixed_tuple(cshape, ndim)
+    cshape_rev_prod = _get_shape_rev_prod(cshape)
+    eshape_rev_prod = _get_shape_rev_prod(eshape)
+
+    corners_shape = 2 * np.ones((ndim,), dtype=T_INT)
+    corners_shape = to_fixed_tuple(corners_shape, ndim)
+    corners_num = 2 ** ndim
+
+    corner = np.zeros(ndim, dtype=T_INT)
+    scalar_cent = np.zeros(cshape)
+    data_cent = np.zeros(cshape)
+
+    # ------------- find center values ----------------
+    for cbin3d in np.ndindex(cshape):
+        cbin1d = _ravel_index(cbin3d, cshape_rev_prod)
+
+        ss = 0.0
+        tt = 0.0
+        for offset in np.ndindex(corners_shape):
+            for dd in range(ndim):
+                corner[dd] = cbin3d[dd] + offset[dd]
+
+            ebin1d = _ravel_index(corner, eshape_rev_prod)
+            ss = ss + scalar_edge.ravel()[ebin1d]
+            tt = tt + data_edge.ravel()[ebin1d]
+
+        scalar_cent.ravel()[cbin1d] = ss / corners_num
+        data_cent.ravel()[cbin1d] = tt / corners_num
+
+    return data_cent, scalar_cent
+
+
+@NUMBA
+def _get_bin_grads(cbin_nd, data_edge):
+    ndim = data_edge.ndim
+    eshape = data_edge.shape
+    cshape = np.zeros((ndim,), dtype='int32')
+    for dd in range(ndim):
+        cshape[dd] = eshape[dd] - 1
+
+    eshape_rev_prod = _get_shape_rev_prod(eshape)
+
+    corners_shape = 2 * np.ones((ndim,), dtype=T_INT)
+    corners_shape = to_fixed_tuple(corners_shape, ndim)
+    corn_rev_prod = _get_shape_rev_prod(corners_shape)
+    corners_num = 2 ** ndim
+    grads_num = 2 ** (ndim - 1)
+
+    corner = np.zeros(ndim, dtype=T_INT)
+    data_grad_vals = np.zeros((ndim,  2))
+    data_grad = np.zeros(ndim)
+
+    # calculate gradients along each dimension
+    for dd in range(ndim):
+        # iterate over all corners
+        for off1d in np.arange(corners_num):
+            offset_nd = _unravel_index(off1d, corn_rev_prod)
+            # calc the location of the corner in the edge-arrays
+            for dd in range(ndim):
+                corner[dd] = cbin_nd[dd] + offset_nd[dd]
+
+            # get the edge-values for this corner
+            ebin1d = _ravel_index(corner, eshape_rev_prod)
+
+            # calculate the average over every dimension, *except* this dimension
+            #     store averages for left-edge vs. right-edge of this dimension
+            if offset_nd[dd] == 0:
+                data_grad_vals[dd, 0] += data_edge.ravel()[ebin1d]
+            else:
+                data_grad_vals[dd, 1] += data_edge.ravel()[ebin1d]
+
+        # calculate and store gradient values
+        data_grad[dd] = (data_grad_vals[dd, 1] - data_grad_vals[dd, 0]) / grads_num
+
+    return data_grad
+
+
+@NUMBA
+def _get_bin_center_grads(cbin_nd, data_edge):
+    ndim = data_edge.ndim
+    eshape = data_edge.shape
+    cshape = np.zeros((ndim,), dtype='int32')
+    for dd in range(ndim):
+        cshape[dd] = eshape[dd] - 1
+
+    eshape_rev_prod = _get_shape_rev_prod(eshape)
+
+    corners_shape = 2 * np.ones((ndim,), dtype=T_INT)
+    corners_shape = to_fixed_tuple(corners_shape, ndim)
+    corn_rev_prod = _get_shape_rev_prod(corners_shape)
+    corners_num = 2 ** ndim
+    grads_num = 2 ** (ndim - 1)
+
+    corner = np.zeros(ndim, dtype=T_INT)
+    data_grad_vals = np.zeros((ndim,  2))
+    data_grad = np.zeros(ndim)
+
+    data_cent = 0.0
+
+    # calculate gradients along each dimension
+    for dd in range(ndim):
+        # iterate over all corners
+        for off1d in np.arange(corners_num):
+            offset_nd = _unravel_index(off1d, corn_rev_prod)
+            # calc the location of the corner in the edge-arrays
+            for dd in range(ndim):
+                corner[dd] = cbin_nd[dd] + offset_nd[dd]
+
+            # get the edge-values for this corner
+            ebin1d = _ravel_index(corner, eshape_rev_prod)
+            if dd == 0:
+                data_cent += data_edge.ravel()[ebin1d]
+
+            # calculate the average over every dimension, *except* this dimension
+            #     store averages for left-edge vs. right-edge of this dimension
+            if offset_nd[dd] == 0:
+                data_grad_vals[dd, 0] += data_edge.ravel()[ebin1d]
+            else:
+                data_grad_vals[dd, 1] += data_edge.ravel()[ebin1d]
+
+        # calculate and store gradient values
+        data_grad[dd] = (data_grad_vals[dd, 1] - data_grad_vals[dd, 0]) / grads_num
+
+    data_cent = data_cent / corners_num
+
+    return data_cent, data_grad
+
+
+@NUMBA
+def _get_centers_grads(data_edge):
+    ndim = data_edge.ndim
+    eshape = data_edge.shape
+    cshape = np.zeros((ndim,), dtype='int32')
+    for dd in range(ndim):
+        cshape[dd] = eshape[dd] - 1
+
+    cshape = to_fixed_tuple(cshape, ndim)
+    cshape_rev_prod = _get_shape_rev_prod(cshape)
+    eshape_rev_prod = _get_shape_rev_prod(eshape)
+
+    corners_shape = 2 * np.ones((ndim,), dtype=T_INT)
+    corners_shape = to_fixed_tuple(corners_shape, ndim)
+    corn_rev_prod = _get_shape_rev_prod(corners_shape)
+    corners_num = 2 ** ndim
+    grads_num = 2 ** (ndim - 1)
+
+    corner = np.zeros(ndim, dtype=T_INT)
+    data_cent = np.zeros(cshape)
+    data_corners = np.zeros(corners_shape)
+    data_grad_vals = np.zeros((ndim,  2))
+    data_grad = np.zeros(ndim)
+
+    # ---- Iterate over each bin in the 'centers' arrays ----
+    for cbin_nd in np.ndindex(cshape):
+        # convert from Nd
+        cbin_1d = _ravel_index(cbin_nd, cshape_rev_prod)
+
+        # Store the values from the corners around each center-bin
+        # calculate bin-center values
+        tt = 0.0
+        # iterate over the offsets to reach each corner, starting from the bin center
+        for offset_nd in np.ndindex(corners_shape):
+            off1d = _ravel_index(offset_nd, corn_rev_prod)
+            # calc the location of the corner in the edge-arrays
+            for dd in range(ndim):
+                corner[dd] = cbin_nd[dd] + offset_nd[dd]
+
+            # get the edge-values for this corner
+            ebin1d = _ravel_index(corner, eshape_rev_prod)
+            dtemp = data_edge.ravel()[ebin1d]
+
+            # store corner values (for gradient calculation)
+            data_corners.ravel()[off1d] = dtemp
+
+            # increment average (i.e. bin-center) calculations
+            tt = tt + dtemp
+
+        # Store bin-center values
+        data_cent.ravel()[cbin_1d] = tt / corners_num
+
+        # calculate gradients along each dimension
+        for dd in range(ndim):
+            # zero-out previous values
+            for jj in range(2):
+                data_grad_vals[dd, jj] = 0.0
+            # iterate over all corners
+            for off1d in np.arange(corners_num):
+                off = _unravel_index(off1d, corn_rev_prod)
+                # calculate the average over every dimension, *except* this dimension
+                #     store averages for left-edge vs. right-edge of this dimension
+                if off[dd] == 0:
+                    data_grad_vals[dd, 0] += data_corners.ravel()[off1d]
+                else:
+                    data_grad_vals[dd, 1] += data_corners.ravel()[off1d]
+
+            # calculate and store gradient values
+            data_grad[dd] = (data_grad_vals[dd, 1] - data_grad_vals[dd, 0]) / grads_num
+
+    return data_cent, data_grad
+
+
+@NUMBA
+def _get_centers_grads_scalar(data_edge, scalar_edge):
+    ndim = data_edge.ndim
+    eshape = data_edge.shape
+    cshape = np.zeros((ndim,), dtype='int32')
+    for dd in range(ndim):
+        cshape[dd] = eshape[dd] - 1
+
+    cshape = to_fixed_tuple(cshape, ndim)
+    cshape_rev_prod = _get_shape_rev_prod(cshape)
+    eshape_rev_prod = _get_shape_rev_prod(eshape)
+
+    corners_shape = 2 * np.ones((ndim,), dtype=T_INT)
+    corners_shape = to_fixed_tuple(corners_shape, ndim)
+    corn_rev_prod = _get_shape_rev_prod(corners_shape)
+    corners_num = 2 ** ndim
+    grads_num = 2 ** (ndim - 1)
+
+    corner = np.zeros(ndim, dtype=T_INT)
+    scalar_cent = np.zeros(cshape)
+    data_cent = np.zeros(cshape)
+
+    scalar_corners = np.zeros(corners_shape)
+    scalar_grad_vals = np.zeros((ndim,  2))
+    scalar_grad = np.zeros(ndim)
+    data_corners = np.zeros(corners_shape)
+    data_grad_vals = np.zeros((ndim,  2))
+    data_grad = np.zeros(ndim)
+
+    # ---- Iterate over each bin in the 'centers' arrays ----
+    for cbin_nd in np.ndindex(cshape):
+        # convert from Nd
+        cbin_1d = _ravel_index(cbin_nd, cshape_rev_prod)
+
+        # Store the values from the corners around each center-bin
+        # calculate bin-center values
+        ss = 0.0
+        tt = 0.0
+        # iterate over the offsets to reach each corner, starting from the bin center
+        for offset_nd in np.ndindex(corners_shape):
+            off1d = _ravel_index(offset_nd, corn_rev_prod)
+            # calc the location of the corner in the edge-arrays
+            for dd in range(ndim):
+                corner[dd] = cbin_nd[dd] + offset_nd[dd]
+
+            # get the edge-values for this corner
+            ebin1d = _ravel_index(corner, eshape_rev_prod)
+            stemp = scalar_edge.ravel()[ebin1d]
+            dtemp = data_edge.ravel()[ebin1d]
+
+            # store corner values (for gradient calculation)
+            scalar_corners.ravel()[off1d] = stemp
+            data_corners.ravel()[off1d] = dtemp
+
+            # increment average (i.e. bin-center) calculations
+            ss = ss + stemp
+            tt = tt + dtemp
+
+        # Store bin-center values
+        scalar_cent.ravel()[cbin_1d] = ss / corners_num
+        data_cent.ravel()[cbin_1d] = tt / corners_num
+
+        # calculate gradients along each dimension
+        for dd in range(ndim):
+            # zero-out previous values
+            for jj in range(2):
+                scalar_grad_vals[dd, jj] = 0.0
+                data_grad_vals[dd, jj] = 0.0
+            # iterate over all corners
+            for off1d in np.arange(corners_num):
+                off = _unravel_index(off1d, corn_rev_prod)
+                # calculate the average over every dimension, *except* this dimension
+                #     store averages for left-edge vs. right-edge of this dimension
+                if off[dd] == 0:
+                    scalar_grad_vals[dd, 0] += scalar_corners.ravel()[off1d]
+                    data_grad_vals[dd, 0] += data_corners.ravel()[off1d]
+                else:
+                    scalar_grad_vals[dd, 1] += scalar_corners.ravel()[off1d]
+                    data_grad_vals[dd, 1] += data_corners.ravel()[off1d]
+
+            # calculate and store gradient values
+            scalar_grad[dd] = (scalar_grad_vals[dd, 1] - scalar_grad_vals[dd, 0]) / grads_num
+            data_grad[dd] = (data_grad_vals[dd, 1] - data_grad_vals[dd, 0]) / grads_num
+
+    return data_cent, scalar_cent, data_grad, scalar_grad
+
+
+# =============================    V3    ===============================
+
+
+@NUMBA
+def _get_edge_cumsum(data):
+    shape = data.shape
+    csum = np.zeros(data.ndim, dtype=T_INT)
+    for dd in range(data.ndim-1):
+        csum[dd+1] = csum[dd] + shape[dd]
+    return csum
+
+
+@NUMBA
+def _get_edge_at_dim(flat_edges, dd, ii, shape_csum):
+    jj = shape_csum[dd] + ii
+    return flat_edges[jj]
+
+
+@NUMBA
+def _sample(edges, data_edge, nsamp, flat_tol=1e-2):
+    """
+
+    edges : needs to be flat, with elements matching `data_edge.shape`
+
+    """
+    ndim = data_edge.ndim
+
+    data_cent = _get_centers(data_edge)
+    idx = np.argsort(data_cent.ravel())
+    csum = np.cumsum(data_cent.ravel()[idx])
+    cshape = data_cent.shape
+    edge_shape_csum = np.concatenate([[0, ], np.cumsum(data_edge.shape)[:-1]])
+
+    size1d = csum.size
+    cshape_rev_prod = _get_shape_rev_prod(cshape)
+
+    data_out = np.zeros((ndim, nsamp))
+
+    # Draw random values
+    #     random number for location in CDF, and additional random for position in each dimension of bin
+    rand = np.random.uniform(0.0, 1.0, (1+ndim, nsamp))
+    intrabin_locs = rand[1:, :]
+    rand = rand[0, :]
+
+    last_cbin1d = -1
+    cbin1d = 0
+    for ii in range(nsamp):
+        # Find which bin each random value should go in
+        while (rand[ii] < csum[cbin1d+1]) & (cbin1d < size1d):
+            # 1D bin, in sorted array
+            cbin1d += 1
+
+        # Calculate values for this bin, if it's the first time it's reached
+        if cbin1d != last_cbin1d:
+            # Convert from 1D array to ND array
+            cbin_nd = _unravel_index(idx[cbin1d], cshape_rev_prod)
+            data_grad = _get_bin_grads(cbin_nd, data_edge)
+
+        for dd in range(ndim):
+            ee = cbin_nd[dd]
+            elo = _get_edge_at_dim(edges, dd, ee, edge_shape_csum)
+            ehi = _get_edge_at_dim(edges, dd, ee+1, edge_shape_csum)
+            # wid = edges[dd][ee+1] - edges[dd][ee]
+            wid = ehi - elo
+            loc = intrabin_locs[dd, ii]
+
+            dgrad = data_grad[dd]
+            # use uniform sampling for flat gradients
+            temp = np.fabs(dgrad)
+            norm = data_cent.ravel()[cbin1d]
+            if norm != 0.0:
+                temp = temp / norm
+            if (temp < flat_tol):
+                data_out[dd, ii] = elo + loc * wid
+            # negative slope: interpolate left to right
+            elif dgrad > 0.0:
+                data_out[dd, ii] = elo + wid * np.sqrt(loc)
+            # negative slope: interpolate right to left
+            else:   # dgrad < 0.0:
+                data_out[dd, ii] = ehi - wid * np.sqrt(loc)
+
+        last_cbin1d = cbin1d
+
+    return data_out
+
+
+@NUMBA
+def _sample_scalar(edges, data_edge, scalar_edge, nsamp, flat_tol=1e-2):
+    ndim = data_edge.ndim
+    print("ndim = ", ndim)
+
+    data_cent = _get_centers(data_edge)
+    idx = np.argsort(data_cent.ravel())
+    csum = np.cumsum(data_cent.ravel()[idx])
+    csum = csum / csum[-1]
+    print("csum = ", csum)
+    cshape = data_cent.shape
+    # edge_shape_csum = np.concatenate([[0,], np.cumsum(data_edge.shape)[:-1]])
+    edge_shape_csum = _get_edge_cumsum(data_edge)
+    print("edge_shape_csum = ", edge_shape_csum)
+
+    size1d = csum.size
+    cshape_rev_prod = _get_shape_rev_prod(cshape)
+    print("cshape_rev_prod = ", cshape_rev_prod)
+
+    data_out = np.zeros((ndim, nsamp))
+    scalar_out = np.zeros(nsamp)
+
+    # Draw random values
+    #     random number for location in CDF, and additional random for position in each dimension of bin
+    rand = np.random.uniform(0.0, 1.0, (1+ndim, nsamp))
+    intrabin_locs = rand[1:, :]
+    rand = rand[0, :]
+    rand = np.sort(rand)
+
+    last_cbin1d = -1
+    cbin1d = 0
+    for ii in range(nsamp):
+        print("ii = ", ii, rand[ii], csum[cbin1d], csum[cbin1d+1])
+        # Find which bin each random value should go in
+        while (rand[ii] < csum[cbin1d+1]) & (cbin1d < size1d):
+            # 1D bin, in sorted array
+            cbin1d += 1
+
+        print("cbin1d = ", cbin1d)
+        # Calculate values for this bin, if it's the first time it's reached
+        if cbin1d != last_cbin1d:
+            # Convert from 1D array to ND array
+            cbin_nd = _unravel_index(idx[cbin1d], cshape_rev_prod)
+            print("cbin_nd = ", cbin_nd)
+            data_grad = _get_bin_grads(cbin_nd, data_edge)
+            scalar_cent, scalar_grad = _get_bin_center_grads(cbin_nd, scalar_edge)
+            # data_grad = np.zeros(ndim)
+            # scalar_cent = 0
+            # scalar_grad = np.zeros(ndim)
+
+        scalar_out[ii] = scalar_cent
+
+        '''
+        for dd in range(ndim):
+            ee = cbin_nd[dd]
+            print("\n", dd, ee)
+            elo = _get_edge_at_dim(edges, dd, ee, edge_shape_csum)
+            ehi = _get_edge_at_dim(edges, dd, ee+1, edge_shape_csum)
+            print(elo, ehi)
+            # wid = edges[dd][ee+1] - edges[dd][ee]
+            wid = ehi - elo
+            loc = intrabin_locs[dd, ii]
+
+            scalar_out[ii] += scalar_grad[dd] * (loc - 0.5)
+            print(scalar_out[ii])
+
+            dgrad = data_grad[dd]
+            # use uniform sampling for flat gradients
+            temp = np.fabs(dgrad)
+            norm = data_cent.ravel()[cbin1d]
+            if norm != 0.0:
+                temp = temp / norm
+            if (temp < flat_tol):
+                data_out[dd, ii] = elo + loc * wid
+            # negative slope: interpolate left to right
+            elif dgrad > 0.0:
+                data_out[dd, ii] = elo + wid * np.sqrt(loc)
+            # negative slope: interpolate right to left
+            else:   # dgrad < 0.0:
+                data_out[dd, ii] = ehi - wid * np.sqrt(loc)
+
+            print(data_out[dd, ii])
+        '''
+
+        last_cbin1d = cbin1d
+
+    return data_out, scalar_out
+
+
+# ===========================   V1   ==================================
+
+
+'''
+@NUMBA
+def _sample(edges, data_edge, nsamp, flat_tol=1e-2):
+    ndim = data_edge.ndim
+
+    data_cent, data_grad = _get_centers_grads(data_edge)
+    cshape = data_cent.shape
+
+    idx = np.argsort(data_cent.ravel())
+    csum = np.cumsum(data_cent.ravel()[idx])
+
+    size1d = csum.size
+    cshape_rev_prod = _get_shape_rev_prod(cshape)
+
+    scalar_out = np.zeros(nsamp)
+    data_out = np.zeros((ndim, nsamp))
+
+    # Draw random values
+    #     random number for location in CDF, and additional random for position in each dimension of bin
+    rand = np.random.uniform(0.0, 1.0, (1+ndim, nsamp))
+    intrabin_locs = rand[1:, :]
+    rand = rand[0, :]
+
+    last_bin1d = -1
+    bin1d = 0
+    for ii in range(nsamp):
+        # Find which bin each random value should go in
+        while (rand[ii] < csum[bin1d+1]) & (bin1d < size1d):
+            # 1D bin, in sorted array
+            bin1d += 1
+
+        # Calculate values for this bin, if it's the first time it's reached
+        if bin1d != last_bin1d:
+            # Convert from 1D array to ND array
+            bin3d = _unravel_index(idx[bin1d], cshape_rev_prod)
+
+        for dd in range(ndim):
+            ee = bin3d[dd]
+            wid = edges[dd][ee+1] - edges[dd][ee]
+            loc = intrabin_locs[dd, ii]
+
+            dgrad = data_grad[dd]
+            # use uniform sampling for flat gradients
+            temp = np.fabs(dgrad)
+            norm = data_cent.ravel()[bin1d]
+            if norm != 0.0:
+                temp = temp / norm
+            if (temp < flat_tol):
+                data_out[dd, ii] = edges[dd][ee] + loc * wid
+            # negative slope: interpolate left to right
+            elif dgrad > 0.0:
+                data_out[dd, ii] = edges[dd][ee] + wid * np.sqrt(loc)
+            # negative slope: interpolate right to left
+            else:   # dgrad < 0.0:
+                data_out[dd, ii] = edges[dd][ee+1] - wid * np.sqrt(loc)
+
+        last_bin1d = bin1d
+
+    return data_out, scalar_out
+
+
+@NUMBA
+def _sample_scalar(edges, data_edge, scalar_edge, nsamp, flat_tol=1e-2):
+    ndim = data_edge.ndim
+
+    data_cent, scalar_cent, data_grad, scalar_grad = _get_centers_grads_scalar(data_edge, scalar_edge)
+    cshape = data_cent.shape
+
+    idx = np.argsort(data_cent.ravel())
+    csum = np.cumsum(data_cent.ravel()[idx])
+
+    size1d = csum.size
+    cshape_rev_prod = _get_shape_rev_prod(cshape)
+
+    scalar_out = np.zeros(nsamp)
+    data_out = np.zeros((ndim, nsamp))
+
+    # Draw random values
+    #     random number for location in CDF, and additional random for position in each dimension of bin
+    rand = np.random.uniform(0.0, 1.0, (1+ndim, nsamp))
+    intrabin_locs = rand[1:, :]
+    rand = rand[0, :]
+
+    last_bin1d = -1
+    bin1d = 0
+    for ii in range(nsamp):
+        # Find which bin each random value should go in
+        while (rand[ii] < csum[bin1d+1]) & (bin1d < size1d):
+            # 1D bin, in sorted array
+            bin1d += 1
+
+        # Calculate values for this bin, if it's the first time it's reached
+        if bin1d != last_bin1d:
+            # Convert from 1D array to ND array
+            bin3d = _unravel_index(idx[bin1d], cshape_rev_prod)
+
+        scalar_out[ii] = scalar_cent.ravel()[bin1d]
+
+        for dd in range(ndim):
+            ee = bin3d[dd]
+            wid = edges[dd][ee+1] - edges[dd][ee]
+
+            loc = intrabin_locs[dd, ii]
+            scalar_out[ii] += scalar_grad[dd] * (loc - 0.5)
+
+            dgrad = data_grad[dd]
+            # use uniform sampling for flat gradients
+            temp = np.fabs(dgrad)
+            norm = data_cent.ravel()[bin1d]
+            if norm != 0.0:
+                temp = temp / norm
+            if (temp < flat_tol):
+                data_out[dd, ii] = edges[dd][ee] + loc * wid
+            # negative slope: interpolate left to right
+            elif dgrad > 0.0:
+                data_out[dd, ii] = edges[dd][ee] + wid * np.sqrt(loc)
+            # negative slope: interpolate right to left
+            else:   # dgrad < 0.0:
+                data_out[dd, ii] = edges[dd][ee+1] - wid * np.sqrt(loc)
+
+        last_bin1d = bin1d
+
+    return data_out, scalar_out
+'''
+
+
+# ===========================   V0   ==================================
+
+
+'''
+@NUMBA
+def _sample_scalar(corners, edges, data_edge, data_cent, csum, idx, scalar_edge, nsamp, flat_tol=1e-2):
+    ndim = len(edges)
+    cshape = data_cent.shape
+    # cshape_arr = np.array(cshape, dtype=T_INT)
+    bin3d = np.zeros((ndim,), dtype=T_INT)
+    size1d = csum.size
+
+    # shape_rev_prod = _get_shape_rev_prod(cshape_arr)
+    shape_rev_prod = _get_shape_rev_prod(cshape)
+
+    corner_shape = corners.shape
+    corner_num = 2 ** ndim
+    corn_rev_prod = _get_shape_rev_prod(corner_shape)
+
+    scalar_vals = np.zeros(corner_shape)
+    scalar_grad_vals = np.zeros((ndim,  2))
+    scalar_grad = np.zeros(ndim)
+    data_vals = np.zeros(corner_shape)
+    data_grad_vals = np.zeros((ndim,  2))
+    data_grad = np.zeros(ndim)
+
+    scalar_cent = np.zeros(cshape)
+    scalar_out = np.zeros(nsamp)
+    data_out = np.zeros((ndim, nsamp))
+    corner = np.zeros(ndim, dtype=T_INT)
+
+    # Draw random values
+    #     random number for location in CDF, and additional random for position in each dimension of bin
+    rand = np.random.uniform(0.0, 1.0, (1+ndim, nsamp))
+    intrabin_locs = rand[1:, :]
+    rand = rand[0, :]
+
+    # Find which bin each random value should go in
+    #    note that pre-sorting `rand` does speed up searchsorted: 'github.com/numpy/numpy/issues/10937'
+    rand = np.sort(rand)
+    last_bin1d = -1
+    bin1d = 0
+    ss = 0.0
+    for ii in range(nsamp):
+        # Find bin for this sample
+        while (rand[ii] < csum[bin1d+1]) & (bin1d < size1d):
+            # 1D bin, in sorted array
+            bin1d += 1
+
+        # Calculate values for this bin, if it's the first time it's reached
+        if bin1d != last_bin1d:
+            # Convert from 1D array to ND array
+            bin3d = _unravel_index(idx[bin1d], shape_rev_prod)
+
+            # calculate scalar center at this bin
+            ss = 0.0
+            for off1d in np.arange(corner_num):
+                offset = _unravel_index(off1d, corn_rev_prod)
+                for dd in range(ndim):
+                    corner[dd] = bin3d[dd] + offset[dd]
+                # off1d = _ravel_index(offset, corn_rev_prod)
+                corn1d = _ravel_index(corner, shape_rev_prod)
+                scalar_vals.ravel()[off1d] = scalar_edge.ravel()[corn1d]
+                data_vals.ravel()[off1d] = data_edge.ravel()[corn1d]
+                ss = ss + scalar_edge.ravel()[corn1d]
+
+            # scalar_cent[bin3d] = ss / corner_num
+            scalar_cent.ravel()[bin1d] = ss / corner_num
+
+            temp = np.zeros((2, 2, 2))
+
+            for dd in range(ndim):
+                scalar_grad_vals[dd, 0] = 0.0
+                data_grad_vals[dd, 0] = 0.0
+                for off1d in np.arange(corner_num):
+                    off = _unravel_index(off1d, corn_rev_prod)
+                    if off[dd] == 0:
+                        scalar_grad_vals[dd, 0] += scalar_vals.ravel()[off1d]
+                        data_grad_vals[dd, 0] += data_vals.ravel()[off1d]
+                    else:
+                        scalar_grad_vals[dd, 1] += scalar_vals.ravel()[off1d]
+                        data_grad_vals[dd, 1] += data_vals.ravel()[off1d]
+
+                scalar_grad[dd] = scalar_grad_vals[dd, 1] - scalar_grad_vals[dd, 0]
+                data_grad[dd] = data_grad_vals[dd, 1] - data_grad_vals[dd, 0]
+
+        scalar_out[ii] = scalar_cent.ravel()[bin1d]
+
+        for dd in range(ndim):
+            ee = bin3d[dd]
+            wid = edges[dd][ee+1] - edges[dd][ee]
+
+            loc = intrabin_locs[dd, ii]
+            scalar_out[ii] += scalar_grad[dd] * (loc - 0.5)
+
+            dgrad = data_grad[dd]
+            # use uniform sampling for flat gradients
+            temp = np.fabs(dgrad)
+            norm = data_cent.ravel()[bin1d]
+            if norm != 0.0:
+                temp = temp / norm
+            if (temp < flat_tol):
+                data_out[dd, ii] = edges[dd][ee] + loc * wid
+            # negative slope: interpolate left to right
+            elif dgrad > 0.0:
+                data_out[dd, ii] = edges[dd][ee] + wid * np.sqrt(loc)
+            # negative slope: interpolate right to left
+            else:   # dgrad < 0.0:
+                data_out[dd, ii] = edges[dd][ee+1] - wid * np.sqrt(loc)
+
+        last_bin1d = bin1d
+        # break
+        # } for ii
+
+    return data_out, scalar_out
+
+
+@NUMBA
+def _sample(corners, edges, data_edge, data_cent, csum, idx, nsamp, flat_tol=1e-2):
+    ndim = len(edges)
+    cshape = data_cent.shape
+    # cshape_arr = np.array(cshape, dtype=T_INT)
+    bin3d = np.zeros((ndim,), dtype=T_INT)
+    size1d = csum.size
+
+    # shape_rev_prod = _get_shape_rev_prod(cshape_arr)
+    shape_rev_prod = _get_shape_rev_prod(cshape)
+
+    corner_shape = corners.shape
+    corner_num = 2 ** ndim
+    corn_rev_prod = _get_shape_rev_prod(corner_shape)
+
+    data_vals = np.zeros(corner_shape)
+    data_grad_vals = np.zeros((ndim,  2))
+    data_grad = np.zeros(ndim)
+
+    data_out = np.zeros((ndim, nsamp))
+    # corner = np.zeros(ndim, dtype=T_INT)
+
+    # Draw random values
+    #     random number for location in CDF, and additional random for position in each dimension of bin
+    rand = np.random.uniform(0.0, 1.0, (1+ndim, nsamp))
+    intrabin_locs = rand[1:, :]
+    rand = rand[0, :]
+
+    # Find which bin each random value should go in
+    #    note that pre-sorting `rand` does speed up searchsorted: 'github.com/numpy/numpy/issues/10937'
+    rand = np.sort(rand)
+    last_bin1d = -1
+    bin1d = 0
+    for ii in range(nsamp):
+        # Find bin for this sample
+        while (rand[ii] < csum[bin1d+1]) & (bin1d < size1d):
+            # 1D bin, in sorted array
+            bin1d += 1
+
+        # Calculate values for this bin, if it's the first time it's reached
+        if bin1d != last_bin1d:
+            # Convert from 1D array to ND array
+            bin3d = _unravel_index(idx[bin1d], shape_rev_prod)
+
+            # temp = np.zeros((2, 2, 2))
+
+            for dd in range(ndim):
+                data_grad_vals[dd, 0] = 0.0
+                for off1d in np.arange(corner_num):
+                    off = _unravel_index(off1d, corn_rev_prod)
+                    if off[dd] == 0:
+                        data_grad_vals[dd, 0] += data_vals.ravel()[off1d]
+                    else:
+                        data_grad_vals[dd, 1] += data_vals.ravel()[off1d]
+
+                data_grad[dd] = data_grad_vals[dd, 1] - data_grad_vals[dd, 0]
+
+        for dd in range(ndim):
+            ee = bin3d[dd]
+            wid = edges[dd][ee+1] - edges[dd][ee]
+
+            loc = intrabin_locs[dd, ii]
+
+            dgrad = data_grad[dd]
+            # use uniform sampling for flat gradients
+            temp = np.fabs(dgrad)
+            norm = data_cent.ravel()[bin1d]
+            if norm != 0.0:
+                temp = temp / norm
+            if (temp < flat_tol):
+                data_out[dd, ii] = edges[dd][ee] + loc * wid
+            # negative slope: interpolate left to right
+            elif dgrad > 0.0:
+                data_out[dd, ii] = edges[dd][ee] + wid * np.sqrt(loc)
+            # negative slope: interpolate right to left
+            else:   # dgrad < 0.0:
+                data_out[dd, ii] = edges[dd][ee+1] - wid * np.sqrt(loc)
+
+        last_bin1d = bin1d
+        # break
+        # } for ii
+
+    return data_out
+'''
