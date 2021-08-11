@@ -54,13 +54,23 @@ class Sample_Grid:
         self._idx = idx
         self._csum = csum
 
-        self._scalar = scalar
+        self._scalar_edge = scalar
+        self._scalar_cent = None
         return
+
+    def _get_scalar_cent(self):
+        if self._scalar_edge is None:
+            return None
+
+        if self._scalar_cent is None:
+            self._scalar_cent = utils.midpoints(self._scalar_edge, log=False, axis=None)
+
+        return self._scalar_cent
 
     def sample(self, nsamp, interpolate=True, return_scalar=None):
         nsamp = int(nsamp)
         data_edge = self._data_edge
-        scalar = self._scalar
+        scalar = self._scalar_edge
         edges = self._edges
 
         if return_scalar is None:
@@ -79,7 +89,7 @@ class Sample_Grid:
         # Start by finding scalar value for bin centers (i.e. bin averages)
         #    this will be updated/improved if `interpolation=True`
         if return_scalar:
-            scalar_cent = utils.midpoints(scalar, log=False, axis=None)
+            scalar_cent = self._get_scalar_cent()
             scalar_values = scalar_cent[bin_numbers]
 
         vals = np.zeros_like(intrabin_locs)
@@ -188,7 +198,6 @@ class Sample_Outliers(Sample_Grid):
 
         # sample outliers normally (using modified csum from `self._data_outs`)
         vals_outs = super().sample(nsamp, **kwargs)
-        print(f"sample out: {utils.stats(vals_outs[0])=}")
 
         # sample tracer/representative points from `self._data_ins`
         data_ins = self._data_ins
