@@ -2117,7 +2117,7 @@ def _default_quantiles(quantiles=None, sigmas=None):
         # Convert from standard-deviations to CDF values
         quantiles = 1.0 - np.exp(-0.5 * np.square(sigmas))
     elif sigmas is None:
-        quantiles = np.asarray(quantiles)
+        quantiles = np.atleast_1d(quantiles)
         sigmas = np.sqrt(-2.0 * np.log(1.0 - quantiles))
 
     return quantiles, sigmas
