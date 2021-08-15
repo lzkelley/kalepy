@@ -103,9 +103,7 @@ nbshow()
 ```
 
 
-
-![png](https://raw.githubusercontent.com/lzkelley/kalepy/dev/docs/media/demo_files/demo_8_0.png)
-
+![png](https://raw.githubusercontent.com/lzkelley/kalepy/master/docs/media/demo_files/demo_8_0.png)
 
 
 ### resampling: constructing statistically similar values
@@ -130,9 +128,7 @@ nbshow()
 ```
 
 
-
-![png](https://raw.githubusercontent.com/lzkelley/kalepy/dev/docs/media/demo_files/demo_11_0.png)
-
+![png](https://raw.githubusercontent.com/lzkelley/kalepy/master/docs/media/demo_files/demo_11_0.png)
 
 
 ### Multivariate Distributions
@@ -161,9 +157,7 @@ nbshow()
 ```
 
 
-
-![png](https://raw.githubusercontent.com/lzkelley/kalepy/dev/docs/media/demo_files/demo_13_0.png)
-
+![png](https://raw.githubusercontent.com/lzkelley/kalepy/master/docs/media/demo_files/demo_13_0.png)
 
 
 
@@ -192,9 +186,7 @@ nbshow()
 ```
 
 
-
-![png](https://raw.githubusercontent.com/lzkelley/kalepy/dev/docs/media/demo_files/demo_14_0.png)
-
+![png](https://raw.githubusercontent.com/lzkelley/kalepy/master/docs/media/demo_files/demo_14_0.png)
 
 
 # Fancy Usage
@@ -229,9 +221,7 @@ nbshow()
 ```
 
 
-
-![png](https://raw.githubusercontent.com/lzkelley/kalepy/dev/docs/media/demo_files/demo_18_0.png)
-
+![png](https://raw.githubusercontent.com/lzkelley/kalepy/master/docs/media/demo_files/demo_18_0.png)
 
 
 Explicit reflection locations can also be provided (in any number of dimensions).
@@ -263,9 +253,7 @@ nbshow()
 ```
 
 
-
-![png](https://raw.githubusercontent.com/lzkelley/kalepy/dev/docs/media/demo_files/demo_20_0.png)
-
+![png](https://raw.githubusercontent.com/lzkelley/kalepy/master/docs/media/demo_files/demo_20_0.png)
 
 
 ### Multivariate Reflection
@@ -287,9 +275,7 @@ nbshow()
 ```
 
 
-
-![png](https://raw.githubusercontent.com/lzkelley/kalepy/dev/docs/media/demo_files/demo_22_0.png)
-
+![png](https://raw.githubusercontent.com/lzkelley/kalepy/master/docs/media/demo_files/demo_22_0.png)
 
 
 ### Specifying Bandwidths and Kernel Functions
@@ -337,9 +323,7 @@ nbshow()
 ```
 
 
-
-![png](https://raw.githubusercontent.com/lzkelley/kalepy/dev/docs/media/demo_files/demo_24_0.png)
-
+![png](https://raw.githubusercontent.com/lzkelley/kalepy/master/docs/media/demo_files/demo_24_0.png)
 
 
 ## Resampling
@@ -384,9 +368,7 @@ nbshow()
 ```
 
 
-
-![png](https://raw.githubusercontent.com/lzkelley/kalepy/dev/docs/media/demo_files/demo_27_0.png)
-
+![png](https://raw.githubusercontent.com/lzkelley/kalepy/master/docs/media/demo_files/demo_27_0.png)
 
 
 ### Resampling while 'keeping' certain parameters/dimensions
@@ -408,9 +390,7 @@ nbshow()
 ```
 
 
-
-![png](https://raw.githubusercontent.com/lzkelley/kalepy/dev/docs/media/demo_files/demo_29_0.png)
-
+![png](https://raw.githubusercontent.com/lzkelley/kalepy/master/docs/media/demo_files/demo_29_0.png)
 
 
 A standard KDE resampling will smooth out the discrete variables, creating a smooth(er) distribution.  Using the `keep` parameter, we can choose to resample from the actual data values of that parameter instead of resampling with 'smoothing' based on the KDE.
@@ -434,9 +414,7 @@ nbshow()
 ```
 
 
-
-![png](https://raw.githubusercontent.com/lzkelley/kalepy/dev/docs/media/demo_files/demo_31_0.png)
-
+![png](https://raw.githubusercontent.com/lzkelley/kalepy/master/docs/media/demo_files/demo_31_0.png)
 
 
 ## Development & Contributions
@@ -455,7 +433,7 @@ JOSS Paper:
 
 ## Attribution
 
-AIf you have found this package useful in your research, please add a reference to the code paper:
+A JOSS paper has been published on the `kalepy` package.  If you have found this package useful in your research, please add a reference to the code paper:
 
 .. code-block:: tex
 

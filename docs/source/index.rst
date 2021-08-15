@@ -84,7 +84,7 @@ Multi-dimensional kernel density estimation:
 Documentation
 -------------
 
-A number of examples are included in `the package notebooks <https://github.com/lzkelley/kalepy/tree/master/notebooks>`_, and the `readme file <https://github.com/lzkelley/kalepy/blob/master/README.md>`_.  Some background information and references are included in `the JOSS paper <>`_.
+A number of examples are included in `the package notebooks <https://github.com/lzkelley/kalepy/tree/master/notebooks>`_, and the `readme file <https://github.com/lzkelley/kalepy/blob/master/README.md>`_.  Some background information and references are included in `the JOSS paper <https://joss.theoj.org/papers/10.21105/joss.02784>`_.
 
 .. toctree::
    :maxdepth: 2
@@ -111,17 +111,22 @@ If you are making, or considering making, changes to the `kalepy` source code, t
 Attribution
 -----------
 
-A JOSS paper has been submitted.  If you have found this package useful in your research, please add a reference to the code paper:
+A JOSS paper has been published on the `kalepy` package.  If you have found this package useful in your research, please add a reference to the code paper:
 
 .. code-block:: tex
 
-    @article{kalepy,
-      author = {Luke Zoltan Kelley},
-      title = {kalepy: a python package for kernel density estimation and sampling},
-      journal = {The Journal of Open Source Software},
+    @article{Kelley2021,
+      doi = {10.21105/joss.02784},
+      url = {https://doi.org/10.21105/joss.02784},
+      year = {2021},
       publisher = {The Open Journal},
+      volume = {6},
+      number = {57},
+      pages = {2784},
+      author = {Luke Zoltan Kelley},
+      title = {kalepy: a Python package for kernel density estimation, sampling and plotting},
+      journal = {Journal of Open Source Software}
     }
-
 
 .. Indices and tables
 .. ==================
