@@ -36,8 +36,8 @@ class Test_Sampler_Grid:
             # choose a number of samples
             nsamp = np.random.randint(100, 1000)
 
-            # Shape is valid for both edges or centers
-            for shape in [shape_edges, shape_cents]:
+            # for shape in [shape_edges, shape_cents]:
+            for shape in [shape_edges]:
                 # construct a distribution
                 data = np.random.uniform(0.0, 1.0, shape)
                 # try both values of interpolation flag
