@@ -24,6 +24,9 @@ class Sample_Grid:
             raise ValueError(err)
 
         edge_shape = np.array([ee.size for ee in edges])
+        # NOTE: require that `data` is edge-values (instead of center values)
+        # FIX: Consider allowing center-values, but be careful about how to handle, and
+        #      implications for outlier samples
         if np.all(edge_shape == shape):
             data_edge = data
             # find PDF at grid center-points
@@ -197,11 +200,20 @@ class Sample_Outliers(Sample_Grid):
             nsamp = np.random.poisson(nsamp)
 
         # sample outliers normally (using modified csum from `self._data_outs`)
-        vals_outs = super().sample(nsamp, **kwargs)
+        if nsamp > 0:
+            vals_outs = super().sample(nsamp, **kwargs)
+        else:
+            msg = f"WARNING: outliers nsamp = {nsamp}!  outs.sum = {self._data_outs.sum():.4e}!"
+            logging.warning(msg)
+            vals_outs = [[] for ii in range(self._ndim)]
 
         # sample tracer/representative points from `self._data_ins`
         data_ins = self._data_ins
         nin = np.count_nonzero(data_ins)
+        if nin < 1:
+            msg = f"WARNING: in-liers nsamp = {nin}!  ins.sum() = {data_ins.sum():.4e}!"
+            logging.warning(msg)
+
         ntot = nsamp + nin
         # weights needed for all points, but "outlier" points will have weigtht 1.0
         weights = np.ones(ntot)
