@@ -30,7 +30,7 @@ class Sample_Grid:
         if np.all(edge_shape == shape):
             data_edge = data
             # find PDF at grid center-points
-            data_cent = utils.midpoints(data_edge, log=False, axis=None)
+            # data_cent = utils.midpoints(data_edge, log=False, axis=None)
         else:
             err = "Shape of edges ({}) inconsistent with data ({})!".format(edge_shape, shape)
             raise ValueError(err)
@@ -39,26 +39,36 @@ class Sample_Grid:
         #    if the latter, it will be converted to `data_cent` by averaging
         if scalar is not None:
             scalar = np.asarray(scalar)
-            if np.all(scalar.shape == data_edge.shape):
+            if np.all(scalar.shape == edge_shape):
                 pass
             else:
-                err = "Shape of `scalar` ({}) does not match `data` ({})!".format(
-                    scalar.shape, data.shape)
+                err = "Shape of `scalar` ({}) does not match `data` ({})!".format(scalar.shape, data.shape)
                 raise ValueError(err)
-
-        idx, csum = self._data_to_cumulative(data_cent)
 
         self._edges = edges
         self._data_edge = data_edge
-        self._data_cent = data_cent
-        self._shape_cent = data_cent.shape
+        self._shape_edge = tuple(edge_shape)
         self._ndim = ndim
-
-        self._idx = idx
-        self._csum = csum
+        self._grid = None
 
         self._scalar_edge = scalar
         self._scalar_cent = None
+
+        self._init_data()
+
+        self._shape_cent = self._data_cent.shape
+
+        return
+
+    def _init_data(self):
+        data_cent = utils.midpoints(self._data_edge, log=False, axis=None)
+        idx, csum = self._data_to_cumulative(data_cent)
+
+        raise RuntimeError(f"HAS PROBABILITY CONSERVATION BEEN FIXED YET?!")
+
+        self._idx = idx
+        self._csum = csum
+        self._data_cent = data_cent
         return
 
     def _get_scalar_cent(self):
@@ -161,12 +171,22 @@ class Sample_Grid:
         csum = np.concatenate([[0.0], csum/csum[-1]])
         return idx, csum
 
+    @property
+    def grid(self):
+        if self._grid is None:
+            self._grid = np.meshgrid(*self._edges, indexing='ij')
+
+        return self._grid
+
 
 class Sample_Outliers(Sample_Grid):
 
     def __init__(self, edges, data, threshold=10.0, *args, **kwargs):
         super().__init__(edges, data, *args, **kwargs)
 
+        # Note: `data_cent` has already been converted from density to mass (i.e. integrating each cell)
+        #       this happened in `__init__()` ==> `_init_data()`
+        #       `data_edge` is still a density (at the corners of each cell)
         data_cent = self._data_cent
         data_outs = np.copy(data_cent)
 
@@ -182,12 +202,27 @@ class Sample_Outliers(Sample_Grid):
         data_ins = np.copy(data_cent)
         data_ins[~outs] = 0.0
 
+        # Find the center-of-mass of each cell (based on density corner values)
+        coms = self.grid
+        dens_edge = self._data_edge
+        dens_cent = utils.midpoints(dens_edge, log=False, axis=None)
+        coms = [utils.midpoints(dens_edge * ll, log=False, axis=None) / dens_cent for ll in coms]
+
         self._threshold = threshold
         self._data_ins = data_ins
+        self._coms_ins = coms
         self._data_outs = data_outs
         return
 
     def sample(self, nsamp=None, **kwargs):
+        """Outlier sample the distribution.
+
+        Arguments
+        ---------
+        nsamp : int or None,
+            The number of samples in the _outlier_ population only.
+
+        """
         rv = kwargs.setdefault('return_scalar', False)
         if rv is not False:
             raise ValueError(f"Cannot use `scalar` values in `{self.__class__}`!")
@@ -229,11 +264,20 @@ class Sample_Outliers(Sample_Grid):
         # Find the 'interior' bin centers and use those as tracer points for well-sampled data
         vals_ins = np.zeros((self._ndim, nin))
         for dim, (edge, bidx) in enumerate(zip(self._edges, bin_numbers)):
-            vals_ins[dim, :] = utils.midpoints(edge, log=False)[bidx]
+            vals_ins[dim, :] = self._coms_ins[dim][bin_numbers]
 
         # Combine interior-tracers and outlier-samples
         vals = np.concatenate([vals_outs, vals_ins], axis=-1)
         return nsamp, vals, weights
+
+    def _init_data(self):
+        """Calculate `data_cent` for sampling, integrate over each bin.
+
+        NOTE: `idx` and `csum` are calculated directly in `Sample_Outliers.__init__()`
+        """
+        self._data_cent = utils.trapz_dens_to_mass(self._data_edge, self._edges, axis=None)
+        # self._data_cent = utils.midpoints(data, log=False, axis=None)
+        return
 
 
 def sample_grid(edges, dist, nsamp, scalar=None, **sample_kwargs):
