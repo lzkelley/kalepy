@@ -8,6 +8,11 @@ import scipy as sp
 import scipy.linalg  # noqa
 
 
+# =================================================================================================
+# ====    Primary / API Functions    ====
+# =================================================================================================
+
+
 def add_cov(data, cov):
     try:
         color_mat = sp.linalg.cholesky(cov)
@@ -291,49 +296,6 @@ def midpoints(arr, log=False, frac=0.5, axis=-1, squeeze=False):
     return mids
 
 
-def _midpoints_1d(arr, frac=0.5, axis=-1):
-    """Return the midpoints between values in the given array.
-
-    If the given array is N-dimensional, midpoints are calculated from the last dimension.
-
-    Arguments
-    ---------
-    arr : ndarray of scalars,
-        Input array.
-    frac : float,
-        Fraction of the way between intervals (e.g. `0.5` for half-way midpoints).
-    axis : int,
-        Which axis about which to find the midpoints.
-
-    Returns
-    -------
-    mids : ndarray of floats,
-        The midpoints of the input array.
-        The resulting shape will be the same as the input array `arr`, except that
-        `mids.shape[axis] == arr.shape[axis]-1`.
-
-    """
-
-    if not np.isscalar(axis):
-        raise ValueError("Input `axis` argument must be an integer less than ndim={np.ndim(arr)}!")
-
-    if (np.shape(arr)[axis] < 2):
-        raise RuntimeError("Input ``arr`` does not have a valid shape!")
-
-    diff = np.diff(arr, axis=axis)
-
-    # skip the last element, or the last axis
-    # cut = slice_for_axis(arr, axis=axis, stop=-1
-    cut = [slice(None)] * arr.ndim
-    cut[axis] = slice(0, -1, None)
-    cut = tuple(cut)
-
-    start = arr[cut]
-    mids = start + frac*diff
-
-    return mids
-
-
 def minmax(data, positive=False, prev=None, stretch=None, log_stretch=None, limit=None):
     if prev is not None:
         assert len(prev) == 2, "`prev` must have length 2."
@@ -427,116 +389,6 @@ def parse_edges(data, edges=None, extrema=None, weights=None, params=None,
         edges = np.squeeze(edges)
 
     return edges
-
-
-def _get_edges_1d(edges, data, extrema, ndim, nmin, nmax, pad, weights=None, refine=1.0, bw=None):
-    """
-
-    Arguments
-    ---------
-    edges : None, int, or array or scalar
-        Specification for bin-edges.
-        `None` : number of bins is automatically calculated from `data`
-        int : used as number of bins, span is calculated from `data`
-        array : used as fixed bin edges, ignores `data`
-    data : 1D array of scalar
-        Data points from which to calculate bin-edges
-    ndim : `None` or int
-        Number of dimensions of the data-set, used to calculate an effective number of data-points.
-
-    """
-
-    if _ndim(edges) == 0:
-        num_bins = edges
-    elif really1d(edges):
-        return edges
-    else:
-        err = "1D `edges` (shape: {}) must be `None`, an integer or a 1D array of edges!".format(
-            np.shape(edges))
-        raise ValueError(err)
-
-    _num_bins, bin_width, _span = _guess_edges(
-        data, extrema=extrema, weights=weights,
-        ndim=ndim, num_min=nmin, num_max=nmax, refine=refine, bw=bw)
-
-    # print("utils.py:_get_edges_1d():")
-    # print("\t", "num_bins = ", num_bins, "_num_bins = ", _num_bins, "refine = ", refine,
-    #       "bin_width = ", bin_width, "_span = ", _span)
-
-    if num_bins is None:
-        num_bins = _num_bins
-
-    if pad is not None:
-        pad_width = pad * bin_width
-        extrema = [extrema[0] - pad_width, extrema[1] + pad_width]
-
-    edges = np.linspace(*extrema, num_bins + 1, endpoint=True)
-    return edges
-
-
-def _guess_edges(data, extrema=None, ndim=None, weights=None, num_min=None, num_max=None, refine=1.0, bw=None):
-    if weights is None:
-        num_eff = data.size
-    else:
-        if (not really1d(weights)) or (np.size(weights) != np.size(data)):
-            err = "Shape of `weights` ({}) does not match `data` ({})!".format(
-                np.shape(weights), np.shape(data))
-            raise ValueError(err)
-
-        num_eff = np.sum(weights)**2 / np.sum(weights**2)
-
-    if (ndim is not None) and (num_eff > 100):
-        # num_eff = np.power(num_eff, 1.0 / ndim)
-        _num_eff = num_eff / ndim**2
-        num_eff = np.clip(_num_eff, 100, None)
-
-    any_inf = [0.0] if not np.iterable(extrema) else [ex for ex in extrema if ex is not None]
-    any_inf = np.any(~np.isfinite(any_inf))
-    if (extrema is None) or any_inf:
-        if any_inf:
-            err = "Given extrema ({}) contain non-finite values!  Overriding!".format(extrema)
-            logging.error(err)
-        idx = np.isfinite(data)
-        extrema = [data[idx].min(), data[idx].max()]
-    span_width = np.diff(extrema)[0]
-
-    # Sturges histogram bin estimator.
-    w1 = span_width / (np.log2(num_eff) + 1.0)
-    # Freedman-Diaconis histogram bin estimator
-    iqr = iqrange(data, log=False, weights=weights)               # get interquartile range
-    w2 = 2.0 * iqr * num_eff ** (-1.0 / 3.0)
-    w3 = bw / np.sqrt(num_eff) if (bw is not None) else 0.0
-
-    widths = [w1, w2, w3]
-    bin_width = [bw for bw in widths if bw > 0.0]
-    if len(bin_width) > 0:
-        bin_width = min(bin_width)
-        bin_width = bin_width / refine
-    else:
-        err = "`bin_width` is not positive (w1 = {}, w2 = {})!".format(w1, w2)
-        logging.warning(err)
-        if np.allclose(data, data[0]):
-            bin_width = 1e-16
-            logging.warning("WARNING: all data is identical! Choosing arbitrary `bin_width`")
-        else:
-            raise ValueError(err)
-
-    if span_width <= 0.0:
-        err = "`span_width` is not positive (span_width={})!".format(span_width)
-        logging.warning(err)
-        if np.allclose(data, data[0]):
-            span_width = 10*bin_width
-            logging.warning("WARNING: all data is identical! Choosing arbitrary `span_width`")
-        else:
-            raise ValueError(err)
-
-    num_bins = int(np.ceil(span_width / bin_width))
-    if (num_min is not None) or (num_max is not None):
-        num_bins = np.clip(num_bins, num_min, num_max)
-
-    # print(f"{num_bins=}, {bin_width=}, {extrema=}, {widths=}")
-
-    return num_bins, bin_width, extrema
 
 
 def iqrange(data, log=False, weights=None):
@@ -691,6 +543,26 @@ def rem_cov(data, cov=None):
     uncolor_mat = np.linalg.inv(color_mat)
     white_data = np.dot(uncolor_mat.T, data)
     return white_data
+
+
+def run_if(func, target, *args, otherwise=None, **kwargs):
+    env = _python_environment()
+    if env.startswith(target):
+        return func(*args, **kwargs)
+    elif otherwise is not None:
+        return otherwise(*args, **kwargs)
+
+    return None
+
+
+def run_if_notebook(func, *args, otherwise=None, **kwargs):
+    target = 'notebook'
+    return run_if(func, target, *args, otherwise=otherwise, **kwargs)
+
+
+def run_if_script(func, *args, otherwise=None, **kwargs):
+    target = 'script'
+    return run_if(func, target, *args, otherwise=otherwise, **kwargs)
 
 
 def spacing(data, scale='log', num=None, dex=10, **kwargs):
@@ -854,6 +726,7 @@ def trapz_dens_to_mass(pdf, edges, axis=None):
         the shape of `pdf` must be `(N, M, L,)`.
     axis : int, array_like int, or None
         Along which axes to convert from density to mass.
+        If `None`, apply to all axes.
 
     Returns
     -------
@@ -935,24 +808,162 @@ def trapz_dens_to_mass(pdf, edges, axis=None):
     return mass
 
 
-def run_if(func, target, *args, otherwise=None, **kwargs):
-    env = _python_environment()
-    if env.startswith(target):
-        return func(*args, **kwargs)
-    elif otherwise is not None:
-        return otherwise(*args, **kwargs)
-
-    return None
+# =================================================================================================
+# ====    Internal Functions    ====
+# =================================================================================================
 
 
-def run_if_notebook(func, *args, otherwise=None, **kwargs):
-    target = 'notebook'
-    return run_if(func, target, *args, otherwise=otherwise, **kwargs)
+def _midpoints_1d(arr, frac=0.5, axis=-1):
+    """Return the midpoints between values in the given array.
+
+    If the given array is N-dimensional, midpoints are calculated from the last dimension.
+
+    Arguments
+    ---------
+    arr : ndarray of scalars,
+        Input array.
+    frac : float,
+        Fraction of the way between intervals (e.g. `0.5` for half-way midpoints).
+    axis : int,
+        Which axis about which to find the midpoints.
+
+    Returns
+    -------
+    mids : ndarray of floats,
+        The midpoints of the input array.
+        The resulting shape will be the same as the input array `arr`, except that
+        `mids.shape[axis] == arr.shape[axis]-1`.
+
+    """
+
+    if not np.isscalar(axis):
+        raise ValueError("Input `axis` argument must be an integer less than ndim={np.ndim(arr)}!")
+
+    if (np.shape(arr)[axis] < 2):
+        raise RuntimeError("Input ``arr`` does not have a valid shape!")
+
+    diff = np.diff(arr, axis=axis)
+
+    # skip the last element, or the last axis
+    # cut = slice_for_axis(arr, axis=axis, stop=-1
+    cut = [slice(None)] * arr.ndim
+    cut[axis] = slice(0, -1, None)
+    cut = tuple(cut)
+
+    start = arr[cut]
+    mids = start + frac*diff
+
+    return mids
 
 
-def run_if_script(func, *args, otherwise=None, **kwargs):
-    target = 'script'
-    return run_if(func, target, *args, otherwise=otherwise, **kwargs)
+def _get_edges_1d(edges, data, extrema, ndim, nmin, nmax, pad, weights=None, refine=1.0, bw=None):
+    """
+
+    Arguments
+    ---------
+    edges : None, int, or array or scalar
+        Specification for bin-edges.
+        `None` : number of bins is automatically calculated from `data`
+        int : used as number of bins, span is calculated from `data`
+        array : used as fixed bin edges, ignores `data`
+    data : 1D array of scalar
+        Data points from which to calculate bin-edges
+    ndim : `None` or int
+        Number of dimensions of the data-set, used to calculate an effective number of data-points.
+
+    """
+
+    if _ndim(edges) == 0:
+        num_bins = edges
+    elif really1d(edges):
+        return edges
+    else:
+        err = "1D `edges` (shape: {}) must be `None`, an integer or a 1D array of edges!".format(
+            np.shape(edges))
+        raise ValueError(err)
+
+    _num_bins, bin_width, _span = _guess_edges(
+        data, extrema=extrema, weights=weights,
+        ndim=ndim, num_min=nmin, num_max=nmax, refine=refine, bw=bw)
+
+    # print("utils.py:_get_edges_1d():")
+    # print("\t", "num_bins = ", num_bins, "_num_bins = ", _num_bins, "refine = ", refine,
+    #       "bin_width = ", bin_width, "_span = ", _span)
+
+    if num_bins is None:
+        num_bins = _num_bins
+
+    if pad is not None:
+        pad_width = pad * bin_width
+        extrema = [extrema[0] - pad_width, extrema[1] + pad_width]
+
+    edges = np.linspace(*extrema, num_bins + 1, endpoint=True)
+    return edges
+
+
+def _guess_edges(data, extrema=None, ndim=None, weights=None, num_min=None, num_max=None, refine=1.0, bw=None):
+    if weights is None:
+        num_eff = data.size
+    else:
+        if (not really1d(weights)) or (np.size(weights) != np.size(data)):
+            err = "Shape of `weights` ({}) does not match `data` ({})!".format(
+                np.shape(weights), np.shape(data))
+            raise ValueError(err)
+
+        num_eff = np.sum(weights)**2 / np.sum(weights**2)
+
+    if (ndim is not None) and (num_eff > 100):
+        # num_eff = np.power(num_eff, 1.0 / ndim)
+        _num_eff = num_eff / ndim**2
+        num_eff = np.clip(_num_eff, 100, None)
+
+    any_inf = [0.0] if not np.iterable(extrema) else [ex for ex in extrema if ex is not None]
+    any_inf = np.any(~np.isfinite(any_inf))
+    if (extrema is None) or any_inf:
+        if any_inf:
+            err = "Given extrema ({}) contain non-finite values!  Overriding!".format(extrema)
+            logging.error(err)
+        idx = np.isfinite(data)
+        extrema = [data[idx].min(), data[idx].max()]
+    span_width = np.diff(extrema)[0]
+
+    # Sturges histogram bin estimator.
+    w1 = span_width / (np.log2(num_eff) + 1.0)
+    # Freedman-Diaconis histogram bin estimator
+    iqr = iqrange(data, log=False, weights=weights)               # get interquartile range
+    w2 = 2.0 * iqr * num_eff ** (-1.0 / 3.0)
+    w3 = bw / np.sqrt(num_eff) if (bw is not None) else 0.0
+
+    widths = [w1, w2, w3]
+    bin_width = [bw for bw in widths if bw > 0.0]
+    if len(bin_width) > 0:
+        bin_width = min(bin_width)
+        bin_width = bin_width / refine
+    else:
+        err = "`bin_width` is not positive (w1 = {}, w2 = {})!".format(w1, w2)
+        logging.warning(err)
+        if np.allclose(data, data[0]):
+            bin_width = 1e-16
+            logging.warning("WARNING: all data is identical! Choosing arbitrary `bin_width`")
+        else:
+            raise ValueError(err)
+
+    if span_width <= 0.0:
+        err = "`span_width` is not positive (span_width={})!".format(span_width)
+        logging.warning(err)
+        if np.allclose(data, data[0]):
+            span_width = 10*bin_width
+            logging.warning("WARNING: all data is identical! Choosing arbitrary `span_width`")
+        else:
+            raise ValueError(err)
+
+    num_bins = int(np.ceil(span_width / bin_width))
+    if (num_min is not None) or (num_max is not None):
+        num_bins = np.clip(num_bins, num_min, num_max)
+
+    # print(f"{num_bins=}, {bin_width=}, {extrema=}, {widths=}")
+
+    return num_bins, bin_width, extrema
 
 
 def _guess_str_format_from_range(arr, prec=2, log_limit=2, allow_int=True):
@@ -1084,6 +1095,11 @@ def _parse_extrema(data, extrema=None, params=None, warn=True):
                     logging.warning(msg)
 
     return extrema
+
+
+# =================================================================================================
+# ====    Internal Convenience Functions    ====
+# =================================================================================================
 
 
 def _random_data_1d_01(num=1e4):
