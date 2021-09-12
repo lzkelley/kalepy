@@ -64,7 +64,7 @@ class Sample_Grid:
         data_cent = utils.midpoints(self._data_edge, log=False, axis=None)
         idx, csum = self._data_to_cumulative(data_cent)
 
-        raise RuntimeError(f"HAS PROBABILITY CONSERVATION BEEN FIXED YET?!")
+        raise RuntimeError("HAS PROBABILITY CONSERVATION BEEN FIXED YET?!")
 
         self._idx = idx
         self._csum = csum
