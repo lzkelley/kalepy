@@ -19,7 +19,7 @@ from kalepy import _BANDWIDTH_DEFAULT
 __all__ = ['KDE']
 
 
-class KDE(object):
+class KDE:
     """Core class and primary API for using `kalepy`, by constructin a KDE based on given data.
 
     The `KDE` class acts as an API to the underlying `kernel` structures and methods.  From the
@@ -178,6 +178,11 @@ class KDE(object):
         self._squeeze = (np.ndim(dataset) == 1)
         self._dataset = np.atleast_2d(dataset)
         ndim, ndata = self.dataset.shape
+        if ndim > ndata:
+            level = logging.WARNING
+            if ndim > 10*ndata:
+                level = logging.ERROR
+            logging.log(level, f"data dimension {ndim} > data points {ndata}; should this be transposed?")
 
         reflect = kernels._check_reflect(reflect, self.dataset)
 
