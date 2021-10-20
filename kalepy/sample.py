@@ -12,98 +12,101 @@ __all__ = [
 
 
 class Sample_Grid:
+    """Sample from a given probability distribution evaluated on a regular grid.
+    """
 
-    def __init__(self, edges, data, scalar=None):
-        data = np.asarray(data)
+    def __init__(self, edges, dens, mass=None, scalar_dens=None, scalar_mass=None):
+        """Initialize `Sample_Grid` with the given grid edges and probability distribution.
+
+        Arguments
+        ---------
+        edges
+            Bin edges along each dimension.
+        dens : array_like of scalar
+            Probability density evaluated at grid edges.
+        mass : array_like of scalar  or  `None`
+            Probability mass (i.e. number of samples) for each bin.  Evaluated at bin centers or
+            centroids.
+            If no `mass` is given, it is calculated by integrating `dens` over each bin using the
+            trapezoid rule.  See: `_init_data()`.
+
+        """
+        dens = np.asarray(dens)
+        shape = dens.shape
+        ndim = dens.ndim
         edges = [np.asarray(ee) for ee in edges]
-        shape = data.shape
-        ndim = data.ndim
         if len(edges) != ndim:
-            err = "`edges` (len(edges)={}) must be a 1D array for each dimension of `data` (data.shape={})!".format(
-                len(edges), data.shape)
+            err = "`edges` (len(edges)={}) must be a 1D array for each dimension of `dens` (dens.shape={})!".format(
+                len(edges), dens.shape)
             raise ValueError(err)
 
-        edge_shape = np.array([ee.size for ee in edges])
-        # NOTE: require that `data` is edge-values (instead of center values)
-        # FIX: Consider allowing center-values, but be careful about how to handle, and
-        #      implications for outlier samples
-        if np.all(edge_shape == shape):
-            data_edge = data
-            # find PDF at grid center-points
-            # data_cent = utils.midpoints(data_edge, log=False, axis=None)
-        else:
-            err = "Shape of edges ({}) inconsistent with data ({})!".format(edge_shape, shape)
+        shape_edges = np.array([ee.size for ee in edges])
+        # require that `dens` is edge-values (instead of center values)
+        if not np.all(shape_edges == shape):
+            err = "Shape of `edges` ({}) inconsistent with `dens` ({})!".format(shape_edges, shape)
             raise ValueError(err)
 
+        shape_bins = [sh - 1 for sh in shape_edges]
         # `scalar` must be shaped as either `data_cent` or `data_edge`
         #    if the latter, it will be converted to `data_cent` by averaging
-        if scalar is not None:
-            scalar = np.asarray(scalar)
-            if np.all(scalar.shape == edge_shape):
-                pass
-            else:
-                err = "Shape of `scalar` ({}) does not match `data` ({})!".format(scalar.shape, data.shape)
-                raise ValueError(err)
+        # if scalar is not None:
+        #     scalar = np.asarray(scalar)
+        #     if np.all(scalar.shape == shape_edges):
+        #         pass
+        #     else:
+        #         err = "Shape of `scalar` ({}) does not match `data` ({})!".format(scalar.shape, dens.shape)
+        #         raise ValueError(err)
 
         self._edges = edges
-        self._data_edge = data_edge
-        self._shape_edge = tuple(edge_shape)
+        self._dens = dens
+        self._mass = mass
+        self._shape_edges = tuple(shape_edges)
+        self._shape_bins = tuple(shape_bins)
         self._ndim = ndim
         self._grid = None
 
-        self._scalar_edge = scalar
-        self._scalar_cent = None
+        self._scalar_dens = scalar_dens
+        self._scalar_mass = scalar_mass
 
         self._init_data()
-
-        self._shape_cent = self._data_cent.shape
 
         return
 
     def _init_data(self):
-        data_cent = utils.midpoints(self._data_edge, log=False, axis=None)
-        idx, csum = self._data_to_cumulative(data_cent)
+        if self._mass is None:
+            self._mass = utils.trapz_dens_to_mass(self._dens, self._edges, axis=None)
+        if (self._scalar_mass is None) and (self._scalar_dens is not None):
+            self._scalar_mass = utils.trapz_dens_to_mass(self._scalar_dens, self._edges, axis=None)
 
-        raise RuntimeError("HAS PROBABILITY CONSERVATION BEEN FIXED YET?!")
-
+        idx, csum = self._data_to_cumulative(self._mass)
         self._idx = idx
         self._csum = csum
-        self._data_cent = data_cent
         return
-
-    def _get_scalar_cent(self):
-        if self._scalar_edge is None:
-            return None
-
-        if self._scalar_cent is None:
-            self._scalar_cent = utils.midpoints(self._scalar_edge, log=False, axis=None)
-
-        return self._scalar_cent
 
     def sample(self, nsamp, interpolate=True, return_scalar=None):
         nsamp = int(nsamp)
-        data_edge = self._data_edge
-        scalar = self._scalar_edge
+        dens = self._dens
+        scalar_dens = self._scalar_dens
         edges = self._edges
 
         if return_scalar is None:
-            return_scalar = (scalar is not None)
-        elif return_scalar and (scalar is None):
+            return_scalar = (scalar_dens is not None)
+        elif return_scalar and (scalar_dens is None):
             return_scalar = False
-            logging.warning("WARNING: no `scalar` initialized, cannot `return_scalar`!")
+            logging.warning("WARNING: no `scalar` initialized, but `return_scalar`=True!")
 
-        # Choose random bins, proportionally to `data`, and positions within bins (uniformly distributed)
+        # Choose random bins, proportionally to `mass`, and positions within bins (uniformly distributed)
         #     `bin_numbers_flat` (N*D,) are the index numbers for bins in flattened 1D array of length N*D
         #     `intrabin_locs` (D, N) are position [0.0, 1.0] for each sample in each dimension
         bin_numbers_flat, intrabin_locs = self._random_bins(nsamp)
-        # Convert from flat (1D) indices into ND indices;  (D, N) for `D` dimensions, `N` samples (`nsamp`)
-        bin_numbers = np.unravel_index(bin_numbers_flat, self._shape_cent)
+        # Convert from flat (N,) indices into ND indices;  (D, N) for D dimensions, N samples (`nsamp`)
+        bin_numbers = np.unravel_index(bin_numbers_flat, self._shape_bins)
 
         # Start by finding scalar value for bin centers (i.e. bin averages)
         #    this will be updated/improved if `interpolation=True`
         if return_scalar:
-            scalar_cent = self._get_scalar_cent()
-            scalar_values = scalar_cent[bin_numbers]
+            scalar_mass = self._scalar_mass
+            scalar_values = scalar_mass[bin_numbers]
 
         vals = np.zeros_like(intrabin_locs)
         for dim, (edge, bidx) in enumerate(zip(edges, bin_numbers)):
@@ -114,7 +117,7 @@ class Sample_Grid:
             loc = intrabin_locs[dim]
 
             # random-uniform within each bin
-            if (data_edge is None) or (not interpolate):
+            if (dens is None) or (not interpolate):
                 vals[dim, :] = edge[bidx] + wid[bidx] * loc
 
             # random-linear proportional to bin edge-gradients (i.e. slope across bin in each dimension)
@@ -122,17 +125,17 @@ class Sample_Grid:
                 edge = np.asarray(edge)
 
                 # Find the gradient along this dimension (using center-values in other dimensions)
-                grad = _grad_along(data_edge, dim)
+                grad = _grad_along(dens, dim)
                 # get the gradient for each sample
-                grad = grad.flatten()[bin_numbers_flat]
+                grad = grad.flat[bin_numbers_flat]
 
                 # interpolate edge values in this dimension
                 vals[dim, :] = _intrabin_linear_interp(edge, wid, loc, bidx, grad)
 
             # interpolate scalar values also
             if return_scalar and interpolate:
-                grad = _grad_along(scalar, dim)
-                grad = grad.flatten()[bin_numbers_flat]
+                grad = _grad_along(scalar_dens, dim)
+                grad = grad.flat[bin_numbers_flat]
                 # shift `loc` (location within bin) to center point
                 scalar_values += grad * (loc - 0.5)
 
@@ -141,7 +144,24 @@ class Sample_Grid:
 
         return vals
 
-    def _random_bins(self, nsamp):
+    def _random_bins(self, nsamp: int):
+        """Choose bins and intrabin locations proportionally to the distribution.
+
+        Choose bins proportionally to the probability mass (bin centroids), and intra-bin locations
+        uniformly within the bin.  Intrabin locations will later be converted to proportional to
+        the probability density (at bin edges).
+
+        Arguments
+        ---------
+        nsamp : int,
+            Number of samples to draw.
+
+        Returns
+        -------
+        bin_numbers_flat :
+        intrabin_locs :
+
+        """
         csum = self._csum
         idx = self._idx
 
@@ -149,6 +169,9 @@ class Sample_Grid:
         #     random number for location in CDF, and additional random for position in each dimension of bin
         rand = np.random.uniform(0.0, 1.0, (1+self._ndim, nsamp))
         # np.random.shuffle(rand)    # extra-step to avoid (rare) structure in random data
+
+        # `rand` shape: (N,) for N samples
+        # `intrabin_locs` shape: (D, N) for D dimensions of data and N samples
         rand, *intrabin_locs = rand
 
         # Find which bin each random value should go in
@@ -160,12 +183,12 @@ class Sample_Grid:
         bin_numbers_flat = idx[sorted_bin_num]
         return bin_numbers_flat, intrabin_locs
 
-    def _data_to_cumulative(self, data_cent):
+    def _data_to_cumulative(self, mass):
         # Convert to flat (1D) array of values
-        data_cent = data_cent.flatten()
+        mass = mass.flat
         # sort in order of probability
-        idx = np.argsort(data_cent)
-        csum = data_cent[idx]
+        idx = np.argsort(mass)
+        csum = mass[idx]
         # find cumulative distribution and normalize to [0.0, 1.0]
         csum = np.cumsum(csum)
         csum = np.concatenate([[0.0], csum/csum[-1]])
@@ -181,37 +204,37 @@ class Sample_Grid:
 
 class Sample_Outliers(Sample_Grid):
 
-    def __init__(self, edges, data, threshold=10.0, *args, **kwargs):
-        super().__init__(edges, data, *args, **kwargs)
+    def __init__(self, edges, dens, threshold=10.0, *args, **kwargs):
+        super().__init__(edges, dens, *args, **kwargs)
 
-        # Note: `data_cent` has already been converted from density to mass (i.e. integrating each cell)
-        #       this happened in `__init__()` ==> `_init_data()`
+        # Note: `dens` has already been converted from density to mass (i.e. integrating each cell)
+        #       this happened in `Sample_Grid.__init__()` ==> `Sample_Outliers._init_data()`
         #       `data_edge` is still a density (at the corners of each cell)
-        data_cent = self._data_cent
-        data_outs = np.copy(data_cent)
+        # mass = self._data_cent
+        mass_outs = np.copy(self._mass)
 
         # We're only going to stochastically sample from bins below the threshold value
         #     recalc `csum` zeroing out the values above threshold
-        outs = (data_outs > threshold)
-        data_outs[outs] = 0.0
-        idx, csum = self._data_to_cumulative(data_outs)
+        outs = (mass_outs > threshold)
+        mass_outs[outs] = 0.0
+        idx, csum = self._data_to_cumulative(mass_outs)
         self._idx = idx
         self._csum = csum
 
         # We'll manually sample bins above threshold, so store those for later
-        data_ins = np.copy(data_cent)
-        data_ins[~outs] = 0.0
+        mass_ins = np.copy(self._mass)
+        mass_ins[~outs] = 0.0
 
         # Find the center-of-mass of each cell (based on density corner values)
         coms = self.grid
-        dens_edge = self._data_edge
+        dens_edge = self._dens
         dens_cent = utils.midpoints(dens_edge, log=False, axis=None)
         coms = [utils.midpoints(dens_edge * ll, log=False, axis=None) / dens_cent for ll in coms]
 
         self._threshold = threshold
-        self._data_ins = data_ins
+        self._mass_ins = mass_ins
         self._coms_ins = coms
-        self._data_outs = data_outs
+        self._mass_outs = mass_outs
         return
 
     def sample(self, nsamp=None, **kwargs):
@@ -231,35 +254,35 @@ class Sample_Outliers(Sample_Grid):
         #    and Poisson sample them
         # NOTE: `nsamp` corresponds only to the _"outliers"_ not the 'interior' points also
         if nsamp is None:
-            nsamp = self._data_outs.sum()
+            nsamp = self._mass_outs.sum()
             nsamp = np.random.poisson(nsamp)
 
         # sample outliers normally (using modified csum from `self._data_outs`)
         if nsamp > 0:
             vals_outs = super().sample(nsamp, **kwargs)
         else:
-            msg = f"WARNING: outliers nsamp = {nsamp}!  outs.sum = {self._data_outs.sum():.4e}!"
+            msg = f"WARNING: outliers nsamp = {nsamp}!  outs.sum = {self._mass_outs.sum():.4e}!"
             logging.warning(msg)
             vals_outs = [[] for ii in range(self._ndim)]
 
         # sample tracer/representative points from `self._data_ins`
-        data_ins = self._data_ins
-        nin = np.count_nonzero(data_ins)
+        mass_ins = self._mass_ins
+        nin = np.count_nonzero(mass_ins)
         if nin < 1:
-            msg = f"WARNING: in-liers nsamp = {nin}!  ins.sum() = {data_ins.sum():.4e}!"
+            msg = f"WARNING: in-liers nsamp = {nin}!  ins.sum() = {mass_ins.sum():.4e}!"
             logging.warning(msg)
 
         ntot = nsamp + nin
         # weights needed for all points, but "outlier" points will have weigtht 1.0
         weights = np.ones(ntot)
 
-        # Get the bin indices of all of the 'interior' bins (those where `data_ins` are nonzero)
-        bin_numbers_flat = (data_ins.flatten() > 0.0)
+        # Get the bin indices of all of the 'interior' bins (those where `mass_ins` are nonzero)
+        bin_numbers_flat = (mass_ins.flat > 0.0)
         bin_numbers_flat = np.arange(bin_numbers_flat.size)[bin_numbers_flat]
         # Convert from 1D index to ND
-        bin_numbers = np.unravel_index(bin_numbers_flat, self._shape_cent)
+        bin_numbers = np.unravel_index(bin_numbers_flat, self._shape_bins)
         # Set the weights to be the value of the bin-centers
-        weights[nsamp:] = data_ins[bin_numbers]
+        weights[nsamp:] = mass_ins[bin_numbers]
 
         # Find the 'interior' bin centers and use those as tracer points for well-sampled data
         vals_ins = np.zeros((self._ndim, nin))
@@ -270,17 +293,18 @@ class Sample_Outliers(Sample_Grid):
         vals = np.concatenate([vals_outs, vals_ins], axis=-1)
         return nsamp, vals, weights
 
-    def _init_data(self):
-        """Calculate `data_cent` for sampling, integrate over each bin.
+    # def _init_data(self):
+    #     """Calculate `data_cent` for sampling, integrate over each bin.
 
-        NOTE: `idx` and `csum` are calculated directly in `Sample_Outliers.__init__()`
-        """
-        self._data_cent = utils.trapz_dens_to_mass(self._data_edge, self._edges, axis=None)
-        # self._data_cent = utils.midpoints(data, log=False, axis=None)
-        return
+    #     NOTE: `idx` and `csum` are calculated directly in `Sample_Outliers.__init__()`, after this
+    #           function is already run.
+    #     """
+    #     self._data_cent = utils.trapz_dens_to_mass(self._data_edge, self._edges, axis=None)
+    #     # self._data_cent = utils.midpoints(data, log=False, axis=None)
+    #     return
 
 
-def sample_grid(edges, dist, nsamp, scalar=None, **sample_kwargs):
+def sample_grid(edges, dens, nsamp, mass=None, scalar_dens=None, scalar_mass=None, **sample_kwargs):
     """Draw samples following the given distribution.
 
     Arguments
@@ -311,15 +335,15 @@ def sample_grid(edges, dist, nsamp, scalar=None, **sample_kwargs):
         Scalar factors for each sample point.
 
     """
-    sampler = Sample_Grid(edges, dist, scalar=scalar)
+    sampler = Sample_Grid(edges, dens, mass=mass, scalar_dens=scalar_dens, scalar_mass=scalar_mass)
     return sampler.sample(nsamp, **sample_kwargs)
 
 
-def sample_grid_proportional(edges, data, portion, nsamp, **sample_kwargs):
-    scalar = data / portion
+def sample_grid_proportional(edges, dens, portion, nsamp, mass=None, **sample_kwargs):
+    scalar_dens = dens / portion
     # Avoid NaN values
-    scalar[portion == 0.0] = 0.0
-    sampler = Sample_Grid(edges, portion, scalar=scalar)
+    scalar_dens[portion == 0.0] = 0.0
+    sampler = Sample_Grid(edges, portion, scalar_dens=scalar_dens)
     vals, weight = sampler.sample(nsamp, **sample_kwargs)
     return vals, weight
 
