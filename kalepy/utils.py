@@ -736,6 +736,8 @@ def trapz_dens_to_mass(pdf, edges, axis=None):
 
     """
 
+    # ---- Sanitize / Process arguments
+
     # Make sure `edges` is a list/array of list/arrays
     if np.isscalar(edges[0]):
         edges = np.atleast_2d(edges)
@@ -747,12 +749,17 @@ def trapz_dens_to_mass(pdf, edges, axis=None):
         err = "Shape of pdf ({}) does not match edges ({})!".format(np.shape(pdf), shp_inn)
         raise ValueError(err)
 
+    # if `axis = None` apply to all axess
     if axis is None:
         axis = np.arange(ndim)
 
     axis = np.atleast_1d(axis)
     axis_ndim = len(axis)
     axis = sorted(axis)
+
+    # ---- Determine basic properties
+
+    # get list of axes not being integrated over
     not_axis = np.arange(ndim)
     for ii in axis[::-1]:
         not_axis = np.delete(not_axis, ii)
@@ -781,6 +788,8 @@ def trapz_dens_to_mass(pdf, edges, axis=None):
     # NOTE
     assert np.all(np.shape(volumes) == shp_out), "BAD `volume` shape!"
 
+    # ---- Integrate each cell to convert from density to mass
+
     mass = np.zeros(shp_out)
     # Iterate over left and right edges over all dimensions,
     #    e.g.  ..., [... 0 0], [... 0 1], [... 1 0], [... 1 1]
@@ -793,17 +802,17 @@ def trapz_dens_to_mass(pdf, edges, axis=None):
 
         # Along each dimension, take the left-side slice, or the right-side slice if we are
         #    integrating over that dimension, otherwise take the full slice
-        cut = [slice(0, -1, None) if ii == 0 else slice(1, None, None) if ii == 1 else slice(None)
-               for ii in inds]
+        cut = [
+            slice(0, -1, None) if ii == 0 else
+            slice(1, None, None) if ii == 1 else
+            slice(None)
+            for ii in inds
+        ]
         temp = pdf[tuple(cut)]
         mass += (temp * volumes)
-        # Store each left/right approximation, in each dimension
-        # mass.append(temp * volumes)
 
     # Normalize the average
     mass /= (2**axis_ndim)
-    # Take the average of each approximation
-    # mass = np.sum(mass, axis=0) / (2**ndim)
 
     return mass
 
