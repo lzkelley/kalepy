@@ -199,7 +199,7 @@ class Kernel(object):
             matrix = self.matrix
 
         if (self._chunk is not None) and (self._chunk < size):
-            logging.warning("Chunk size: {:.2e}, requested size: {:.2e}".format(self._chunk, size))
+            logging.info("Chunk size: {:.2e}, requested size: {:.2e}".format(self._chunk, size))
             logging.warning("Chunking is not setup in `_resample_clear`!")
 
         ndim, nvals = np.shape(data)
@@ -763,13 +763,13 @@ def _check_reflect(reflect, data, weights=None, helper=False):
                 else:
                     frac = np.sum(weights[bads]) / np.sum(weights)
                 msg = (
-                    "A fraction {:.2e} of data[{}] ".format(frac, ii)
-                    + " are outside of `reflect` bounds!"
+                    "A fraction {:.2e} of data[{}] ".format(frac, ii) +
+                    " are outside of `reflect` bounds!"
                 )
                 logging.warning(msg)
                 msg = (
-                    "`reflect[{}]` = {}; ".format(ii, reflect[ii])
-                    + "`data[{}]` = {}".format(ii, utils.stats_str(data[ii], weights=weights))
+                    "`reflect[{}]` = {}; ".format(ii, reflect[ii]) +
+                    "`data[{}]` = {}".format(ii, utils.stats_str(data[ii], weights=weights))
                 )
                 logging.warning(msg)
                 logging.warning("I hope you know what you're doing.")
