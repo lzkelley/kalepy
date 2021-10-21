@@ -72,7 +72,7 @@ def allclose(xx, yy, msg=None, **kwargs):
 def alltrue(xx, msg=None):
     msg_succ, msg_fail = _prep_msg(msg)
     xx = np.atleast_1d(xx)
-    idx = (xx == True)
+    idx = (xx == True)  # noqa
     if not np.all(idx):
         logging.error("bads : " + array_str(np.where(~idx)[0], format=':d'))
         logging.error("vals : " + array_str(xx[~idx]))
@@ -357,8 +357,8 @@ def parse_edges(data, edges=None, extrema=None, weights=None, params=None,
     """
     if _ndim(data) not in [1, 2]:
         err = (
-            "`data` (shape: {}) ".format(np.shape(data))
-            + "must have shape (N,) or (D, N) for `N` data points and `D` parameters!"
+            "`data` (shape: {}) ".format(np.shape(data)) +
+            "must have shape (N,) or (D, N) for `N` data points and `D` parameters!"
         )
         raise ValueError(err)
 
