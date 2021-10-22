@@ -284,7 +284,7 @@ def midpoints(arr, log=False, axis=-1, squeeze=False):
 
     # Take the midpoints along each of the desired axes
     for ax in axis:
-        mids = _midpoints_1d(mids, frac=frac, axis=ax)
+        mids = _midpoints_1d(mids, axis=ax)
 
     if log:
         mids = np.power(10.0, mids)

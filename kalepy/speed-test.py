@@ -1,6 +1,7 @@
 """
 """
 import os
+import logging
 from datetime import datetime
 import numpy as np
 import kalepy as kale
@@ -29,7 +30,9 @@ def main():
 
 if __name__ == "__main__":
     print(f"\n{__file__}\n")
-    import cProfile, pstats
+    logging.getLogger(__file__).setLevel(logging.INFO)
+    import cProfile
+    import pstats
     profiler = cProfile.Profile()
     profiler.enable()
     main()

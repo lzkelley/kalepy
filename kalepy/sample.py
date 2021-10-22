@@ -1,8 +1,9 @@
 """Perform sampling of distributions and functions.
 """
+# from datetime import datetime
 import logging
 
-import numba
+# import numba
 import numpy as np
 
 from kalepy import utils
@@ -93,7 +94,7 @@ class Sample_Grid:
         if (self._scalar_mass is None) and (self._scalar_dens is not None):
             self._scalar_mass = utils.trapz_dens_to_mass(self._scalar_dens, self._edges, axis=None)
 
-        idx, csum = self._data_to_cumulative(self._mass)
+        idx, csum = _data_to_cumulative(self._mass)
         self._idx = idx
         self._csum = csum
         return
@@ -214,17 +215,6 @@ class Sample_Grid:
         bin_numbers_flat = idx[sorted_bin_num]
         return bin_numbers_flat, intrabin_locs
 
-    def _data_to_cumulative(self, mass):
-        # Convert to flat (1D) array of values
-        mass = mass.flat
-        # sort in order of probability
-        idx = np.argsort(mass)
-        csum = mass[idx]
-        # find cumulative distribution and normalize to [0.0, 1.0]
-        csum = np.cumsum(csum)
-        csum = np.concatenate([[0.0], csum/csum[-1]])
-        return idx, csum
-
     @property
     def grid(self):
         if self._grid is None:
@@ -266,9 +256,10 @@ class Sample_Outliers(Sample_Grid):
         # We're only going to stochastically sample from bins below the threshold value
         #     recalc `csum` zeroing out the values above threshold
         outs = (mass_outs > threshold)
-        log.info(f"")
+        # print(f"Outside: {np.count_nonzero(outs)/outs.size:.4f}")
+        # print(f"Inside : {np.count_nonzero(~outs)/outs.size:.4f}")
         mass_outs[outs] = 0.0
-        idx, csum = self._data_to_cumulative(mass_outs)
+        idx, csum = _data_to_cumulative(mass_outs, prefilter=False)
         self._idx = idx
         self._csum = csum
 
@@ -439,6 +430,31 @@ def _intrabin_linear_interp(edge, wid, loc, bidx, grad, flat_tol=1e-2):
     vals[zer] = edge[bidx][zer] + wid[bidx][zer] * loc[zer]
 
     return vals
+
+
+def _data_to_cumulative(mass, prefilter=False):
+    # Convert to flat (1D) array of values
+    mass = mass.flat
+
+    # sort in order of probability
+    if prefilter:
+        logging.warning("WARNING: `prefilter`=True has not been tested in `_data_to_cumulative()`!!")
+        csum = np.zeros_like(mass)
+        mass = mass[mass > 0.0]
+        mnum = mass.size
+        beg = csum.size - mnum
+        # print(f"{mnum=}, {beg=}")
+        idx = np.argsort(mass)
+        csum[beg:] = mass[idx]
+        idx = np.concatenate([np.arange(beg), idx + beg])
+    else:
+        idx = np.argsort(mass)
+        csum = mass[idx]
+
+    # find cumulative distribution and normalize to [0.0, 1.0]
+    csum = np.cumsum(csum)
+    csum = np.concatenate([[0.0], csum/csum[-1]])
+    return idx, csum
 
 
 '''
