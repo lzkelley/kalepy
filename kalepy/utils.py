@@ -247,7 +247,7 @@ def meshgrid(*args, indexing='ij', **kwargs):
     return np.meshgrid(*args, indexing=indexing, **kwargs)
 
 
-def midpoints(arr, log=False, frac=0.5, axis=-1, squeeze=False):
+def midpoints(arr, log=False, axis=-1, squeeze=False):
     """Return the midpoints between values in the given array.
 
     If the given array is N-dimensional, midpoints are calculated from the last dimension.
@@ -258,8 +258,6 @@ def midpoints(arr, log=False, frac=0.5, axis=-1, squeeze=False):
         Input array.
     log : bool or None,
         Find midpoints in log-space
-    frac : float,
-        Fraction of the way between intervals (e.g. `0.5` for half-way midpoints).
     axis : int, sequence, or `None`,
         The axis about which to find the midpoints.  If `None`, find the midpoints along all axes.
         If a sequence (tuple, list, or array), take the midpoints along each specified axis.
@@ -822,6 +820,53 @@ def trapz_dens_to_mass(pdf, edges, axis=None):
 # =================================================================================================
 
 
+def _midpoints_1d(arr, axis=-1):
+    """Return the midpoints between values in the given array.
+
+    If the given array is N-dimensional, midpoints are calculated from the last dimension.
+
+    Arguments
+    ---------
+    arr : ndarray of scalars,
+        Input array.
+    frac : float,
+        Fraction of the way between intervals (e.g. `0.5` for half-way midpoints).
+    axis : int,
+        Which axis about which to find the midpoints.
+
+    Returns
+    -------
+    mids : ndarray of floats,
+        The midpoints of the input array.
+        The resulting shape will be the same as the input array `arr`, except that
+        `mids.shape[axis] == arr.shape[axis]-1`.
+
+    """
+
+    if not np.isscalar(axis):
+        raise ValueError("Input `axis` argument must be an integer less than ndim={np.ndim(arr)}!")
+
+    if (np.shape(arr)[axis] < 2):
+        raise RuntimeError("Input ``arr`` does not have a valid shape!")
+
+    # diff = np.diff(arr, axis=axis)
+
+    # skip the last element, or the last axis
+    left = [slice(None)] * arr.ndim
+    left[axis] = slice(0, -1, None)
+    left = tuple(left)
+    right = [slice(None)] * arr.ndim
+    right[axis] = slice(1, None, None)
+    right = tuple(right)
+
+    # start = arr[left]
+    # mids = start + frac*diff
+    mids = 0.5 * (arr[left] + arr[right])
+
+    return mids
+
+
+'''
 def _midpoints_1d(arr, frac=0.5, axis=-1):
     """Return the midpoints between values in the given array.
 
@@ -854,7 +899,6 @@ def _midpoints_1d(arr, frac=0.5, axis=-1):
     diff = np.diff(arr, axis=axis)
 
     # skip the last element, or the last axis
-    # cut = slice_for_axis(arr, axis=axis, stop=-1
     cut = [slice(None)] * arr.ndim
     cut[axis] = slice(0, -1, None)
     cut = tuple(cut)
@@ -863,6 +907,7 @@ def _midpoints_1d(arr, frac=0.5, axis=-1):
     mids = start + frac*diff
 
     return mids
+'''
 
 
 def _get_edges_1d(edges, data, extrema, ndim, nmin, nmax, pad, weights=None, refine=1.0, bw=None):

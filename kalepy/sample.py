@@ -2,6 +2,7 @@
 """
 import logging
 
+import numba
 import numpy as np
 
 from kalepy import utils
@@ -97,7 +98,22 @@ class Sample_Grid:
         self._csum = csum
         return
 
-    def sample(self, nsamp, interpolate=True, return_scalar=None):
+    def sample(self, nsamp=None, interpolate=True, return_scalar=None):
+        """Sample from the probability distribution.
+
+        Arguments
+        ---------
+        nsamp : scalar or None
+        interpolate : bool
+        return_scalar : bool
+
+        Returns
+        -------
+        vals : (D, N) ndarray of scalar
+
+        """
+        if nsamp is None:
+            nsamp = self._mass.sum()
         nsamp = int(nsamp)
         dens = self._dens
         scalar_dens = self._scalar_dens
@@ -140,6 +156,7 @@ class Sample_Grid:
 
                 # Find the gradient along this dimension (using center-values in other dimensions)
                 grad = _grad_along(dens, dim)
+
                 # get the gradient for each sample
                 grad = grad.flat[bin_numbers_flat]
 
@@ -249,6 +266,7 @@ class Sample_Outliers(Sample_Grid):
         # We're only going to stochastically sample from bins below the threshold value
         #     recalc `csum` zeroing out the values above threshold
         outs = (mass_outs > threshold)
+        log.info(f"")
         mass_outs[outs] = 0.0
         idx, csum = self._data_to_cumulative(mass_outs)
         self._idx = idx
@@ -268,6 +286,15 @@ class Sample_Outliers(Sample_Grid):
         self._mass_ins = mass_ins
         self._coms_ins = coms
         self._mass_outs = mass_outs
+        return
+
+    def _init_data(self):
+        """Override `Sample_Grid._init_data()` to avoid calculating `idx` and `csum`, not needed yet
+        """
+        if self._mass is None:
+            self._mass = utils.trapz_dens_to_mass(self._dens, self._edges, axis=None)
+        if (self._scalar_mass is None) and (self._scalar_dens is not None):
+            self._scalar_mass = utils.trapz_dens_to_mass(self._scalar_dens, self._edges, axis=None)
         return
 
     def sample(self, nsamp=None, **kwargs):
@@ -327,7 +354,7 @@ class Sample_Outliers(Sample_Grid):
         return nsamp, vals, weights
 
 
-def sample_grid(edges, dens, nsamp, mass=None, scalar_dens=None, scalar_mass=None, **sample_kwargs):
+def sample_grid(edges, dens, nsamp=None, mass=None, scalar_dens=None, scalar_mass=None, **sample_kwargs):
     """Draw samples following the given distribution.
 
     Arguments
@@ -341,7 +368,7 @@ def sample_grid(edges, dens, nsamp, mass=None, scalar_dens=None, scalar_mass=Non
     dist : (N1,...,ND) array_like of scalar,
         Distribution values specified at either the grid edges, or grid centers.
         e.g. for the (2x3) example above, `dist` should be either (2,3) or (1, 2)
-    nsamp : int
+    nsamp : int or None
         Number of samples to draw (floats are cast to integers).
     scalar : None, or array_like of scalar
         Scalar values to associate with the given distribution.  Can be specified at either
@@ -359,7 +386,7 @@ def sample_grid(edges, dens, nsamp, mass=None, scalar_dens=None, scalar_mass=Non
 
     """
     sampler = Sample_Grid(edges, dens, mass=mass, scalar_dens=scalar_dens, scalar_mass=scalar_mass)
-    return sampler.sample(nsamp, **sample_kwargs)
+    return sampler.sample(nsamp=nsamp, **sample_kwargs)
 
 
 def sample_grid_proportional(edges, dens, portion, nsamp, mass=None, **sample_kwargs):
@@ -389,10 +416,11 @@ def _intrabin_linear_interp(edge, wid, loc, bidx, grad, flat_tol=1e-2):
     vals = np.zeros_like(grad)
 
     # Find fractional gradient slope to filter out near-zero values
-    grad_frac = np.fabs(grad)
+    # grad_frac = np.fabs(grad)
+    grad_frac = grad
     _gf_max = grad_frac.max()
     if _gf_max > 0.0:
-        grad_frac /= grad_frac.max()
+        grad_frac = grad_frac / grad_frac.max()
     # define 'flat' as below `flat_tol` threshold
     flat = (grad_frac < flat_tol)
     zer = np.ones_like(flat)
@@ -411,3 +439,39 @@ def _intrabin_linear_interp(edge, wid, loc, bidx, grad, flat_tol=1e-2):
     vals[zer] = edge[bidx][zer] + wid[bidx][zer] * loc[zer]
 
     return vals
+
+
+'''
+def _get_gradient(data):
+    shape = np.array(data.shape)
+    ndim = data.ndim
+    gsh = np.zeros(ndim+1, dtype=np.int32)
+    gsh[0] = ndim
+    gsh[1:] = shape - 1
+    # gsh = np.concatenate([[ndim], shape - 1])
+    offset = 2 * np.ones(ndim, dtype=np.uint32)
+    # print(f"{gsh=}")
+    grad = np.zeros(tuple(gsh), dtype=np.float64)
+    cnt = 2 ** (ndim - 1)
+    for axis in np.arange(ndim):
+        # offset = 2 * np.ones(ndim, dtype=int)
+        offset[:] = 2
+        offset[axis] = 1
+        step_right = np.zeros(ndim, dtype=np.uint32)
+        step_right[axis] = 1
+        for idx in np.ndindex(*gsh[1:]):
+            idx = np.array(idx)
+            temp = 0.0
+            for _left in np.ndindex(*offset):
+                left = np.array(_left)
+                left = left + idx
+                right = left + step_right
+                temp += data[tuple(right)] - data[tuple(left)]
+                # print(axis, idx, _left, left, right)
+
+            grad[axis][tuple(idx)] = temp / cnt
+
+        # break
+
+    return grad
+'''
