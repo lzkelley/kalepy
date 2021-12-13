@@ -410,8 +410,7 @@ def _intrabin_linear_interp(edge, wid, loc, bidx, grad, flat_tol=1e-2):
     vals = np.zeros_like(grad)
 
     # Find fractional gradient slope to filter out near-zero values
-    # grad_frac = np.fabs(grad)
-    grad_frac = grad
+    grad_frac = np.fabs(grad)   # NOTE: this *should* be `fabs`
     _gf_max = grad_frac.max()
     if _gf_max > 0.0:
         grad_frac = grad_frac / grad_frac.max()
