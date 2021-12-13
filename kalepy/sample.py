@@ -50,6 +50,9 @@ class Sample_Grid:
         dens = np.asarray(dens)
         shape = dens.shape
         ndim = dens.ndim
+        # for 1D data, allow `edges` to be a 1D array;  convert manually to list of array
+        if ndim == 1 and utils.really1d(edges):
+            edges = [edges]
         edges = [np.asarray(ee) for ee in edges]
         if len(edges) != ndim:
             err = "`edges` (len(edges)={}) must be a 1D array for each dimension of `dens` (dens.shape={})!".format(
