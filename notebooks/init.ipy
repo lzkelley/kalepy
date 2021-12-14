@@ -11,6 +11,7 @@ import scipy.stats
 import matplotlib as mpl
 import matplotlib.pyplot as plt
 from nose import tools
+mpl.style.use('default')   # avoid dark backgrounds from dark themed vscode
 
 import kalepy as kale
 import kalepy.utils

@@ -1061,7 +1061,7 @@ def _python_environment():
     """
     try:
         # NOTE: `get_ipython` is builtin (i.e. should not be explicitly imported from anything)
-        ipy_str = str(type(get_ipython())).lower()  # noqa
+        ipy_str = str(type(get_ipython())).lower()  # type: ignore
         if 'zmqshell' in ipy_str:
             return 'notebook'
         if 'terminal' in ipy_str:
