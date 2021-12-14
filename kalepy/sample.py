@@ -508,7 +508,8 @@ def _data_to_cumulative(mass, prefilter=False):
 
     # find cumulative distribution and normalize to [0.0, 1.0]
     csum = np.cumsum(csum)
-    csum = np.concatenate([[0.0], csum/csum[-1]])
+    temp = 1.0 if csum[-1] == 0.0 else csum[-1]
+    csum = np.concatenate([[0.0], csum/temp])
     return idx, csum
 
 
