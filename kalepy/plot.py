@@ -1315,7 +1315,7 @@ def dist1d(kde_data, ax=None, edges=None, weights=None, probability=True, param=
 
     # Draw PDF from KDE
     handle = None     # variable to store a plotting 'handle' from one of the plotted objects
-    if density:
+    if density is not False:
         if kde is None:
             try:
                 kde = kale.KDE(data, weights=weights)
@@ -1333,6 +1333,8 @@ def dist1d(kde_data, ax=None, edges=None, weights=None, probability=True, param=
 
         # Calculate KDE density distribution for the given parameter
         xx, yy = kde.density(probability=probability, params=param, points=edges)
+        # rescale by value of density
+        yy = yy * density
         # Plot
         if rotate:
             temp = xx
