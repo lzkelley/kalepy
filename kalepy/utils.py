@@ -684,6 +684,33 @@ def stats_str(data, percs=[0.0, 0.16, 0.50, 0.84, 1.00], ave=False, std=False, w
     return out
 
 
+def subdivide(xx, num=1):
+    """Subdivide the giving array (e.g. bin edges) by the given factor.
+
+    Arguments
+    ---------
+    xx : (X,) array_like of scalar,
+        Input array to be subdivided.
+    num : int,
+        Subdivide each bin by this factor.  Subdividing "once" (i.e. num=1) produces 2x number of bins.  In general
+        the number of output bins is ``X * (num + 1)``.
+
+    Returns
+    -------
+    div : (X * `num`+1,) ndarray of float
+        Subdivided array with a number of elements equal to the length of the input array 'X' times one plus the
+        subdivision factor `num`.
+
+    """
+    div = np.asarray(xx)
+
+    dd = np.diff(np.concatenate([div, [0.0]]))[:, np.newaxis]
+    dd = dd * np.linspace(0.0, 1.0, num+1, endpoint=False)[np.newaxis, :]
+    div = div[:, np.newaxis] + dd
+    div = div.flatten()[:-num]
+    return div
+
+
 def trapz_nd(data, edges, axis=None):
 
     if np.isscalar(edges[0]):
