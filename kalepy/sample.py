@@ -12,6 +12,8 @@ __all__ = [
     'Sample_Grid', 'Sample_Outliers', 'sample_grid', 'sample_outliers', 'sample_grid_proportional'
 ]
 
+_DEBUG = False
+
 
 class Sample_Grid:
     """Sample from a given probability distribution evaluated on a regular grid.
@@ -50,6 +52,9 @@ class Sample_Grid:
         dens = np.asarray(dens)
         shape = dens.shape
         ndim = dens.ndim
+        # for 1D data, allow `edges` to be a 1D array;  convert manually to list of array
+        if ndim == 1 and utils.really1d(edges):
+            edges = [edges]
         edges = [np.asarray(ee) for ee in edges]
         if len(edges) != ndim:
             err = "`edges` (len(edges)={}) must be a 1D array for each dimension of `dens` (dens.shape={})!".format(
@@ -113,12 +118,26 @@ class Sample_Grid:
         vals : (D, N) ndarray of scalar
 
         """
-        if nsamp is None:
-            nsamp = self._mass.sum()
-        nsamp = int(nsamp)
         dens = self._dens
         scalar_dens = self._scalar_dens
         edges = self._edges
+
+        # ---- initialize parameters
+        if interpolate and (dens is None):
+            logging.info("`dens` is None, cannot interpolate sampling")
+            interpolate = False
+
+        # ensure PDF `dens` is properly normalized for interpolation
+        #     this normalization is based on each bin having a domain of [0.0, 1.0] during intrabin linear
+        #     interpolation sampling (`_intrabin_linear_interp()`)
+        if interpolate:
+            dens = dens / (dens.sum() / dens.size)
+
+        # If no number of samples are given, assume that the units of `self._mass` are number of samples, and choose
+        # the total numbe of samples to be the total of this
+        if nsamp is None:
+            nsamp = self._mass.sum()
+        nsamp = int(nsamp)
 
         if return_scalar is None:
             return_scalar = (scalar_dens is not None)
@@ -126,41 +145,43 @@ class Sample_Grid:
             return_scalar = False
             logging.warning("WARNING: no `scalar` initialized, but `return_scalar`=True!")
 
+        # ---- Get generalized sampling locations
+
         # Choose random bins, proportionally to `mass`, and positions within bins (uniformly distributed)
         #     `bin_numbers_flat` (N*D,) are the index numbers for bins in flattened 1D array of length N*D
-        #     `intrabin_locs` (D, N) are position [0.0, 1.0] for each sample in each dimension
+        #     `intrabin_locs` (D, N) are position [0.0, 1.0] within each bin for each sample in each dimension
         bin_numbers_flat, intrabin_locs = self._random_bins(nsamp)
         # Convert from flat (N,) indices into ND indices;  (D, N) for D dimensions, N samples (`nsamp`)
         bin_numbers = np.unravel_index(bin_numbers_flat, self._shape_bins)
 
-        # Start by finding scalar value for bin centers (i.e. bin averages)
-        #    this will be updated/improved if `interpolation=True`
+        # If scalars are also being sampled: find scalar value for bin centers (i.e. bin averages)
+        #     this will be updated/improved if `interpolation=True`
         if return_scalar:
             scalar_mass = self._scalar_mass
             scalar_values = scalar_mass[bin_numbers]
 
+        # ---- Place samples in each dimension
+
         vals = np.zeros_like(intrabin_locs)
         for dim, (edge, bidx) in enumerate(zip(edges, bin_numbers)):
-            # Width of bin-edges in this dimension
+            # Width of bins in this dimension
             wid = np.diff(edge)
 
             # Random location, in this dimension, for each bin. Relative position, i.e. between [0.0, 1.0]
             loc = intrabin_locs[dim]
 
-            # random-uniform within each bin
-            if (dens is None) or (not interpolate):
+            # Uniform / no-interpolation :: random-uniform within each bin
+            if (not interpolate):
                 vals[dim, :] = edge[bidx] + wid[bidx] * loc
 
-            # random-linear proportional to bin edge-gradients (i.e. slope across bin in each dimension)
+            # Interpolated :: random-linear proportional to bin gradients (i.e. slope across bin in each dimension)
             else:
                 edge = np.asarray(edge)
 
                 # Find the gradient along this dimension (using center-values in other dimensions)
                 grad = _grad_along(dens, dim)
-
                 # get the gradient for each sample
                 grad = grad.flat[bin_numbers_flat]
-
                 # interpolate edge values in this dimension
                 vals[dim, :] = _intrabin_linear_interp(edge, wid, loc, bidx, grad)
 
@@ -403,31 +424,65 @@ def _grad_along(data_edge, dim):
     return grad
 
 
-def _intrabin_linear_interp(edge, wid, loc, bidx, grad, flat_tol=1e-2):
+def _intrabin_linear_interp(edge, wid, loc, bidx, grad):
+    """Perform linear interpolation within each bin, based on gradient information, for a particular dimension.
+
+    Use the gradient across each bin to sample proportionally to a linear PDF within that bin.  Here the 'gradient' is
+    actually just the delta-PDF value (i.e. ``y2 - y1``), which **must be calculated from a normalized (unitary) PDF**.
+    The form of the PDF across each bin is assumed to be linear, and the CDF is inverted to convert from the random
+    uniform positions (given by `loc`) to random-linear positions.
+
+    Arguments
+    ---------
+        edge : (X+1,) ndarray of scalar,
+            Location of grid edges in this dimension.  For a number `X` of bins, there are `X+1` edges.
+        wid : (X,) ndarray of scalar,
+            Width of grid bins in this dimension (``wid == np.diff(edge)``).
+        loc : (S,) ndarray of scalar,
+            Location of sample within each bin (i.e. [0.0, 1.0]) for each sample.
+        bidx : (S,) ndarray of int,
+            Bin index (i.e. [0, X]) for each sample.
+        grad : (S,) ndarray of scalar,
+            Gradient across the bin, in this dimension, for each sample.
+
+    Returns
+    -------
+        vals : (S,) ndarray of float
+            Sample locations in this dimension.
+
+    """
+
+    # Get the bin-width for each sample (i.e. the width of the bin that each sample is in)
+    bw = wid[bidx]
     vals = np.zeros_like(grad)
 
-    # Find fractional gradient slope to filter out near-zero values
-    # grad_frac = np.fabs(grad)
-    grad_frac = grad
-    _gf_max = grad_frac.max()
-    if _gf_max > 0.0:
-        grad_frac = grad_frac / grad_frac.max()
-    # define 'flat' as below `flat_tol` threshold
-    flat = (grad_frac < flat_tol)
-    zer = np.ones_like(flat)
+    sel = np.fabs(grad) > 1.0e-12
+    # When the gradient is roughly flat, values maintain uniform random distribution
+    vals[~sel] = loc[~sel]
 
-    # identify positive slope and interpolate left to right
-    pos = (grad > 0.0) & ~flat
-    zer[pos] = False
-    vals[pos] = edge[bidx][pos] + wid[bidx][pos] * np.sqrt(loc[pos])
+    # Assume our distribution is parametrized as a linear PDF `y = y1 + grad * x`
+    #     and assume our domain is [0.0, 1.0] on x
+    # calculate `y1` to ensure the CDF is unitary
+    y1 = 1.0 - grad[sel] / 2.0
+    # invert the CDF (``F(x) = y1*x + grad * x^2 / 2``) to sample from PDF (still on [0.0, to 1.0])
+    vals[sel] = 2 * loc[sel] * grad[sel] + y1 ** 2
+    vals[sel] = (np.sqrt(vals[sel]) - y1) / grad[sel]
+    # convert [0.0, 1.0] domain to the location and width of each bin
+    vals = edge[bidx] + bw * vals
 
-    # identify negative slope and interpolate right to left
-    neg = (grad < 0.0) & ~flat
-    zer[neg] = False
-    vals[neg] = edge[bidx+1][neg] - wid[bidx][neg] * np.sqrt(loc[neg])
-
-    # Use uniform sampling for flat cells
-    vals[zer] = edge[bidx][zer] + wid[bidx][zer] * loc[zer]
+    # Make sure all values are within bounds of their bins
+    if _DEBUG:
+        bl = (vals < edge[bidx]) & ~np.isclose(vals, edge[bidx])
+        br = (vals > edge[bidx+1]) & ~np.isclose(vals, edge[bidx+1])
+        bads = bl | br
+        if np.any(bads):
+            logging.error(f"BAD!  {np.count_nonzero(bads)}/{bads.size}")
+            logging.error(f"{vals[bads]=}")
+            logging.error(f"{edge[bidx][bads]=}")
+            logging.error(f"{loc[bads]=}")
+            logging.error(f"{grad[bads]=}")
+            logging.error(f"{wid[bidx][bads]=}")
+            raise
 
     return vals
 
@@ -453,7 +508,8 @@ def _data_to_cumulative(mass, prefilter=False):
 
     # find cumulative distribution and normalize to [0.0, 1.0]
     csum = np.cumsum(csum)
-    csum = np.concatenate([[0.0], csum/csum[-1]])
+    temp = 1.0 if csum[-1] == 0.0 else csum[-1]
+    csum = np.concatenate([[0.0], csum/temp])
     return idx, csum
 
 
