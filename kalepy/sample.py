@@ -121,17 +121,12 @@ class Sample_Grid:
         dens = self._dens
         scalar_dens = self._scalar_dens
         edges = self._edges
+        ndim = self._ndim
 
         # ---- initialize parameters
         if interpolate and (dens is None):
             logging.info("`dens` is None, cannot interpolate sampling")
             interpolate = False
-
-        # ensure PDF `dens` is properly normalized for interpolation
-        #     this normalization is based on each bin having a domain of [0.0, 1.0] during intrabin linear
-        #     interpolation sampling (`_intrabin_linear_interp()`)
-        if interpolate:
-            dens = dens / (dens.sum() / dens.size)
 
         # If no number of samples are given, assume that the units of `self._mass` are number of samples, and choose
         # the total numbe of samples to be the total of this
@@ -176,14 +171,23 @@ class Sample_Grid:
 
             # Interpolated :: random-linear proportional to bin gradients (i.e. slope across bin in each dimension)
             else:
+                # Calculate normalization for gradients; needs to be done for each dimension specifically
+                #    This normalization is needed to ensure that the pdf values are unitary when integrating in each dim
+                norm = utils.trapz_dens_to_mass(dens, edges, axis=dim)
+                others = np.arange(ndim).tolist()
+                others.pop(dim)
+                norm = utils.midpoints(norm, axis=others)
+
                 edge = np.asarray(edge)
 
                 # Find the gradient along this dimension (using center-values in other dimensions)
-                grad = _grad_along(dens, dim)
+                grad = _grad_along(dens, dim) / norm
                 # get the gradient for each sample
-                grad = grad.flat[bin_numbers_flat]
-                # interpolate edge values in this dimension
-                vals[dim, :] = _intrabin_linear_interp(edge, wid, loc, bidx, grad)
+                grad = grad.flat[bin_numbers_flat] * wid[bidx]
+                # interpolate edge values in this dimension (returns values [0.0, 1.0])
+                temp = _intrabin_linear_interp(loc, grad)
+                # convert from intrabin positions to overall positions by linearly rescaling
+                vals[dim, :] = edge[bidx] + temp * wid[bidx]
 
             # interpolate scalar values also
             if return_scalar and interpolate:
@@ -424,7 +428,7 @@ def _grad_along(data_edge, dim):
     return grad
 
 
-def _intrabin_linear_interp(edge, wid, loc, bidx, grad):
+def _intrabin_linear_interp(loc, grad):
     """Perform linear interpolation within each bin, based on gradient information, for a particular dimension.
 
     Use the gradient across each bin to sample proportionally to a linear PDF within that bin.  Here the 'gradient' is
@@ -452,36 +456,32 @@ def _intrabin_linear_interp(edge, wid, loc, bidx, grad):
 
     """
 
-    # Get the bin-width for each sample (i.e. the width of the bin that each sample is in)
-    bw = wid[bidx]
-    vals = np.zeros_like(grad)
+    x1 = 0.0
+    x2 = 1.0
+    dx = x2 - x1
+    dy = grad
 
-    sel = np.fabs(grad) > 1.0e-12
-    # When the gradient is roughly flat, values maintain uniform random distribution
-    vals[~sel] = loc[~sel]
-
-    # Assume our distribution is parametrized as a linear PDF `y = y1 + grad * x`
-    #     and assume our domain is [0.0, 1.0] on x
-    # calculate `y1` to ensure the CDF is unitary
-    y1 = 1.0 - grad[sel] / 2.0
-    # invert the CDF (``F(x) = y1*x + grad * x^2 / 2``) to sample from PDF (still on [0.0, to 1.0])
-    vals[sel] = 2 * loc[sel] * grad[sel] + y1 ** 2
-    vals[sel] = (np.sqrt(vals[sel]) - y1) / grad[sel]
-    # convert [0.0, 1.0] domain to the location and width of each bin
-    vals = edge[bidx] + bw * vals
+    vals = loc.copy()
+    sel = ~np.isclose(dy, 0.0)
+    if np.any(sel):
+        dy = dy[sel]
+        y1 = (dx + dy*x1*x2 - (dy/2)*(x1**2 + x2**2)) / dx**2
+        vals[sel] = dx * (2*vals[sel]*dy + dx * y1**2)
+        vals[sel] = (dy*x1 - dx*y1 + np.sqrt(vals[sel])) / dy
 
     # Make sure all values are within bounds of their bins
     if _DEBUG:
-        bl = (vals < edge[bidx]) & ~np.isclose(vals, edge[bidx])
-        br = (vals > edge[bidx+1]) & ~np.isclose(vals, edge[bidx+1])
+        x1 = x1 * np.ones_like(vals)
+        x2 = x2 * np.ones_like(vals)
+        bl = (vals < x1) & ~np.isclose(vals, x1)
+        br = (vals > x2) & ~np.isclose(vals, x2)
         bads = bl | br
         if np.any(bads):
             logging.error(f"BAD!  {np.count_nonzero(bads)}/{bads.size}")
             logging.error(f"{vals[bads]=}")
-            logging.error(f"{edge[bidx][bads]=}")
+            logging.error(f"{x1[bads]=}")
             logging.error(f"{loc[bads]=}")
             logging.error(f"{grad[bads]=}")
-            logging.error(f"{wid[bidx][bads]=}")
             raise
 
     return vals
