@@ -809,7 +809,17 @@ def trapz_dens_to_mass(pdf, edges, axis=None):
         widths.append(temp)
 
     # Multiply the widths along each dimension to get the volume of each grid cell
-    volumes = np.product(np.array(widths, dtype=object), axis=0).astype(float)
+    # `np.product` fails when a dimension has length 1, do manual operation if so
+    # See: https://github.com/numpy/numpy/issues/20612
+    try:
+        volumes = np.product(np.array(widths, dtype=object), axis=0).astype(float)
+    except ValueError as err:
+        logging.info(f"WARNING: using manual multiple after error on `np.product` '{err}'")
+        op = np.multiply
+        volumes = op.identity
+        for aa in range(len(widths)):
+            volumes = op(volumes, widths[ii])
+
     # NOTE
     assert np.all(np.shape(volumes) == shp_out), "BAD `volume` shape!"
 
