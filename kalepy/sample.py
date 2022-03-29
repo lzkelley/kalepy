@@ -223,9 +223,11 @@ class Sample_Grid:
         idx = self._idx
 
         # Draw random values
-        #     random number for location in CDF, and additional random for position in each dimension of bin
-        rand = np.random.uniform(0.0, 1.0, (1+self._ndim, nsamp))
-        # np.random.shuffle(rand)    # extra-step to avoid (rare) structure in random data
+        #     random number for location in CDF (to determine which bin each value belongs in),
+        #     and additional random for position in each dimension of bin
+        sh = (1+self._ndim, nsamp)
+        rand = np.random.uniform(0.0, 1.0, sh)
+        # np.random.shuffle(rand)    # extra-step to avoid (rare/unlikely) structure in "random" data
 
         # `rand` shape: (N,) for N samples
         # `intrabin_locs` shape: (D, N) for D dimensions of data and N samples
@@ -415,6 +417,32 @@ def sample_grid_proportional(edges, dens, portion, nsamp, mass=None, **sample_kw
 
 
 def sample_outliers(edges, data, threshold, nsamp=None, mass=None, **sample_kwargs):
+    """Sample a PDF randomly in low-density regions, and with weighted points at high-densities.
+
+    Selects (semi-)random samples from the given PDF.  In high-density regions, bin centroids are
+    used as representative points and recieve a corresponding (large) weight.  Low-density regions
+    are sampled proportionally with actual (weight = one) points.
+
+    Parameters
+    ----------
+    edges : list/tuple of array_like
+        An iterable containing the grid edges for each dimension of the space.
+    data : ndarray
+        Array giving the PDF to sample.
+    threshold : float
+        Threshold mass below which true-samples should be drawn.  Representative (centroid) values
+        will be chosen for bins above this threshold.
+    nsamp : int, optional
+        Number of samples to draw.
+    mass : ndarray, optional
+        Probability mass function determining the number of samples to draw in each bin.
+
+    Returns
+    -------
+    vals
+    weights
+
+    """
     outliers = Sample_Outliers(edges, data, threshold=threshold, mass=mass)
     nsamp, vals, weights = outliers.sample(nsamp=nsamp, **sample_kwargs)
     return vals, weights
@@ -460,14 +488,21 @@ def _intrabin_linear_interp(loc, grad):
     x2 = 1.0
     dx = x2 - x1
     dy = grad
-
     vals = loc.copy()
-    sel = ~np.isclose(dy, 0.0)
-    if np.any(sel):
-        dy = dy[sel]
-        y1 = (dx + dy*x1*x2 - (dy/2)*(x1**2 + x2**2)) / dx**2
-        vals[sel] = dx * (2*vals[sel]*dy + dx * y1**2)
-        vals[sel] = (dy*x1 - dx*y1 + np.sqrt(vals[sel])) / dy
+    # sel = np.fabs(grad) > 1.0e-12
+    sel = np.fabs(grad) > 1.0e-16
+    # When the gradient is roughly flat, values maintain uniform random distribution
+    vals[~sel] = loc[~sel]
+
+    # Assume our distribution is parametrized as a linear PDF `y = y1 + grad * x`
+    #     and assume our domain is [0.0, 1.0] on x
+    # calculate `y1` to ensure the CDF is unitary
+    y1 = 1.0 - grad[sel] / 2.0
+    # invert the CDF (``F(x) = y1*x + grad * x^2 / 2``) to sample from PDF (still on [0.0, to 1.0])
+    vals[sel] = 2 * loc[sel] * grad[sel] + y1 ** 2
+    vals[sel] = (np.sqrt(vals[sel]) - y1) / grad[sel]
+    # convert [0.0, 1.0] domain to the location and width of each bin
+    vals = edge[bidx] + bw * vals
 
     # Make sure all values are within bounds of their bins
     if _DEBUG:
@@ -511,39 +546,3 @@ def _data_to_cumulative(mass, prefilter=False):
     temp = 1.0 if csum[-1] == 0.0 else csum[-1]
     csum = np.concatenate([[0.0], csum/temp])
     return idx, csum
-
-
-'''
-def _get_gradient(data):
-    shape = np.array(data.shape)
-    ndim = data.ndim
-    gsh = np.zeros(ndim+1, dtype=np.int32)
-    gsh[0] = ndim
-    gsh[1:] = shape - 1
-    # gsh = np.concatenate([[ndim], shape - 1])
-    offset = 2 * np.ones(ndim, dtype=np.uint32)
-    # print(f"{gsh=}")
-    grad = np.zeros(tuple(gsh), dtype=np.float64)
-    cnt = 2 ** (ndim - 1)
-    for axis in np.arange(ndim):
-        # offset = 2 * np.ones(ndim, dtype=int)
-        offset[:] = 2
-        offset[axis] = 1
-        step_right = np.zeros(ndim, dtype=np.uint32)
-        step_right[axis] = 1
-        for idx in np.ndindex(*gsh[1:]):
-            idx = np.array(idx)
-            temp = 0.0
-            for _left in np.ndindex(*offset):
-                left = np.array(_left)
-                left = left + idx
-                right = left + step_right
-                temp += data[tuple(right)] - data[tuple(left)]
-                # print(axis, idx, _left, left, right)
-
-            grad[axis][tuple(idx)] = temp / cnt
-
-        # break
-
-    return grad
-'''
