@@ -684,7 +684,7 @@ def stats_str(data, percs=[0.0, 0.16, 0.50, 0.84, 1.00], ave=False, std=False, w
     return out
 
 
-def subdivide(xx, num=1):
+def subdivide(xx, num=1, log=False):
     """Subdivide the giving array (e.g. bin edges) by the given factor.
 
     Arguments
@@ -694,6 +694,8 @@ def subdivide(xx, num=1):
     num : int,
         Subdivide each bin by this factor.  Subdividing "once" (i.e. num=1) produces 2x number of bins.  In general
         the number of output bins is ``X * (num + 1)``.
+    log : bool,
+        Subdivide evenly in log-space, instead of linear space (e.g. [0, 10.0] ==> [0.0, 3.16, 10.0])
 
     Returns
     -------
@@ -703,11 +705,16 @@ def subdivide(xx, num=1):
 
     """
     div = np.asarray(xx)
+    if log:
+        div = np.log10(div)
 
     dd = np.diff(np.concatenate([div, [0.0]]))[:, np.newaxis]
     dd = dd * np.linspace(0.0, 1.0, num+1, endpoint=False)[np.newaxis, :]
     div = div[:, np.newaxis] + dd
     div = div.flatten()[:-num]
+    if log:
+        div = 10.0 ** div
+
     return div
 
 
