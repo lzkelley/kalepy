@@ -1,4 +1,4 @@
-python convert_notebook_tests.py
+# python convert_notebook_tests.py
 
 # To fail tests that take longer than (e.g.) 1.0 seconds:
 #   `--timer-warning 5.0 --timer-fail error`
