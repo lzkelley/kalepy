@@ -89,8 +89,12 @@ def convert_notebooks():
         logging.info(str(args))
         # `capture_output` only works in python3.7; but should be the same as passing to PIPE
         # subprocess.run(args, timeout=500, check=True, capture_output=True)
-        subprocess.run(args, timeout=500, check=True,
-                       stderr=subprocess.PIPE, stdout=subprocess.PIPE)
+        try:
+            subprocess.run(args, timeout=500, check=True, stderr=subprocess.PIPE, stdout=subprocess.PIPE)
+        except:
+            logging.error(f"FAILED on command:  `{' '.join(args)}` !")
+            raise
+
         shutil.move(src_py, dst_py)
 
         with open(dst_py, 'r') as original:
