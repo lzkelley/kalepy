@@ -126,6 +126,35 @@ def bound_indices(data, bounds, outside=False):
     return idx
 
 
+def centroids(grid, dens):
+    """
+
+    Parameters
+    ----------
+    grid : _type_
+    dens : _type_
+
+    Returns
+    -------
+    coms : list of ndarray,
+
+    """
+    try:
+        sh = np.shape(dens)
+        shapes = [np.shape(gg) for gg in grid]
+        assert np.all([sh == shape for shape in shapes])
+    except:
+        err = (
+            f"`grid` (shape: {jshape(grid)}) must be an array_like,"
+            f" where each element has the same shape as `dens` (shape: {jshape(dens)})!"
+        )
+        raise ValueError(err)
+
+    dens_cent = midpoints(dens, log=False, axis=None)
+    coms = [midpoints(dens * ll, log=False, axis=None) / dens_cent for ll in grid]
+    return coms
+
+
 def cov_keep_vars(matrix, keep, reflect=None):
     matrix = np.array(matrix)
     if (keep is None) or (keep is False):

@@ -291,10 +291,11 @@ class Sample_Outliers(Sample_Grid):
         mass_ins[~outs] = 0.0
 
         # Find the center-of-mass of each cell (based on density corner values)
-        coms = self.grid
-        dens_edge = self._dens
-        dens_cent = utils.midpoints(dens_edge, log=False, axis=None)
-        coms = [utils.midpoints(dens_edge * ll, log=False, axis=None) / dens_cent for ll in coms]
+        coms = utils.centroids(self.grid, self._dens)
+        # coms = self.grid
+        # dens_edge = self._dens
+        # dens_cent = utils.midpoints(dens_edge, log=False, axis=None)
+        # coms = [utils.midpoints(dens_edge * ll, log=False, axis=None) / dens_cent for ll in coms]
 
         self._threshold = threshold
         self._mass_ins = mass_ins
