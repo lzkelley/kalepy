@@ -1,4 +1,5 @@
-# jupyter nbconvert --ExecutePreprocessor.kernel_name=python --ExecutePreprocessor.timeout=600 --to notebook --execute notebooks/kde.ipynb
+# jupyter nbconvert --ExecutePreprocessor.kernel_name=python --ExecutePreprocessor.timeout=600
+#     --to notebook --execute notebooks/kde.ipynb
 
 import os
 import sys

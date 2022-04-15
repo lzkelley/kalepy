@@ -400,8 +400,12 @@ def sample_grid(edges, dens, nsamp=None, mass=None, scalar_dens=None, scalar_mas
         Scalar factors for each sample point.
 
     """
+    squeeze = (np.ndim(dens) == 1)
     sampler = Sample_Grid(edges, dens, mass=mass, scalar_dens=scalar_dens, scalar_mass=scalar_mass)
-    return sampler.sample(nsamp=nsamp, **sample_kwargs)
+    samples = sampler.sample(nsamp=nsamp, **sample_kwargs)
+    if squeeze:
+        samples = samples.squeeze()
+    return samples
 
 
 def sample_grid_proportional(edges, dens, portion, nsamp, mass=None, **sample_kwargs):
