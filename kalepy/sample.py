@@ -271,36 +271,38 @@ class Sample_Outliers(Sample_Grid):
     def __init__(self, edges, dens, threshold=10.0, **kwargs):
         super().__init__(edges, dens, **kwargs)
 
+        # ---- Prepare 'outlier' data (mass below threshold value)
+
         # Note: `dens` has already been converted from density to mass (i.e. integrating each cell)
         #       this happened in `Sample_Grid.__init__()` ==> `Sample_Outliers._init_data()`
         #       `data_edge` is still a density (at the corners of each cell)
         mass_outs = np.copy(self._mass)
+        mtot = self._mass.sum()
 
-        # We're only going to stochastically sample from bins below the threshold value
-        #     recalc `csum` zeroing out the values above threshold
-        outs = (mass_outs > threshold)
-        # print(f"Outside: {np.count_nonzero(outs)/outs.size:.4f}")
-        # print(f"Inside : {np.count_nonzero(~outs)/outs.size:.4f}")
-        mass_outs[outs] = 0.0
+        # We're only going to stochastically sample from bins below the threshold value ("outliers")
+        #     recalculate the CDF `csum`, zeroing out the values above threshold
+        sel_ins = (mass_outs > threshold)
+        mass_outs[sel_ins] = 0.0
         idx, csum = _data_to_cumulative(mass_outs, prefilter=False)
         self._idx = idx
         self._csum = csum
 
-        # We'll manually sample bins above threshold, so store those for later
+        # ---- Prepare 'interior' data (mass above threshold value)
+
+        # Interior bins, will use bin centroids as representative values, store those for later
         mass_ins = np.copy(self._mass)
-        mass_ins[~outs] = 0.0
+        mass_ins[~sel_ins] = 0.0
 
         # Find the center-of-mass of each cell (based on density corner values)
+        # to use as representative centroids
         coms = utils.centroids(self.grid, self._dens)
-        # coms = self.grid
-        # dens_edge = self._dens
-        # dens_cent = utils.midpoints(dens_edge, log=False, axis=None)
-        # coms = [utils.midpoints(dens_edge * ll, log=False, axis=None) / dens_cent for ll in coms]
 
+        # Store values
         self._threshold = threshold
         self._mass_ins = mass_ins
-        self._coms_ins = coms
+        self._coms = coms
         self._mass_outs = mass_outs
+        self._mass_tot = mtot
         return
 
     def _init_data(self):
@@ -312,60 +314,115 @@ class Sample_Outliers(Sample_Grid):
             self._scalar_mass = utils.trapz_dens_to_mass(self._scalar_dens, self._edges, axis=None)
         return
 
-    def sample(self, nsamp=None, **kwargs):
+    def sample(self, nsamp=None, nsamp_by_mass=True, poisson_inside=False, **kwargs):
         """Outlier sample the distribution.
 
         Arguments
         ---------
         nsamp : int or None,
             The number of samples in the _outlier_ population only.
+        nsamp_by_mass : bool,
+            Whether the desired number of samples (`nsamp`) reflects the desired total mass (True),
+            or the the number of values returned (False).
+            * True:  the number of returned values will typically be less than `nsamp`, but the sum
+                     of the weights will nearly equal `nsamp` (within 1.0 of `nsamp`).
+                     In this case outlier points have weight 1.0.
+            * False: the number of returned values will equal `nsamp`, and the sum of the weights
+                     will match the sum of the bin masses.
+                     In this case, outlier points have weight != 1.0.
+        poisson_inside : bool,
+
+        Returns
+        -------
+        nsamp : int
+        vals : (D, N) ndarray
+            Sampled values with `N` samples, and values for `D` dimensions.
+        weights : (N,) ndarray
+            Weights of samples values.
 
         """
+
+        # ---- Setup and Initialization
+
         rv = kwargs.setdefault('return_scalar', False)
         if rv is not False:
             raise ValueError(f"Cannot use `scalar` values in `{self.__class__}`!")
 
         # if `nsamp` isn't given, assume outlier distribution values correspond to numbers
         #    and Poisson sample them
-        # NOTE: `nsamp` corresponds only to the _"outliers"_ not the 'interior' points also
         if nsamp is None:
-            nsamp = self._mass_outs.sum()
-            nsamp = np.random.poisson(nsamp)
+            nsamp = self._mass_tot
+            # nsamp = np.random.poisson(nsamp)
+            # raise
 
-        # sample outliers normally (using modified csum from `self._data_outs`)
-        if nsamp > 0:
-            vals_outs = super().sample(nsamp, **kwargs)
-        else:
-            msg = f"WARNING: outliers nsamp = {nsamp}!  outs.sum = {self._mass_outs.sum():.4e}!"
-            logging.warning(msg)
-            vals_outs = [[] for ii in range(self._ndim)]
+        nsamp = np.around(nsamp)
+        nsamp = int(nsamp)
 
-        # sample tracer/representative points from `self._data_ins`
+        # ---- sample interior tracer/representative points
+
+        # `mass_ins` has the mass of bins in the 'outlier' region zerod out
         mass_ins = self._mass_ins
-        nin = np.count_nonzero(mass_ins)
-        if nin < 1:
-            msg = f"WARNING: in-liers nsamp = {nin}!  ins.sum() = {mass_ins.sum():.4e}!"
-            logging.warning(msg)
+        # number of bins in the 'interior' region
+        nsamp_ins = np.count_nonzero(mass_ins)
+        # warn if there are no interior bins
+        if nsamp_ins < 1:
+            msg = f"No interior points!  in-liers nsamp = {nsamp_ins}!  ins.sum() = {mass_ins.sum():.4e}!"
+            logging.error(msg)
+            raise ValueError(msg)
 
-        ntot = nsamp + nin
-        # weights needed for all points, but "outlier" points will have weigtht 1.0
-        weights = np.ones(ntot)
-
-        # Get the bin indices of all of the 'interior' bins (those where `mass_ins` are nonzero)
+        # Get the bin indices of all of the 'interior' bins
         bin_numbers_flat = (mass_ins.flat > 0.0)
         bin_numbers_flat = np.arange(bin_numbers_flat.size)[bin_numbers_flat]
         # Convert from 1D index to ND
         bin_numbers = np.unravel_index(bin_numbers_flat, self._shape_bins)
         # Set the weights to be the value of the bin-centers
-        weights[nsamp:] = mass_ins[bin_numbers]
+        weights = mass_ins[bin_numbers]
+        if poisson_inside:
+            weights = np.random.poisson(weights)
 
         # Find the 'interior' bin centroids and use those as tracer points for well-sampled data
-        vals_ins = np.zeros((self._ndim, nin))
+        vals_ins = np.zeros((self._ndim, nsamp_ins))
         for dim, (edge, bidx) in enumerate(zip(self._edges, bin_numbers)):
-            vals_ins[dim, :] = self._coms_ins[dim][bin_numbers]
+            vals_ins[dim, :] = self._coms[dim][bin_numbers]
+
+        # ---- Sample outlier points stochastically
+
+        # Determine how many samples should be drawn from the outlier region
+        mass_ins_tot = np.sum(weights)
+        # for `nsamp_by_mass` choose the number of outliers such that the total number of samples
+        # matches the total mass of bins
+        if nsamp_by_mass:
+            wout = 1.0
+            nsamp_out = nsamp - mass_ins_tot
+            if nsamp_out < 0.0:
+                err = f"Weight in interior region ({mass_ins_tot}) exceeds `nsamp={nsamp}`!"
+                logging.error(err)
+                raise ValueError(err)
+            # nsamp_out = np.random.poisson(nsamp_out)  # BUG: is this right?
+            nsamp_out = int(np.around(nsamp_out))
+            if nsamp_out <= 0:
+                msg = f"random value of Poisson(nsamp_out)={nsamp_out} - no outlier samples!"
+                logging.warning(msg)
+
+        # If not `nsamp_by_mass` choose the number of outliers such that the total number of samples
+        # is `nsamp`, the weight of the outlier points will be adjusted to compensate
+        else:
+            nsamp_out = nsamp - nsamp_ins
+            # Find the total weight of outlier points (amount remaining after subtracting interior)
+            wout = self._mass_tot - mass_ins_tot
+            # Find the weight of *each* outlier point
+            wout /= nsamp_out
+            if nsamp_out < 1:
+                err = f"Number of interior points ({nsamp_ins}) exceeds `nsamp={nsamp}`!"
+                logging.error(err)
+                raise ValueError(err)
 
         # Combine interior-tracers and outlier-samples
-        vals = np.concatenate([vals_outs, vals_ins], axis=-1)
+        if nsamp_out >= 1:
+            vals_outs = super().sample(nsamp_out, **kwargs)
+            vals = np.concatenate([vals_ins, vals_outs], axis=-1)
+            weights = np.concatenate([weights, wout * np.ones(nsamp_out)])
+
         return nsamp, vals, weights
 
 
@@ -444,8 +501,12 @@ def sample_outliers(edges, data, threshold, nsamp=None, mass=None, **sample_kwar
     weights
 
     """
+
+    squeeze = (np.ndim(data) == 1)
     outliers = Sample_Outliers(edges, data, threshold=threshold, mass=mass)
     nsamp, vals, weights = outliers.sample(nsamp=nsamp, **sample_kwargs)
+    if squeeze:
+        vals = vals.squeeze()
     return vals, weights
 
 

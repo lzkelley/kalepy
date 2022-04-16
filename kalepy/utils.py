@@ -796,6 +796,7 @@ def trapz_dens_to_mass(pdf, edges, axis=None):
         e.g. if the shape of `pdf` is (N, M, ...), then the shape of `mass` is (N-1, M-1, ...).
 
     """
+    import functools
 
     # ---- Sanitize / Process arguments
 
@@ -847,17 +848,29 @@ def trapz_dens_to_mass(pdf, edges, axis=None):
     # Multiply the widths along each dimension to get the volume of each grid cell
     # `np.product` fails when a dimension has length 1, do manual operation if so
     # See: https://github.com/numpy/numpy/issues/20612
+    volumes = functools.reduce(np.multiply, widths)
+    '''
+    print(f"reduce: {volumes.shape=}")
     try:
         volumes = np.product(np.array(widths, dtype=object), axis=0).astype(float)
+        print("VOLUMES SUCCESS = ", np.shape(volumes))
     except ValueError as err:
         logging.info(f"WARNING: using manual multiple after error on `np.product` '{err}'")
         op = np.multiply
         volumes = op.identity
+        print(f"{np.shape(volumes)=}")
         for aa in range(len(widths)):
             volumes = op(volumes, widths[ii])
+            print(f"\t{np.shape(volumes)=}, {np.shape(widths[ii])=}")
+        print("VOLUMES FAILURE = ", np.shape(volumes))
 
     # NOTE
-    assert np.all(np.shape(volumes) == shp_out), "BAD `volume` shape!"
+    print(f"widths={[np.shape(ww) for ww in widths]}")
+    print(f"{volumes=}")
+    print(f"{shp_out=}")
+    '''
+    err = f"BAD `volume` shape (volumes={np.shape(volumes)}, shp_out={shp_out})!"
+    assert np.all(np.shape(volumes) == shp_out), err
 
     # ---- Integrate each cell to convert from density to mass
 
