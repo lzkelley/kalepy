@@ -31,10 +31,10 @@ class Test_Sampler_Grid:
             extr = [np.sort(np.random.uniform(-100, 100, 2)) for ii in range(ndim)]
             # calculate edges with linspacing
             edges = [np.linspace(*ex, nn) for ex, nn in zip(extr, shape_edges)]
-            # calculate shape of bin centers
             # choose a number of samples
             nsamp = np.random.randint(100, 1000)
 
+            # calculate shape of bin centers
             # shape_cents = [sh - 1 for sh in shape_edges]
             # for shape in [shape_edges, shape_cents]:
             for shape in [shape_edges]:
