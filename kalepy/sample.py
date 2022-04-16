@@ -121,12 +121,17 @@ class Sample_Grid:
         dens = self._dens
         scalar_dens = self._scalar_dens
         edges = self._edges
-        ndim = self._ndim
 
         # ---- initialize parameters
         if interpolate and (dens is None):
             logging.info("`dens` is None, cannot interpolate sampling")
             interpolate = False
+
+        # ensure PDF `dens` is properly normalized for interpolation
+        #     this normalization is based on each bin having a domain of [0.0, 1.0] during intrabin linear
+        #     interpolation sampling (`_intrabin_linear_interp()`)
+        if interpolate:
+            dens = dens / (dens.sum() / dens.size)
 
         # If no number of samples are given, assume that the units of `self._mass` are number of samples, and choose
         # the total numbe of samples to be the total of this
@@ -171,23 +176,14 @@ class Sample_Grid:
 
             # Interpolated :: random-linear proportional to bin gradients (i.e. slope across bin in each dimension)
             else:
-                # Calculate normalization for gradients; needs to be done for each dimension specifically
-                #    This normalization is needed to ensure that the pdf values are unitary when integrating in each dim
-                norm = utils.trapz_dens_to_mass(dens, edges, axis=dim)
-                others = np.arange(ndim).tolist()
-                others.pop(dim)
-                norm = utils.midpoints(norm, axis=others)
-
                 edge = np.asarray(edge)
 
                 # Find the gradient along this dimension (using center-values in other dimensions)
-                grad = _grad_along(dens, dim) / norm
+                _grad = _grad_along(dens, dim)
                 # get the gradient for each sample
-                grad = grad.flat[bin_numbers_flat] * wid[bidx]
-                # interpolate edge values in this dimension (returns values [0.0, 1.0])
-                temp = _intrabin_linear_interp(loc, grad)
-                # convert from intrabin positions to overall positions by linearly rescaling
-                vals[dim, :] = edge[bidx] + temp * wid[bidx]
+                grad = _grad.flat[bin_numbers_flat]
+                # interpolate edge values in this dimension
+                vals[dim, :] = _intrabin_linear_interp(edge, wid, loc, bidx, grad)
 
             # interpolate scalar values also
             if return_scalar and interpolate:
@@ -223,9 +219,11 @@ class Sample_Grid:
         idx = self._idx
 
         # Draw random values
-        #     random number for location in CDF, and additional random for position in each dimension of bin
-        rand = np.random.uniform(0.0, 1.0, (1+self._ndim, nsamp))
-        # np.random.shuffle(rand)    # extra-step to avoid (rare) structure in random data
+        #     random number for location in CDF (to determine which bin each value belongs in),
+        #     and additional random for position in each dimension of bin
+        sh = (1+self._ndim, nsamp)
+        rand = np.random.uniform(0.0, 1.0, sh)
+        # np.random.shuffle(rand)    # extra-step to avoid (rare/unlikely) structure in "random" data
 
         # `rand` shape: (N,) for N samples
         # `intrabin_locs` shape: (D, N) for D dimensions of data and N samples
@@ -273,35 +271,38 @@ class Sample_Outliers(Sample_Grid):
     def __init__(self, edges, dens, threshold=10.0, **kwargs):
         super().__init__(edges, dens, **kwargs)
 
+        # ---- Prepare 'outlier' data (mass below threshold value)
+
         # Note: `dens` has already been converted from density to mass (i.e. integrating each cell)
         #       this happened in `Sample_Grid.__init__()` ==> `Sample_Outliers._init_data()`
         #       `data_edge` is still a density (at the corners of each cell)
         mass_outs = np.copy(self._mass)
+        mtot = self._mass.sum()
 
-        # We're only going to stochastically sample from bins below the threshold value
-        #     recalc `csum` zeroing out the values above threshold
-        outs = (mass_outs > threshold)
-        # print(f"Outside: {np.count_nonzero(outs)/outs.size:.4f}")
-        # print(f"Inside : {np.count_nonzero(~outs)/outs.size:.4f}")
-        mass_outs[outs] = 0.0
+        # We're only going to stochastically sample from bins below the threshold value ("outliers")
+        #     recalculate the CDF `csum`, zeroing out the values above threshold
+        sel_ins = (mass_outs > threshold)
+        mass_outs[sel_ins] = 0.0
         idx, csum = _data_to_cumulative(mass_outs, prefilter=False)
         self._idx = idx
         self._csum = csum
 
-        # We'll manually sample bins above threshold, so store those for later
+        # ---- Prepare 'interior' data (mass above threshold value)
+
+        # Interior bins, will use bin centroids as representative values, store those for later
         mass_ins = np.copy(self._mass)
-        mass_ins[~outs] = 0.0
+        mass_ins[~sel_ins] = 0.0
 
         # Find the center-of-mass of each cell (based on density corner values)
-        coms = self.grid
-        dens_edge = self._dens
-        dens_cent = utils.midpoints(dens_edge, log=False, axis=None)
-        coms = [utils.midpoints(dens_edge * ll, log=False, axis=None) / dens_cent for ll in coms]
+        # to use as representative centroids
+        coms = utils.centroids(self.grid, self._dens)
 
+        # Store values
         self._threshold = threshold
         self._mass_ins = mass_ins
-        self._coms_ins = coms
+        self._coms = coms
         self._mass_outs = mass_outs
+        self._mass_tot = mtot
         return
 
     def _init_data(self):
@@ -313,60 +314,115 @@ class Sample_Outliers(Sample_Grid):
             self._scalar_mass = utils.trapz_dens_to_mass(self._scalar_dens, self._edges, axis=None)
         return
 
-    def sample(self, nsamp=None, **kwargs):
+    def sample(self, nsamp=None, nsamp_by_mass=True, poisson_inside=False, **kwargs):
         """Outlier sample the distribution.
 
         Arguments
         ---------
         nsamp : int or None,
             The number of samples in the _outlier_ population only.
+        nsamp_by_mass : bool,
+            Whether the desired number of samples (`nsamp`) reflects the desired total mass (True),
+            or the the number of values returned (False).
+            * True:  the number of returned values will typically be less than `nsamp`, but the sum
+                     of the weights will nearly equal `nsamp` (within 1.0 of `nsamp`).
+                     In this case outlier points have weight 1.0.
+            * False: the number of returned values will equal `nsamp`, and the sum of the weights
+                     will match the sum of the bin masses.
+                     In this case, outlier points have weight != 1.0.
+        poisson_inside : bool,
+
+        Returns
+        -------
+        nsamp : int
+        vals : (D, N) ndarray
+            Sampled values with `N` samples, and values for `D` dimensions.
+        weights : (N,) ndarray
+            Weights of samples values.
 
         """
+
+        # ---- Setup and Initialization
+
         rv = kwargs.setdefault('return_scalar', False)
         if rv is not False:
             raise ValueError(f"Cannot use `scalar` values in `{self.__class__}`!")
 
         # if `nsamp` isn't given, assume outlier distribution values correspond to numbers
         #    and Poisson sample them
-        # NOTE: `nsamp` corresponds only to the _"outliers"_ not the 'interior' points also
         if nsamp is None:
-            nsamp = self._mass_outs.sum()
-            nsamp = np.random.poisson(nsamp)
+            nsamp = self._mass_tot
+            # nsamp = np.random.poisson(nsamp)
+            # raise
 
-        # sample outliers normally (using modified csum from `self._data_outs`)
-        if nsamp > 0:
-            vals_outs = super().sample(nsamp, **kwargs)
-        else:
-            msg = f"WARNING: outliers nsamp = {nsamp}!  outs.sum = {self._mass_outs.sum():.4e}!"
-            logging.warning(msg)
-            vals_outs = [[] for ii in range(self._ndim)]
+        nsamp = np.around(nsamp)
+        nsamp = int(nsamp)
 
-        # sample tracer/representative points from `self._data_ins`
+        # ---- sample interior tracer/representative points
+
+        # `mass_ins` has the mass of bins in the 'outlier' region zerod out
         mass_ins = self._mass_ins
-        nin = np.count_nonzero(mass_ins)
-        if nin < 1:
-            msg = f"WARNING: in-liers nsamp = {nin}!  ins.sum() = {mass_ins.sum():.4e}!"
-            logging.warning(msg)
+        # number of bins in the 'interior' region
+        nsamp_ins = np.count_nonzero(mass_ins)
+        # warn if there are no interior bins
+        if nsamp_ins < 1:
+            msg = f"No interior points!  in-liers nsamp = {nsamp_ins}!  ins.sum() = {mass_ins.sum():.4e}!"
+            logging.error(msg)
+            raise ValueError(msg)
 
-        ntot = nsamp + nin
-        # weights needed for all points, but "outlier" points will have weigtht 1.0
-        weights = np.ones(ntot)
-
-        # Get the bin indices of all of the 'interior' bins (those where `mass_ins` are nonzero)
+        # Get the bin indices of all of the 'interior' bins
         bin_numbers_flat = (mass_ins.flat > 0.0)
         bin_numbers_flat = np.arange(bin_numbers_flat.size)[bin_numbers_flat]
         # Convert from 1D index to ND
         bin_numbers = np.unravel_index(bin_numbers_flat, self._shape_bins)
         # Set the weights to be the value of the bin-centers
-        weights[nsamp:] = mass_ins[bin_numbers]
+        weights = mass_ins[bin_numbers]
+        if poisson_inside:
+            weights = np.random.poisson(weights)
 
         # Find the 'interior' bin centroids and use those as tracer points for well-sampled data
-        vals_ins = np.zeros((self._ndim, nin))
+        vals_ins = np.zeros((self._ndim, nsamp_ins))
         for dim, (edge, bidx) in enumerate(zip(self._edges, bin_numbers)):
-            vals_ins[dim, :] = self._coms_ins[dim][bin_numbers]
+            vals_ins[dim, :] = self._coms[dim][bin_numbers]
+
+        # ---- Sample outlier points stochastically
+
+        # Determine how many samples should be drawn from the outlier region
+        mass_ins_tot = np.sum(weights)
+        # for `nsamp_by_mass` choose the number of outliers such that the total number of samples
+        # matches the total mass of bins
+        if nsamp_by_mass:
+            wout = 1.0
+            nsamp_out = nsamp - mass_ins_tot
+            if nsamp_out < 0.0:
+                err = f"Weight in interior region ({mass_ins_tot}) exceeds `nsamp={nsamp}`!"
+                logging.error(err)
+                raise ValueError(err)
+            # nsamp_out = np.random.poisson(nsamp_out)  # BUG: is this right?
+            nsamp_out = int(np.around(nsamp_out))
+            if nsamp_out <= 0:
+                msg = f"random value of Poisson(nsamp_out)={nsamp_out} - no outlier samples!"
+                logging.warning(msg)
+
+        # If not `nsamp_by_mass` choose the number of outliers such that the total number of samples
+        # is `nsamp`, the weight of the outlier points will be adjusted to compensate
+        else:
+            nsamp_out = nsamp - nsamp_ins
+            # Find the total weight of outlier points (amount remaining after subtracting interior)
+            wout = self._mass_tot - mass_ins_tot
+            # Find the weight of *each* outlier point
+            wout /= nsamp_out
+            if nsamp_out < 1:
+                err = f"Number of interior points ({nsamp_ins}) exceeds `nsamp={nsamp}`!"
+                logging.error(err)
+                raise ValueError(err)
 
         # Combine interior-tracers and outlier-samples
-        vals = np.concatenate([vals_outs, vals_ins], axis=-1)
+        if nsamp_out >= 1:
+            vals_outs = super().sample(nsamp_out, **kwargs)
+            vals = np.concatenate([vals_ins, vals_outs], axis=-1)
+            weights = np.concatenate([weights, wout * np.ones(nsamp_out)])
+
         return nsamp, vals, weights
 
 
@@ -401,8 +457,12 @@ def sample_grid(edges, dens, nsamp=None, mass=None, scalar_dens=None, scalar_mas
         Scalar factors for each sample point.
 
     """
+    squeeze = (np.ndim(dens) == 1)
     sampler = Sample_Grid(edges, dens, mass=mass, scalar_dens=scalar_dens, scalar_mass=scalar_mass)
-    return sampler.sample(nsamp=nsamp, **sample_kwargs)
+    samples = sampler.sample(nsamp=nsamp, **sample_kwargs)
+    if squeeze:
+        samples = samples.squeeze()
+    return samples
 
 
 def sample_grid_proportional(edges, dens, portion, nsamp, mass=None, **sample_kwargs):
@@ -415,8 +475,38 @@ def sample_grid_proportional(edges, dens, portion, nsamp, mass=None, **sample_kw
 
 
 def sample_outliers(edges, data, threshold, nsamp=None, mass=None, **sample_kwargs):
+    """Sample a PDF randomly in low-density regions, and with weighted points at high-densities.
+
+    Selects (semi-)random samples from the given PDF.  In high-density regions, bin centroids are
+    used as representative points and recieve a corresponding (large) weight.  Low-density regions
+    are sampled proportionally with actual (weight = one) points.
+
+    Parameters
+    ----------
+    edges : list/tuple of array_like
+        An iterable containing the grid edges for each dimension of the space.
+    data : ndarray
+        Array giving the PDF to sample.
+    threshold : float
+        Threshold mass below which true-samples should be drawn.  Representative (centroid) values
+        will be chosen for bins above this threshold.
+    nsamp : int, optional
+        Number of samples to draw.
+    mass : ndarray, optional
+        Probability mass function determining the number of samples to draw in each bin.
+
+    Returns
+    -------
+    vals
+    weights
+
+    """
+
+    squeeze = (np.ndim(data) == 1)
     outliers = Sample_Outliers(edges, data, threshold=threshold, mass=mass)
     nsamp, vals, weights = outliers.sample(nsamp=nsamp, **sample_kwargs)
+    if squeeze:
+        vals = vals.squeeze()
     return vals, weights
 
 
@@ -428,7 +518,7 @@ def _grad_along(data_edge, dim):
     return grad
 
 
-def _intrabin_linear_interp(loc, grad):
+def _intrabin_linear_interp(edge, wid, loc, bidx, grad):
     """Perform linear interpolation within each bin, based on gradient information, for a particular dimension.
 
     Use the gradient across each bin to sample proportionally to a linear PDF within that bin.  Here the 'gradient' is
@@ -456,32 +546,37 @@ def _intrabin_linear_interp(loc, grad):
 
     """
 
-    x1 = 0.0
-    x2 = 1.0
-    dx = x2 - x1
-    dy = grad
+    # Get the bin-width for each sample (i.e. the width of the bin that each sample is in)
+    bw = wid[bidx]
+    vals = np.zeros_like(grad)
 
-    vals = loc.copy()
-    sel = ~np.isclose(dy, 0.0)
-    if np.any(sel):
-        dy = dy[sel]
-        y1 = (dx + dy*x1*x2 - (dy/2)*(x1**2 + x2**2)) / dx**2
-        vals[sel] = dx * (2*vals[sel]*dy + dx * y1**2)
-        vals[sel] = (dy*x1 - dx*y1 + np.sqrt(vals[sel])) / dy
+    # sel = np.fabs(grad) > 1.0e-12
+    sel = np.fabs(grad) > 1.0e-16
+    # When the gradient is roughly flat, values maintain uniform random distribution
+    vals[~sel] = loc[~sel]
+
+    # Assume our distribution is parametrized as a linear PDF `y = y1 + grad * x`
+    #     and assume our domain is [0.0, 1.0] on x
+    # calculate `y1` to ensure the CDF is unitary
+    y1 = 1.0 - grad[sel] / 2.0
+    # invert the CDF (``F(x) = y1*x + grad * x^2 / 2``) to sample from PDF (still on [0.0, to 1.0])
+    vals[sel] = 2 * loc[sel] * grad[sel] + y1 ** 2
+    vals[sel] = (np.sqrt(vals[sel]) - y1) / grad[sel]
+    # convert [0.0, 1.0] domain to the location and width of each bin
+    vals = edge[bidx] + bw * vals
 
     # Make sure all values are within bounds of their bins
     if _DEBUG:
-        x1 = x1 * np.ones_like(vals)
-        x2 = x2 * np.ones_like(vals)
-        bl = (vals < x1) & ~np.isclose(vals, x1)
-        br = (vals > x2) & ~np.isclose(vals, x2)
+        bl = (vals < edge[bidx]) & ~np.isclose(vals, edge[bidx])
+        br = (vals > edge[bidx+1]) & ~np.isclose(vals, edge[bidx+1])
         bads = bl | br
         if np.any(bads):
             logging.error(f"BAD!  {np.count_nonzero(bads)}/{bads.size}")
             logging.error(f"{vals[bads]=}")
-            logging.error(f"{x1[bads]=}")
+            logging.error(f"{edge[bidx][bads]=}")
             logging.error(f"{loc[bads]=}")
             logging.error(f"{grad[bads]=}")
+            logging.error(f"{wid[bidx][bads]=}")
             raise
 
     return vals
@@ -511,39 +606,3 @@ def _data_to_cumulative(mass, prefilter=False):
     temp = 1.0 if csum[-1] == 0.0 else csum[-1]
     csum = np.concatenate([[0.0], csum/temp])
     return idx, csum
-
-
-'''
-def _get_gradient(data):
-    shape = np.array(data.shape)
-    ndim = data.ndim
-    gsh = np.zeros(ndim+1, dtype=np.int32)
-    gsh[0] = ndim
-    gsh[1:] = shape - 1
-    # gsh = np.concatenate([[ndim], shape - 1])
-    offset = 2 * np.ones(ndim, dtype=np.uint32)
-    # print(f"{gsh=}")
-    grad = np.zeros(tuple(gsh), dtype=np.float64)
-    cnt = 2 ** (ndim - 1)
-    for axis in np.arange(ndim):
-        # offset = 2 * np.ones(ndim, dtype=int)
-        offset[:] = 2
-        offset[axis] = 1
-        step_right = np.zeros(ndim, dtype=np.uint32)
-        step_right[axis] = 1
-        for idx in np.ndindex(*gsh[1:]):
-            idx = np.array(idx)
-            temp = 0.0
-            for _left in np.ndindex(*offset):
-                left = np.array(_left)
-                left = left + idx
-                right = left + step_right
-                temp += data[tuple(right)] - data[tuple(left)]
-                # print(axis, idx, _left, left, right)
-
-            grad[axis][tuple(idx)] = temp / cnt
-
-        # break
-
-    return grad
-'''

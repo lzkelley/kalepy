@@ -126,6 +126,35 @@ def bound_indices(data, bounds, outside=False):
     return idx
 
 
+def centroids(grid, dens):
+    """
+
+    Parameters
+    ----------
+    grid : _type_
+    dens : _type_
+
+    Returns
+    -------
+    coms : list of ndarray,
+
+    """
+    try:
+        sh = np.shape(dens)
+        shapes = [np.shape(gg) for gg in grid]
+        assert np.all([sh == shape for shape in shapes])
+    except:
+        err = (
+            f"`grid` (shape: {jshape(grid)}) must be an array_like,"
+            f" where each element has the same shape as `dens` (shape: {jshape(dens)})!"
+        )
+        raise ValueError(err)
+
+    dens_cent = midpoints(dens, log=False, axis=None)
+    coms = [midpoints(dens * ll, log=False, axis=None) / dens_cent for ll in grid]
+    return coms
+
+
 def cov_keep_vars(matrix, keep, reflect=None):
     matrix = np.array(matrix)
     if (keep is None) or (keep is False):
@@ -684,7 +713,7 @@ def stats_str(data, percs=[0.0, 0.16, 0.50, 0.84, 1.00], ave=False, std=False, w
     return out
 
 
-def subdivide(xx, num=1):
+def subdivide(xx, num=1, log=False):
     """Subdivide the giving array (e.g. bin edges) by the given factor.
 
     Arguments
@@ -694,6 +723,8 @@ def subdivide(xx, num=1):
     num : int,
         Subdivide each bin by this factor.  Subdividing "once" (i.e. num=1) produces 2x number of bins.  In general
         the number of output bins is ``X * (num + 1)``.
+    log : bool,
+        Subdivide evenly in log-space, instead of linear space (e.g. [0, 10.0] ==> [0.0, 3.16, 10.0])
 
     Returns
     -------
@@ -703,11 +734,16 @@ def subdivide(xx, num=1):
 
     """
     div = np.asarray(xx)
+    if log:
+        div = np.log10(div)
 
     dd = np.diff(np.concatenate([div, [0.0]]))[:, np.newaxis]
     dd = dd * np.linspace(0.0, 1.0, num+1, endpoint=False)[np.newaxis, :]
     div = div[:, np.newaxis] + dd
     div = div.flatten()[:-num]
+    if log:
+        div = 10.0 ** div
+
     return div
 
 
@@ -760,6 +796,7 @@ def trapz_dens_to_mass(pdf, edges, axis=None):
         e.g. if the shape of `pdf` is (N, M, ...), then the shape of `mass` is (N-1, M-1, ...).
 
     """
+    import functools
 
     # ---- Sanitize / Process arguments
 
@@ -811,17 +848,29 @@ def trapz_dens_to_mass(pdf, edges, axis=None):
     # Multiply the widths along each dimension to get the volume of each grid cell
     # `np.product` fails when a dimension has length 1, do manual operation if so
     # See: https://github.com/numpy/numpy/issues/20612
+    volumes = functools.reduce(np.multiply, widths)
+    '''
+    print(f"reduce: {volumes.shape=}")
     try:
         volumes = np.product(np.array(widths, dtype=object), axis=0).astype(float)
+        print("VOLUMES SUCCESS = ", np.shape(volumes))
     except ValueError as err:
         logging.info(f"WARNING: using manual multiple after error on `np.product` '{err}'")
         op = np.multiply
         volumes = op.identity
+        print(f"{np.shape(volumes)=}")
         for aa in range(len(widths)):
             volumes = op(volumes, widths[ii])
+            print(f"\t{np.shape(volumes)=}, {np.shape(widths[ii])=}")
+        print("VOLUMES FAILURE = ", np.shape(volumes))
 
     # NOTE
-    assert np.all(np.shape(volumes) == shp_out), "BAD `volume` shape!"
+    print(f"widths={[np.shape(ww) for ww in widths]}")
+    print(f"{volumes=}")
+    print(f"{shp_out=}")
+    '''
+    err = f"BAD `volume` shape (volumes={np.shape(volumes)}, shp_out={shp_out})!"
+    assert np.all(np.shape(volumes) == shp_out), err
 
     # ---- Integrate each cell to convert from density to mass
 
