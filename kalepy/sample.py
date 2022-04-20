@@ -364,11 +364,9 @@ class Sample_Outliers(Sample_Grid):
             logging.error(msg)
             raise ValueError(msg)
 
-        # FIXME: perhaps this should be a warning, not an error?
         if nsamp_out < 1:
             msg = f"No outlier points!  outliers nsamp = {nsamp_out}!  outs.sum() = {self._mass_outs.sum():.4e}!"
-            logging.error(msg)
-            raise ValueError(msg)
+            logging.warning(msg)
 
         # ---- sample interior tracer/representative points
 
