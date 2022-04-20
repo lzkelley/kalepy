@@ -13,6 +13,43 @@ from nose.tools import assert_true
 from kalepy import utils
 
 
+class Test_IsIntegral:
+
+    def test_int(self):
+        goods = [1, -5, int('3'), np.int32(72), np.int64(-123), np.uint(8)]
+        bads = ['3', 1.2, float(1)]
+
+        for gg in goods:
+            assert utils.isinteger(gg), f"`{gg}` returned False, should be True!"
+
+        for bb in bads:
+            assert not utils.isinteger(bb), f"`{bb}` returned False, should be True!"
+
+    def test_array(self):
+        goods = [
+            [12345],
+            [1, 2, 3],
+            (3, 4, 5),
+            np.arange(10),
+            np.arange(10).astype(np.int32),
+            np.arange(10).astype(int),
+        ]
+        bads = [
+            [],
+            [1.0, 2.2],
+            ['1', '2'],
+            '123',
+            np.arange(10).astype('float'),
+        ]
+
+        for gg in goods:
+            assert utils.isinteger(gg), f"`{gg}` returned False, should be True!"
+
+        for bb in bads:
+            assert not utils.isinteger(bb), f"`{bb}` returned True, should be False!"
+
+
+
 # class Test_Bound_Indices(utils.Test_Base):
 class Test_Bound_Indices:
 

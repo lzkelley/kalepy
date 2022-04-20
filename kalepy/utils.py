@@ -544,6 +544,33 @@ def isjagged(arr):
     return True
 
 
+def isinteger(val, iterable=True):
+    """Test whether the given variable is an integer (i.e. `numbers.integral` subclass).
+
+    Parameters
+    ----------
+    val : object,
+        Variable to test.
+    iterable : bool,
+        Allow argument to be an iterable.
+
+    Returns
+    -------
+    bool : whether or not the input is an integer, or integer iterable
+
+    """
+    if not np.isscalar(val) and not iterable:
+        return False
+
+    import numbers
+    try:
+        dtype = np.asarray(val).dtype.type
+    except AttributeError:
+        dtype = type(val)
+
+    return issubclass(dtype, numbers.Integral)
+
+
 def jshape(arr, level=0, printout=False, prepend="", indent="  "):
     """Print the complete shape (even if jagged) of the given array.
     """
