@@ -388,7 +388,7 @@ class Sample_Outliers(Sample_Grid):
         # ---- Sample outlier points stochastically
 
         # Combine interior-tracers and outlier-samples
-        if nsamp_out >= 1:
+        if nsamp_out > 0:
             vals_outs = super().sample(nsamp_out, **kwargs)
             vals = np.concatenate([vals, vals_outs], axis=-1)
             weights = np.concatenate([weights, np.ones(nsamp_out, dtype=weights.dtype)])
