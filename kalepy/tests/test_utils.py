@@ -49,8 +49,6 @@ class Test_IsIntegral:
             assert not utils.isinteger(bb), f"`{bb}` returned True, should be False!"
 
 
-
-# class Test_Bound_Indices(utils.Test_Base):
 class Test_Bound_Indices:
 
     def test_1d(self):
