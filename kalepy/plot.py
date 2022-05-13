@@ -438,7 +438,6 @@ class Corner:
         dist2d.setdefault('hist', True)
         dist2d.setdefault('scatter', True)
         dist2d.setdefault('contour', True)
-        dist2d.setdefault('mask_dense', True)
         dist2d.setdefault('mask_below', True)
 
         # Plot
@@ -744,7 +743,6 @@ class Corner:
         dist2d.setdefault('hist', False)
         dist2d.setdefault('contour', True)
         dist2d.setdefault('scatter', False)
-        dist2d.setdefault('mask_dense', True)
         dist2d.setdefault('mask_below', True)
         # This is identical to `kalepy.plot.dist2d` (just used for naming convenience)
         rv = _dist2d(kde, ax=ax, edges=edges, cmap=cmap, params=params, **dist2d)
@@ -777,8 +775,6 @@ class Corner:
                     index = (size // 2) + 1
                     loc = 'lower left'
                     index = (size-index-1, index)
-
-            # print(f"{size=}, {index=}, {loc=}")
 
             bbox = self.axes[index].get_position()
             bbox = (bbox.x0, bbox.y0)
@@ -1593,12 +1589,19 @@ def dist2d(kde_data, ax=None, edges=None, weights=None, params=[0, 1], quantiles
         #     ee = [utils.midpoints(ee, axis=-1) for ee in edges]
         #     ee = np.meshgrid(*ee, indexing='ij')
 
-        # NOTE: levels need to be recalculated here!
-        _, levels, quantiles = _dfm_levels(hh, quantiles=quantiles)
-        span = [levels.min(), hh.max()]
-        mask_cmap = mpl.colors.ListedColormap('white')
-        # Draw
-        ax.contourf(*ee, hh, span, cmap=mask_cmap, antialiased=True, zorder=9, alpha=mask_alpha)
+        shp = np.shape(hh)
+        if (len(shp) < 2) or (shp[0] < 2) or (shp[1] < 2):
+            msg = (
+                "shape of histogram for mask_dense is '{}', must be at least (2, 2)!".format(shp)
+            )
+            logging.warning(msg)
+        else:
+            # NOTE: levels need to be recalculated here!
+            _, levels, quantiles = _dfm_levels(hh, quantiles=quantiles)
+            span = [levels.min(), hh.max()]
+            mask_cmap = mpl.colors.ListedColormap('white')
+            # Draw
+            ax.contourf(*ee, hh, span, cmap=mask_cmap, antialiased=True, zorder=9, alpha=mask_alpha)
 
     return handle
 
