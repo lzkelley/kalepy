@@ -8,8 +8,6 @@ Can be run with:
 import numpy as np
 import scipy as sp
 import scipy.stats  # noqa
-from numpy.testing import run_module_suite
-from nose.tools import assert_true, assert_false
 
 import kalepy as kale
 from kalepy import utils
@@ -47,7 +45,7 @@ class Test_KDE_PDF(object):
             print("method: {}".format(mm))
             print("\t" + utils.stats_str(kde_list[0]))
             print("\t" + utils.stats_str(kde_list[1]))
-            assert_true(np.allclose(kde_list[0], kde_list[1]))
+            assert (np.allclose(kde_list[0], kde_list[1]))
 
         return
 
@@ -83,7 +81,7 @@ class Test_KDE_PDF(object):
 
                 kdes_list.append(test)
 
-            assert_true(np.allclose(kdes_list[0], kdes_list[1]))
+            assert (np.allclose(kdes_list[0], kdes_list[1]))
 
         return
 
@@ -111,26 +109,26 @@ class Test_KDE_PDF(object):
             # Make sure unitarity is preserved
             tot = np.sum(pdf*delta)
             print("Boundary '{}', total = {:.4e}".format(bnd, tot))
-            assert_true(np.isclose(tot, 1.0, rtol=1e-3))
+            assert (np.isclose(tot, 1.0, rtol=1e-3))
 
             ratio_extr = np.max(pdf)/np.min(pdf[pdf > 0])
             # No reflection, then non-zero PDF everywhere, and large ratio of extrema
             if bnd is None:
-                assert_true(outside_test_func(pdf[cgrid < EXTR[0]] > 0.0))
-                assert_true(outside_test_func(pdf[cgrid > EXTR[1]] > 0.0))
-                assert_true(ratio_extr > 10.0)
+                assert (outside_test_func(pdf[cgrid < EXTR[0]] > 0.0))
+                assert (outside_test_func(pdf[cgrid > EXTR[1]] > 0.0))
+                assert (ratio_extr > 10.0)
             # No lower-reflection, nonzero values below 0.0
             elif bnd[0] is None:
-                assert_true(outside_test_func(pdf[cgrid < EXTR[0]] > 0.0))
-                assert_true(np.all(pdf[cgrid > EXTR[1]] == 0.0))
+                assert (outside_test_func(pdf[cgrid < EXTR[0]] > 0.0))
+                assert (np.all(pdf[cgrid > EXTR[1]] == 0.0))
             # No upper-reflection, nonzero values above 2.0
             elif bnd[1] is None:
-                assert_true(np.all(pdf[cgrid < EXTR[0]] == 0.0))
-                assert_true(outside_test_func(pdf[cgrid > EXTR[1]] > 0.0))
+                assert (np.all(pdf[cgrid < EXTR[0]] == 0.0))
+                assert (outside_test_func(pdf[cgrid > EXTR[1]] > 0.0))
             else:
-                assert_true(np.all(pdf[cgrid < EXTR[0]] == 0.0))
-                assert_true(np.all(pdf[cgrid > EXTR[1]] == 0.0))
-                assert_true(ratio_extr < 2.0)
+                assert (np.all(pdf[cgrid < EXTR[0]] == 0.0))
+                assert (np.all(pdf[cgrid > EXTR[1]] == 0.0))
+                assert (ratio_extr < 2.0)
 
         return
 
@@ -183,13 +181,13 @@ class Test_KDE_PDF(object):
                     inside = inside & (ref[0] < grid[ii]) & (grid[ii] < ref[1])
                     outside = outside & ((grid[ii] < ref[0]) | (ref[1] < grid[ii]))
 
-            assert_true(inside_test_func(pdf_1d[inside] > 0.0))
-            assert_true(np.allclose(pdf_1d[outside], 0.0))
+            assert (inside_test_func(pdf_1d[inside] > 0.0))
+            assert (np.allclose(pdf_1d[outside], 0.0))
 
             area = width[0][:, np.newaxis] * width[1][np.newaxis, :]
             prob_tot = np.sum(pdf * area)
             print(jj, reflect, "prob_tot = {:.4e}".format(prob_tot))
-            assert_true(np.isclose(prob_tot, 1.0, rtol=3e-2))
+            assert (np.isclose(prob_tot, 1.0, rtol=3e-2))
 
         return
 
@@ -241,13 +239,13 @@ class Test_KDE_PDF(object):
             # print("matrix : ", kde.bandwidth.matrix, kde_1d.bandwidth.matrix)
             print(f"pdf_1d = {utils.stats_str(pdf_1d)}")
             print(f"pdf_2d = {utils.stats_str(pdf_2d)}")
-            assert_true(np.allclose(pdf_2d, pdf_1d, rtol=1e-3))
+            assert (np.allclose(pdf_2d, pdf_1d, rtol=1e-3))
 
             for pdf, ls, lw in zip([pdf_2d, pdf_1d], ['-', '--'], [1.5, 3.0]):
 
                 tot = np.sum(pdf*widths[par])
                 print("tot = {:.4e}".format(tot))
-                assert_true(np.isclose(tot, 1.0, rtol=2e-2))
+                assert (np.isclose(tot, 1.0, rtol=2e-2))
                 vals = [xx, pdf]
                 if par == 1:
                     vals = vals[::-1]
@@ -336,7 +334,7 @@ class Test_KDE_Resample(object):
             ks, pv = sp.stats.ks_2samp(samp_1d, samp_2d)
             # Calibrated to the above seed-value of `9235`
             print("{}, pv = {}".format(ii, pv))
-            assert_true(pv > 0.05)
+            assert (pv > 0.05)
 
         return
 
@@ -373,7 +371,7 @@ class Test_KDE_Resample(object):
             samples = kde3d.resample(NUM, keep=ii)
             # Make sure the uniform values are still the same
             param_samp = samples[ii]
-            assert_true(np.all(np.isclose(param_samp, norm) | np.isclose(param_samp, -norm)))
+            assert (np.all(np.isclose(param_samp, norm) | np.isclose(param_samp, -norm)))
 
             # Make sure the other two parameters are consistent (KS-test) with input data
             samples = np.delete(samples, ii, axis=0)
@@ -384,7 +382,7 @@ class Test_KDE_Resample(object):
                 print("\t" + utils.stats_str(stuff[0]))
                 print("\t" + utils.stats_str(stuff[1]))
                 print(msg)
-                assert_true(pv > 0.05)
+                assert (pv > 0.05)
 
         return
 
@@ -428,7 +426,7 @@ class Test_KDE_Resample(object):
             for kk, ll in enumerate([lo, hi]):
                 param_samps = samples[ll]
                 # print(norms[kk], zmath.stats_str(param_samps))
-                assert_true(np.allclose(param_samps, norms[kk]))
+                assert (np.allclose(param_samps, norms[kk]))
 
             # Make sure the resamples data is all consistent with input
             for jj in range(4):
@@ -438,7 +436,7 @@ class Test_KDE_Resample(object):
                 print(msg)
                 print("\t\t" + utils.stats_str(stuff[0]))
                 print("\t\t" + utils.stats_str(stuff[1]))
-                assert_true(pv > 0.01)
+                assert (pv > 0.01)
 
         return
     '''
@@ -471,14 +469,14 @@ class Test_KDE_Resample(object):
             print("reflect = '{}', outside = '{}'".format(reflect, some_outside))
             if reflect is None:
                 # There should be some samples outside
-                assert_true(some_outside)
+                assert (some_outside)
             else:
                 # There should not be any samples outside
-                assert_false(some_outside)
+                assert not (some_outside)
                 ks, pv = sp.stats.ks_2samp(data, samp)
                 print("ks = '{}', pv = '{}'".format(ks, pv))
                 # Check new sample is consistent
-                assert_true(pv > 0.1)
+                assert (pv > 0.1)
 
         return
 
@@ -539,11 +537,11 @@ class Test_KDE_Resample(object):
                     print("\tout: ", kk, np.all(outside), np.any(outside))
 
                     if kk == 0:
-                        assert_false(np.all(inside))
-                        assert_true(np.any(outside))
+                        assert not (np.all(inside))
+                        assert (np.any(outside))
                     else:
-                        assert_true(np.all(inside))
-                        assert_false(np.any(outside))
+                        assert (np.all(inside))
+                        assert not (np.any(outside))
 
         return
 
@@ -570,7 +568,7 @@ class Test_KDE_Construct_From_Hist(object):
 
         # Check that the KDE pdf matches the true pdf
         xx, pdf_kde = kde.density(xx, probability=True)
-        np.testing.assert_allclose( pdf, pdf_kde, atol=1e-5 )
+        np.testing.assert_allclose(pdf, pdf_kde, atol=1e-5)
 
     def test_compare_2d(self):
         print("\n|Test_KDE_Construct_From_Hist:test_compare_2d()|")
@@ -578,24 +576,19 @@ class Test_KDE_Construct_From_Hist(object):
         # Create a pdf and histogram
         xx = np.linspace(-5, 5, 101)
         yy = np.linspace(-5, 5, 101)
-        xx_grid, yy_grid = np.meshgrid( xx, yy )
+        xx_grid, yy_grid = np.meshgrid(xx, yy)
         hist = np.exp(-xx_grid*xx_grid/2 - yy_grid*yy_grid/2 - xx_grid*yy_grid/2)
         bins = np.zeros(xx.size + 1)
         dx = xx[1] - xx[0]
         bins[:-1] = xx - 0.5 * dx
         bins[-1] = xx[-1] + 0.5 * dx
-        bins = np.array([ bins, ]*2)
+        bins = np.array([bins, ]*2)
 
         # Construct a KDE from the histogram
         kde = kale.KDE.from_hist(bins, hist)
 
         # Check that the KDE pdf matches the true pdf
-        points = [ xx_grid.flatten(), yy_grid.flatten() ]
-        points, pdf_kde = kde.density( points, probability=True)
-        pdf = hist / ( hist.sum() * dx * dx )
-        np.testing.assert_allclose( pdf.flatten(), pdf_kde, atol=0.01 )
-
-
-# Run all methods as if with `nosetests ...`
-if __name__ == "__main__":
-    run_module_suite()
+        points = [xx_grid.flatten(), yy_grid.flatten()]
+        points, pdf_kde = kde.density(points, probability=True)
+        pdf = hist / (hist.sum() * dx * dx)
+        assert np.allclose(pdf.flatten(), pdf_kde, atol=0.01)

@@ -110,3 +110,4 @@ notebooks/*.png
 test_notebooks/
 notebooks/output
 results/
+converted_notebooks/
