@@ -141,8 +141,19 @@ def centroids(grid, dens):
     """
     try:
         sh = np.shape(dens)
+        # if `grid` is correctly consistent with `np.meshgrid(edges)`, then each shape should match
         shapes = [np.shape(gg) for gg in grid]
-        assert np.all([sh == shape for shape in shapes])
+        # if shapes are not consistent, then try constructing a grid from the passed-in values
+        # i.e. assume that what was passed in as `grid` is actually 'edges', see if that works
+        if not np.all([sh == shape for shape in shapes]):
+            _grid = np.meshgrid(*grid, indexing='ij')
+            shapes = [np.shape(gg) for gg in _grid]
+            # if it still doesn't match, raise an error and handle below
+            assert np.all([sh == shape for shape in shapes])
+            msg = "Successfully converted input values into grid, assuming they were bin edges"
+            logging.debug(msg)
+            # if it does work, store the newly constructed grid and move on
+            grid = _grid
     except:
         err = (
             f"`grid` (shape: {jshape(grid)}) must be an array_like,"
@@ -826,6 +837,7 @@ def trapz_dens_to_mass(pdf, edges, axis=None):
     import functools
 
     # ---- Sanitize / Process arguments
+    pdf = np.asarray(pdf)
 
     # Make sure `edges` is a list/array of list/arrays
     if np.isscalar(edges[0]):
