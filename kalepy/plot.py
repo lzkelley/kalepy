@@ -1633,7 +1633,7 @@ def _prep_hist(edges, hist, smooth, upsample, pad):
         import scipy as sp
         if upsample is not None:
             smooth *= upsample
-        hist = sp.ndimage.filters.gaussian_filter(hist, smooth)
+        hist = sp.ndimage.gaussian_filter(hist, smooth)
 
     # Update edges based on pre-processing
     edges = [xx, yy]
