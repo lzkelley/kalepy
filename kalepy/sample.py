@@ -77,6 +77,9 @@ class Sample_Grid:
         #     else:
         #         err = "Shape of `scalar` ({}) does not match `data` ({})!".format(scalar.shape, dens.shape)
         #         raise ValueError(err)
+        if (mass is not None) and np.any(np.shape(mass) != np.array(shape_bins)):
+            err = "Shape of `mass` ({}) inconsistent with shape of edges ({})!".format(np.shape(mass), shape_edges)
+            raise ValueError(err)
 
         self._edges = edges
         self._dens = dens
@@ -344,7 +347,7 @@ class Sample_Outliers(Sample_Grid):
         # `mass_ins` has the mass of bins in the 'outlier' region zeroed out
         mass_ins = self._mass_ins
 
-        # Calculate number of samples in both the interior and outlier regions
+        # Calculate number of samples in both the interior and ooutlier regions
 
         # number of bins in the 'interior' region
         nsamp_ins = np.count_nonzero(mass_ins)
@@ -358,11 +361,11 @@ class Sample_Outliers(Sample_Grid):
         nsamp = nsamp_ins + nsamp_out
         logging.info(f"nsamp_ins={nsamp_ins}, nsamp_out={nsamp_out} (poisson_outside={poisson_outside}), nsamp={nsamp}")
 
-        # FIXME: perhaps this should be a warning, not an error?
         if nsamp_ins < 1:
             msg = f"No interior points!  in-liers nsamp = {nsamp_ins}!  ins.sum() = {mass_ins.sum():.4e}!"
-            logging.error(msg)
-            raise ValueError(msg)
+            logging.warning(msg)
+            # logging.error(msg)
+            # raise ValueError(msg)
 
         if nsamp_out < 1:
             msg = f"No outlier points!  outliers nsamp = {nsamp_out}!  outs.sum() = {self._mass_outs.sum():.4e}!"
