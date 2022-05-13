@@ -7,9 +7,10 @@ Can be run with:
 
 import numpy as np
 # import scipy as sp
-import scipy.stats  # noqa
-from numpy.testing import run_module_suite
-from nose import tools
+# import scipy.stats  # noqa
+# from numpy.testing import run_module_suite
+# from nose import tools
+import pytest
 
 import kalepy as kale
 from kalepy import utils, kernels
@@ -28,9 +29,9 @@ class Test_Kernels_Generic(object):
 
         # bandwidth should always be scaled to 1.0
         # yy, ndim, nval, squeeze = kernel.scale(hh, 0.0, hh)
-        # tools.assert_true(np.isclose(yy, 1.0))
-        # tools.assert_true(ndim == 1)
-        # tools.assert_true(nval == 1)
+        # assert (np.isclose(yy, 1.0))
+        # assert (ndim == 1)
+        # assert (nval == 1)
 
         hh = 1.0
         edges = np.linspace(-10*hh, 10*hh, 10000)
@@ -38,16 +39,16 @@ class Test_Kernels_Generic(object):
         # width = np.diff(edges)
         yy = kernel.evaluate(cents[np.newaxis, :], 1).squeeze()
         # Make sure kernel is callable
-        # tools.assert_true(np.allclose(yy, kernel().evaluate(cents)))
+        # assert (np.allclose(yy, kernel().evaluate(cents)))
 
         # Make sure kernel is normalized
         # tot = np.sum(yy*width)
         tot = np.trapz(yy, cents)
         # print("\t\ttot = {:.4e}".format(tot))
-        tools.assert_almost_equal(tot, 1.0, delta=1e-3)
+        assert np.isclose(tot, 1.0, rtol=1e-3)
 
         # Make sure kernels have expected support
-        tools.assert_true(np.all(yy >= 0.0))
+        assert (np.all(yy >= 0.0))
         if kernel._FINITE:
             outside = (cents < -hh) | (hh < cents)
             inside = (-hh < cents) & (cents < hh)
@@ -55,8 +56,8 @@ class Test_Kernels_Generic(object):
             outside = []
             inside = np.ones_like(yy, dtype=bool)
 
-        utils.allclose(yy[outside], 0.0, rtol=1e-4, atol=1e-4)
-        utils.alltrue(yy[inside] > 0.0)
+        np.allclose(yy[outside], 0.0, rtol=1e-4, atol=1e-4)
+        np.all(yy[inside] > 0.0)
 
         return
 
@@ -88,7 +89,7 @@ class Test_Kernels_Generic(object):
 
         err = "kernel_at_dim({}, {}, {})\t".format(kern, ndim, num)
         err += "Integrated PDF {:.4e} is not within {:.2e} -- not unitary!".format(tot, delta)
-        tools.assert_almost_equal(tot, 1.0, delta=delta, msg=err)
+        assert np.isclose(tot, 1.0, rtol=delta), err
 
         return
 
@@ -133,7 +134,7 @@ class Test_Kernels_Generic(object):
                     kern.__name__, bw, name, x2))
                 print("\t" + kale.utils.array_str(aa[idx]))
                 print("\t" + kale.utils.array_str(bb[idx]))
-                tools.assert_true(x2 < 1e-2)
+                assert (x2 < 1e-2)
 
             return
 
@@ -204,7 +205,7 @@ def _test_check_reflect(ndim, weights_flag):
         for jj, bad in enumerate(reflects_bad):
             jj = jj % ndim
             reflect[jj] = bad
-            tools.assert_raises(ValueError, kernels._check_reflect, *(reflect, data, weights))
+            pytest.raises(ValueError, kernels._check_reflect, reflect, data, weights)
 
     return
 
@@ -226,10 +227,10 @@ def test_check_reflect_boolean():
     data[1] *= 2.0
 
     ref = kernels._check_reflect(None, data)
-    tools.assert_true(ref is None)
+    assert (ref is None)
 
     ref = kernels._check_reflect(False, data)
-    tools.assert_true(ref is None)
+    assert (ref is None)
 
     extrema = [utils.minmax(dd) for dd in data]
     extrema = np.asarray(extrema)
@@ -238,7 +239,7 @@ def test_check_reflect_boolean():
 
     # If `True` is Given, values should be set to extrema
     reflect = kernels._check_reflect(True, data)
-    tools.assert_true(np.allclose(reflect, extrema, atol=1e-10))
+    assert (np.allclose(reflect, extrema, atol=1e-10))
 
     for ii in range(ndim):
         # True given for a single dimension
@@ -246,8 +247,8 @@ def test_check_reflect_boolean():
         reflect[ii] = True
         ref = kernels._check_reflect(reflect, data)
 
-        tools.assert_true(np.allclose(ref[ii], extrema[ii], atol=1e-10))
-        tools.assert_true(np.all([ref[jj] is None for jj in range(ndim) if jj != ii]))
+        assert (np.allclose(ref[ii], extrema[ii], atol=1e-10))
+        assert (np.all([ref[jj] is None for jj in range(ndim) if jj != ii]))
 
         # True given as lower or upper bound for dimension
         reflect = [None for ii in range(ndim)]
@@ -257,20 +258,15 @@ def test_check_reflect_boolean():
         # Fixed upper-value (must be larger than lower-value!)
         reflect[ii] = [True, val]
         ref = kernels._check_reflect(reflect, data)
-        tools.assert_true(np.isclose(ref[ii][0], extrema[ii][0], atol=1e-10))
-        tools.assert_true(ref[ii][1] == val)
-        tools.assert_true(np.all([ref[jj] is None for jj in range(ndim) if jj != ii]))
+        assert (np.isclose(ref[ii][0], extrema[ii][0], atol=1e-10))
+        assert (ref[ii][1] == val)
+        assert (np.all([ref[jj] is None for jj in range(ndim) if jj != ii]))
 
         # Fixed lower-value (must be less than upper-value!)
         reflect[ii] = [-val, True]
         ref = kernels._check_reflect(reflect, data)
-        tools.assert_true(np.isclose(ref[ii][1], extrema[ii][1], atol=1e-10))
-        tools.assert_true(ref[ii][0] == -val)
-        tools.assert_true(np.all([ref[jj] is None for jj in range(ndim) if jj != ii]))
+        assert (np.isclose(ref[ii][1], extrema[ii][1], atol=1e-10))
+        assert (ref[ii][0] == -val)
+        assert (np.all([ref[jj] is None for jj in range(ndim) if jj != ii]))
 
     return
-
-
-# Run all methods as if with `nosetests ...`
-if __name__ == "__main__":
-    run_module_suite()

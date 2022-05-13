@@ -4,9 +4,7 @@ matplotlib>=3
 
 codecov
 six
-nose
 coverage
-nose-timer
 jupyter
 nbconvert
 gitpython

@@ -5,11 +5,15 @@ Can be run with:
 
 """
 
-import numpy as np
-# import scipy as sp
-from numpy.testing import run_module_suite
-from nose.tools import assert_true
+# flake8: noqa: E241    # (ignore "multiple spaces after ',' ")
 
+import numpy as np
+import scipy as sp
+import scipy.stats
+# from numpy.testing import run_module_suite
+
+import kalepy as kale
+import kalepy.utils
 from kalepy import utils
 
 
@@ -71,11 +75,232 @@ class Test_Bound_Indices:
                 inside = (bounds[0] < test) & (test < bounds[1])
 
                 print("outside = {}, out = {}, val = {}".format(np.all(outside), out, val))
-                utils.alltrue(outside == val)
+                assert np.all(outside == val)
 
                 print("inside  = {}, out = {}, val = {}".format(np.all(inside), out, val))
-                utils.alltrue(inside == (not val))
+                assert np.all(inside == (not val))
 
+        return
+
+
+class Test_Centroids:
+
+    def _manual_single_1d(self, xx, yy):
+        """Analytically calculate the centroid for a single bin in 1D"""
+        print(f"{xx=}, {yy=}")
+        ilo = np.argmin(yy)
+        ihi = np.argmax(yy)
+        ylo, yhi = yy[ilo], yy[ihi]
+        xlo, xhi = xx[ilo], xx[ihi]
+        wid = np.fabs(np.diff(xx))
+
+        # calculate center of mass of square portion of trapezoid, and mass of square
+        x1 = np.mean(xx)
+        m1 = wid * ylo
+
+        # calculate center of mass of triangle portion of trapezoid, and mass of triangle
+        x2 = xlo
+        x2 += (2.0/3.0) * (xhi - xlo)
+        m2 = 0.5 * wid * (yhi - ylo)
+
+        # find overall COM as weighted avereage of component COMs
+        com = ((x1 * m1) + (x2 * m2)) / (m1 + m2)
+        return com
+
+    def _manual_single_2d(self, edges, data):
+        """Analytically calculate the centroid for a single bin in 2D"""
+        coms = np.zeros((2, 1, 1))
+        for ii in range(2):
+            xx = edges[ii]
+            # marginalize (sum) over the *other* axis, and calculate in 1D for each dim
+            jj = (ii + 1) % 2
+            yy = np.sum(data, axis=jj)
+            coms[ii] = self._manual_single_1d(xx, yy)
+
+        return coms
+
+    def _numeric(self, edges, data, num=1e5):
+        """Numerically calculate the centroid by sampling `num` points over the grid
+
+        This works for any number of dimensions.
+
+        """
+
+        # `binned_statistic` requires `edges` to be at least 2d
+        if kale.utils.really1d(edges):
+            edges = [edges]
+
+        # NOTE: `edges` must be increasing in each dimension!
+        if np.any([np.any(np.diff(ee) < 0.0) for ee in edges]):
+            raise ValueError(f"`edges` must be increasing in each dimension!  {edges=}")
+
+        # ---- sample grid
+        # set the mass of each bin to achieve the desired `num` samples
+        mass = kale.utils.trapz_dens_to_mass(data, edges)
+        mass = mass * num / mass.sum()
+        vv = kale.sample_grid(edges, data, mass=mass, squeeze=False)
+
+        # ---- calculate COMs from samples
+        coms = [sp.stats.binned_statistic_dd(vv.T, vv[ii], statistic='mean', bins=edges)[0] for ii in range(len(vv))]
+        coms = np.asarray(coms)
+        # also get the number of samples in each bin, for estimating expected accuracy
+        count = sp.stats.binned_statistic_dd(vv.T, vv[0], statistic='count', bins=edges)[0]
+
+        if np.ndim(data) == 1:
+            coms = coms.squeeze()
+
+        return coms, count
+
+    def _general(self, shape, num=1e4):
+        """Generate a random grid of data with given `shape`, and test accuracy of centroid calc.
+        """
+        print(f"\ngeneral {shape=}")
+        # General random bins and data of the given shape
+        yy = np.random.uniform(0.0, 10.0, shape)
+        xx = [sorted(np.random.uniform(0.0, 1.0, sh)) for sh in yy.shape]
+        # ---- calculate the size of each bin, for measuring fractional errors
+        # width of each bin, in each dimension
+        dx = [np.diff(x) for x in xx]
+        vol = np.meshgrid(*dx, indexing='ij')
+        # find diagonal length of each bin
+        vol = np.linalg.norm(vol, axis=0)
+        print(f"{xx=}")
+        print(f"{vol=}")
+
+        # Calculate centroids using function to be tested
+        coms = kale.utils.centroids(xx, yy).squeeze()
+        # Calculate 'truth' value (approximation) numerically, by sampling across bins
+        truth, count = self._numeric(xx, yy, num=num)
+
+        # Flatten bins for ease for comparison
+        ndim = len(xx)
+        coms = np.reshape(coms, (ndim, -1))
+        truth = np.reshape(truth, (ndim, -1))
+        count = count.flatten()
+        truth[:, (count == 0)] = 0.0
+        vol = vol.flatten()
+        tol = np.inf * np.ones_like(count)
+        idx = (count > 0)
+        tol[idx] = 3.0 * vol[idx] / np.sqrt(count[idx])
+        err = np.linalg.norm(truth - coms, axis=0)
+
+        # ---- Perform test
+        print(f"coms ={coms.tolist()}")
+        print(f"truth={truth.tolist()}")
+        print(f"err  ={err.tolist()}")
+        print(f"count={count.tolist()}")
+        print(f"tol  ={tol.tolist()}")
+        check = (err <= tol)
+        bads = np.where(~check)
+        print(f"{bads=}")
+        print(f"{err[bads]=}")
+        print(f"{tol[bads]=}")
+        assert np.all(err <= tol)
+        return
+
+    def test_single_1d(self):
+        """Test a few 1D single-bins"""
+
+        # ---- Define test cases
+
+        edges_list = [
+            sorted(np.random.uniform(-1.0, 1.0, 2)),
+            sorted(np.random.uniform(-10.0, 10.0, 2)),
+            sorted(np.random.uniform(10.0, 100.0, 2)),
+        ]
+
+        data_list = [
+            2*[np.random.uniform(0.0, 1.0)],      # uniform    yvalues
+            [0.0, np.random.uniform(0.0, 2.0)],   # increasing yvalues
+            [np.random.uniform(0.0, 2.0), 0.0],   # decreasing yvalues
+        ]
+
+        truth_list = [
+            np.mean(edges_list[0]),
+            edges_list[1][0] + (2.0/3.0) * np.diff(edges_list[1])[0],
+            edges_list[2][1] - (2.0/3.0) * np.diff(edges_list[2])[0],
+        ]
+
+        # ---- Run tests
+
+        for edges, data, truth in zip(edges_list, data_list, truth_list):
+            coms = kale.utils.centroids(edges, data)
+            print(f"{coms=}  ||  for {edges=}, {data=}")
+
+            # test with given truth value
+            print(f"\tANALYTIC: {truth=}")
+            assert np.allclose(coms, truth)
+
+            # Test using manual/semi-analytic calculation
+            truth = self._manual_single_1d(edges, data)
+            print(f"\tMANUAL: {truth=}")
+            assert np.allclose(coms, truth)
+
+            # Test using numeric/sampling calculation
+            NUM = 1e4
+            truth, _ = self._numeric(edges, data, num=NUM)
+            err = (coms - truth) / np.fabs(np.diff(edges)[0])
+            tol = 3.0 / np.sqrt(NUM)
+            print(f"\tNUMERIC: {truth=}, {err=} ({tol=}, {NUM=})")
+            assert np.all(np.fabs(err) < tol)
+
+        return
+
+    def test_single_2d(self):
+        """Test a few 2D single-bins"""
+
+        # generate random bin edges and random data
+        edges = [np.random.uniform(-1.0, 1.0, 2), np.random.uniform(10.0, 100.0, 2)]
+        edges = [sorted(ee) for ee in edges]
+        data = np.random.normal(10.0, 1.0, (2, 2))
+        print(f"{edges=}, {data=}")
+
+        # get coms from test function
+        coms = kale.utils.centroids(edges, data).squeeze()
+        print(f"{coms.shape=}, {coms=}")
+
+        # determine true answer manually
+        truth = self._manual_single_2d(edges, data).squeeze()
+        print(f"{truth.shape=}")
+        print(f"MANUAL: {truth=}")
+        assert np.allclose(coms, truth)
+
+        # determine true answer numerically
+        NUM = 1e4
+        truth, _ = self._numeric(edges, data, num=NUM)
+        truth = truth.squeeze()
+        err = np.linalg.norm(np.diff(edges, axis=1))
+        err = np.linalg.norm(coms - truth, axis=0) / err
+        tol = 3.0 / np.sqrt(NUM)
+        print(f"NUMERIC: {truth=}, {err=}, {tol=}")
+        assert np.all(np.fabs(err) < tol)
+
+        return
+
+    def test_general_1d(self):
+        """Test a few 1D grids, randomly generated"""
+        ntests = 4
+        num = 1e3
+        for shape in np.random.randint(5, 20, ntests):
+            self._general([shape,], num=num)
+        return
+
+    def test_general_2d(self):
+        """Test a few 2D grids, randomly generated"""
+        ntests = 4
+        ndim = 2
+        num = 1e4
+        for shape in np.random.randint(3, 10, (ntests, ndim)):
+            self._general(shape, num=num)
+        return
+
+    def test_general_3d(self):
+        """Test a few 3D grids, randomly generated"""
+        ntests = 3
+        ndim = 3
+        num = 1e5
+        for shape in np.random.randint(3, 6, (ntests, ndim)):
+            self._general(shape, num=num)
         return
 
 
@@ -230,19 +455,19 @@ class Test_Midpoints(object):
             vals = utils.midpoints(test, log=False, axis=ii)
             new_shape = np.array(shp)
             new_shape[ii] -= 1
-            assert_true(np.all(vals.shape == new_shape))
-            assert_true(np.all(vals == 1.0))
+            assert np.all(vals.shape == new_shape)
+            assert np.all(vals == 1.0)
 
             vals = utils.midpoints(test, log=True, axis=ii)
             new_shape = np.array(shp)
             new_shape[ii] -= 1
-            assert_true(np.all(vals.shape == new_shape))
-            assert_true(np.all(vals == 1.0))
+            assert np.all(vals.shape == new_shape)
+            assert np.all(vals == 1.0)
 
         test = np.arange(10)
         vals = utils.midpoints(test, log=False)
         true = 0.5 * (test[:-1] + test[1:])
-        assert_true(np.allclose(vals, true))
+        assert np.allclose(vals, true)
         return
 
     def test_midpoints_lin(self):
@@ -262,8 +487,8 @@ class Test_Midpoints(object):
 
         for ii, tr in enumerate(truth):
             vals = utils.midpoints(test, log=False, axis=ii, squeeze=True)
-            assert_true(np.all(np.shape(tr) == np.shape(vals)))
-            assert_true(np.all(tr == vals))
+            assert np.all(np.shape(tr) == np.shape(vals))
+            assert np.all(tr == vals)
 
         shp = (4, 5)
         test = np.random.uniform(-1.0, 1.0, np.product(shp)).reshape(shp)
@@ -273,8 +498,8 @@ class Test_Midpoints(object):
             temp = np.moveaxis(test, ii, 0)
             true = temp[:-1, :] + 0.5*np.diff(temp, axis=0)
             true = np.moveaxis(true, 0, ii)
-            assert_true(np.all(np.shape(true) == np.shape(vals)))
-            assert_true(np.allclose(true, vals))
+            assert np.all(np.shape(true) == np.shape(vals))
+            assert np.allclose(true, vals)
 
         return
 
@@ -297,8 +522,8 @@ class Test_Midpoints(object):
 
         for ii, tr in enumerate(truth):
             vals = utils.midpoints(test, log=True, axis=ii, squeeze=True)
-            assert_true(np.all(np.shape(tr) == np.shape(vals)))
-            assert_true(np.allclose(tr, vals))
+            assert np.all(np.shape(tr) == np.shape(vals))
+            assert np.allclose(tr, vals)
 
         shp = (4, 5)
         test_log = np.random.uniform(-2.0, 2.0, np.product(shp)).reshape(shp)
@@ -307,8 +532,8 @@ class Test_Midpoints(object):
             # Make sure `midpoints` gives consistent results itself
             vals_log = utils.midpoints(test_log, log=False, axis=ii)
             vals_lin = utils.midpoints(test_lin, log=True, axis=ii)
-            assert_true(np.all(np.shape(vals_log) == np.shape(vals_lin)))
-            assert_true(np.allclose(10**vals_log, vals_lin))
+            assert np.all(np.shape(vals_log) == np.shape(vals_lin))
+            assert np.allclose(10**vals_log, vals_lin)
 
             # Compare log-midpoint to known values
             temp = np.moveaxis(test_lin, ii, 0)
@@ -316,8 +541,8 @@ class Test_Midpoints(object):
             true = temp[:-1, :] + 0.5*np.diff(temp, axis=0)
             true = np.moveaxis(true, 0, ii)
             true = 10**true
-            assert_true(np.all(np.shape(true) == np.shape(vals_lin)))
-            assert_true(np.allclose(true, vals_lin))
+            assert np.all(np.shape(true) == np.shape(vals_lin))
+            assert np.allclose(true, vals_lin)
 
         return
 
@@ -341,7 +566,7 @@ class Test_Spacing(object):
               54.44734587, 63.42774296, 72.40814005, 81.38853714, 90.36893423]
 
         test = utils.spacing(aa, 'lin', np.size(bb))
-        assert_true(np.allclose(bb, test))
+        assert np.allclose(bb, test)
         return
 
     def test_log(self):
@@ -352,7 +577,7 @@ class Test_Spacing(object):
               2.28206553,  4.61020298,  9.31347996, 18.81498695, 38.00982397]
 
         test = utils.spacing(aa, 'log', np.size(bb))
-        assert_true(np.allclose(bb, test))
+        assert np.allclose(bb, test)
         return
 
 
@@ -368,7 +593,7 @@ class Test_Trapz(object):
 
         np_trapz = np.trapz(yy, xx)
         test = utils.trapz_nd(yy, xx)
-        utils.allclose(test, np_trapz)
+        assert np.allclose(test, np_trapz)
         return
 
     def test_2d(self):
@@ -400,7 +625,7 @@ class Test_Trapz(object):
                 tot += sum_corner(*cuts) * 0.25
 
         print("test = {}, tot = {}".format(test, tot))
-        utils.allclose(test, tot)
+        assert np.allclose(test, tot)
         return
 
     def test_nd(self):
@@ -420,7 +645,7 @@ class Test_Trapz(object):
 
             truth = np.product(np.diff(extr, axis=-1)) * norm
             print("\t{:.4e} vs {:.4e}".format(tot, truth))
-            utils.allclose(tot, truth)
+            assert np.allclose(tot, truth)
 
             return
 
@@ -461,11 +686,11 @@ class Test_Trapz_Dens_To_Mass:
         vol = area * norm / (ndim + 1)
         tot = np.sum(pmf)
         print("Volume = {:.4e}, Total Mass = {:.4e};  ratio = {:.4e}".format(vol, tot, tot/vol))
-        utils.allclose(vol, tot, rtol=1e-2, msg="total volume does {fail:}match analytic value")
+        assert np.allclose(vol, tot, rtol=1e-2), "total volume does not match analytic value"
 
         test = utils.trapz_nd(pdf, edges)
         print("Volume = {:.4e}, Total Mass = {:.4e};  ratio = {:.4e}".format(test, tot, tot/test))
-        utils.allclose(vol, tot, rtol=1e-2, msg="total volume does {fail:}match `trapz_nd` value")
+        assert np.allclose(vol, tot, rtol=1e-2), "total volume does not match `trapz_nd` value"
 
         return
 
@@ -503,13 +728,10 @@ class Test_Trapz_Dens_To_Mass:
 
             new_shp = [ss for ss in shp]
             new_shp[axis] -= 1
-            utils.alltrue(np.shape(pmf) == np.array(new_shp), "Output shape is {fail:}correct")
+            assert np.all(np.shape(pmf) == np.array(new_shp)), "Output shape is not correct"
 
-            utils.alltrue(pmf == norm*wids, 'Values do {fail:}match')
+            assert np.all(pmf == norm*wids), 'Values do not match'
 
-            # print(pdf)
-            # print(wids)
-            # print(pmf)
 
         return
 
@@ -565,8 +787,8 @@ class Test_Trapz_Dens_To_Mass:
             for aa in axis:
                 new_shp[aa] -= 1
 
-            utils.alltrue(np.shape(pmf) == np.array(new_shp), "Output shape is {fail:}correct")
-            utils.alltrue(pmf == norm*wids, 'Values do {fail:}match')
+            assert np.all(np.shape(pmf) == np.array(new_shp)), "Output shape is not correct"
+            assert np.all(pmf == norm*wids), "Values do not match"
 
         return
 
@@ -622,8 +844,8 @@ class Test_Cumsum:
         print("input = \n", vals)
         print("output = \n", res)
         print("brute-force truth = \n", chk)
-        msg = "cumsum ndim={} does {{fail:}}match brute-force values.".format(ndim)
-        utils.allclose(res, chk, rtol=1e-10, msg=msg)
+        msg = "cumsum ndim={} does not match brute-force values.".format(ndim)
+        assert np.allclose(res, chk, rtol=1e-10), msg
         return
 
     def _test_axis_ndim(self, ndim, axis):
@@ -643,8 +865,8 @@ class Test_Cumsum:
         print("input = \n", vals)
         print("output = \n", res)
         print("numpy truth = \n", chk)
-        msg = "cumsum ndim={}, axis={} does {{fail:}}match brute-force values.".format(ndim, axis)
-        utils.allclose(res, chk, rtol=1e-10, msg=msg)
+        msg = "cumsum ndim={}, axis={} does not match brute-force values.".format(ndim, axis)
+        assert np.allclose(res, chk, rtol=1e-10), msg
         return
 
     def test_no_axis(self):
@@ -659,7 +881,7 @@ class Test_Cumsum:
         print("input = \n", test)
         print("output = \n", res)
         print("brute-force truth = \n", check)
-        utils.allclose(res, check, rtol=1e-10, msg="`cumsum` does {fail:}match known result")
+        assert np.allclose(res, check, rtol=1e-10), "`cumsum` does not match known result"
 
         for nd in range(1, 5):
             self._test_no_axis_ndim(nd)
@@ -688,13 +910,13 @@ class Test_Cumsum:
             chk_np = np.cumsum(test, axis=aa)
             print("output = \n", res)
             print("numpy truth = \n", chk_np)
-            msg = "`cumsum` does {{fail:}}match numpy result along axis={}".format(aa)
-            utils.allclose(res, chk_np, rtol=1e-10, msg=msg)
+            msg = "`cumsum` does not match numpy result along axis={}".format(aa)
+            assert np.allclose(res, chk_np, rtol=1e-10), msg
 
             print("output = \n", res)
             print("brute-force truth = \n", chk)
-            msg = "`cumsum` does {{fail:}}match known result along axis={}".format(aa)
-            utils.allclose(res, chk, rtol=1e-10, msg=msg)
+            msg = "`cumsum` does not match known result along axis={}".format(aa)
+            assert np.allclose(res, chk, rtol=1e-10), msg
 
         for nd in range(1, 5):
             for ax in range(nd):
@@ -708,7 +930,7 @@ class Test_Really1D:
 
     def _test_vals(self, vals, truth):
         print("`vv` should be: {} :: shape = {} :: '{}'".format(truth, utils.jshape(vals), vals))
-        assert_true(utils.really1d(vals) == truth)
+        assert utils.really1d(vals) == truth
         return
 
     def test_1d_true(self):
@@ -756,8 +978,3 @@ class Test_Really1D:
             self._test_vals(vv, False)
 
         return
-
-
-# Run all methods as if with `nosetests ...`
-if __name__ == "__main__":
-    run_module_suite()
