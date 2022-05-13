@@ -298,7 +298,7 @@ class Sample_Outliers(Sample_Grid):
 
         # Find the center-of-mass of each cell (based on density corner values)
         # to use as representative centroids
-        coms = utils.centroids(self.grid, self._dens)
+        coms = utils.centroids(self._edges, self._dens)
 
         # Store values
         self._threshold = threshold
@@ -399,7 +399,7 @@ class Sample_Outliers(Sample_Grid):
         return nsamp, vals, weights
 
 
-def sample_grid(edges, dens, nsamp=None, mass=None, scalar_dens=None, scalar_mass=None, **sample_kwargs):
+def sample_grid(edges, dens, nsamp=None, mass=None, scalar_dens=None, scalar_mass=None, squeeze=None, **sample_kwargs):
     """Draw samples following the given distribution.
 
     Arguments
@@ -430,7 +430,8 @@ def sample_grid(edges, dens, nsamp=None, mass=None, scalar_dens=None, scalar_mas
         Scalar factors for each sample point.
 
     """
-    squeeze = (np.ndim(dens) == 1)
+    if squeeze is None:
+        squeeze = (np.ndim(dens) == 1)
     sampler = Sample_Grid(edges, dens, mass=mass, scalar_dens=scalar_dens, scalar_mass=scalar_mass)
     samples = sampler.sample(nsamp=nsamp, **sample_kwargs)
     if squeeze:
