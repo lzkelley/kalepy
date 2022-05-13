@@ -48,42 +48,6 @@ def array_str(data, num=3, format=':.2e'):
     return rv
 
 
-def allclose(xx, yy, msg=None, **kwargs):
-    msg_succ, msg_fail = _prep_msg(msg)
-    xx = np.atleast_1d(xx)
-    # yy = np.atleast_1d(yy)
-    idx = np.isclose(xx, yy, **kwargs)
-    if not np.all(idx):
-        logging.error("bads : " + array_str(np.where(~idx)[0], format=':d'))
-        logging.error("left : " + array_str(xx[~idx]))
-        try:
-            logging.error("right: " + array_str(yy[~idx]))
-        except (TypeError, IndexError):
-            logging.error("right: " + str(yy))
-
-        raise AssertionError(msg_fail)
-
-    if msg_succ is not None:
-        print(msg_succ)
-
-    return
-
-
-def alltrue(xx, msg=None):
-    msg_succ, msg_fail = _prep_msg(msg)
-    xx = np.atleast_1d(xx)
-    idx = (xx == True)  # noqa
-    if not np.all(idx):
-        logging.error("bads : " + array_str(np.where(~idx)[0], format=':d'))
-        logging.error("vals : " + array_str(xx[~idx]))
-        raise AssertionError(msg_fail)
-
-    if msg_succ is not None:
-        print(msg_succ)
-
-    return
-
-
 def bins(*args, **kwargs):
     """Calculate `np.linspace(*args)` and return also centers and widths.
 
@@ -126,43 +90,108 @@ def bound_indices(data, bounds, outside=False):
     return idx
 
 
-def centroids(grid, dens):
-    """
+def centroids(edges, data):
+    """Calculate the centroids (centers of mass) of each cell in the given grid.
 
     Parameters
     ----------
-    grid : _type_
-    dens : _type_
+    edges : (D,) array_like of array_like
+    data : (...) ndarray of scalar
 
     Returns
     -------
-    coms : list of ndarray,
+    coms : ndarray (D, ...)
 
     """
-    try:
-        sh = np.shape(dens)
-        # if `grid` is correctly consistent with `np.meshgrid(edges)`, then each shape should match
-        shapes = [np.shape(gg) for gg in grid]
-        # if shapes are not consistent, then try constructing a grid from the passed-in values
-        # i.e. assume that what was passed in as `grid` is actually 'edges', see if that works
-        if not np.all([sh == shape for shape in shapes]):
-            _grid = np.meshgrid(*grid, indexing='ij')
-            shapes = [np.shape(gg) for gg in _grid]
-            # if it still doesn't match, raise an error and handle below
-            assert np.all([sh == shape for shape in shapes])
-            msg = "Successfully converted input values into grid, assuming they were bin edges"
-            logging.debug(msg)
-            # if it does work, store the newly constructed grid and move on
-            grid = _grid
-    except:
-        err = (
-            f"`grid` (shape: {jshape(grid)}) must be an array_like,"
-            f" where each element has the same shape as `dens` (shape: {jshape(dens)})!"
-        )
-        raise ValueError(err)
+    data = np.asarray(data)
+    if really1d(edges):
+        edges = [edges]
 
-    dens_cent = midpoints(dens, log=False, axis=None)
-    coms = [midpoints(dens * ll, log=False, axis=None) / dens_cent for ll in grid]
+    ndim = data.ndim
+
+    # shape of vertices ('corners') of each bin
+    shp_corners = [2, ] * ndim
+    # shape of bins
+    shp_bins = [sh - 1 for sh in data.shape]
+
+    # ---- Get the y-values (densities) for each corner, for each bin
+
+    # for a 2D grid, `zz[0, 0, :, :]` would be the lower-left,
+    # while `zz[1, 0, :, :]` would be the lower-right
+    zz = np.zeros(shp_corners + shp_bins)
+    # iterate over all permutations of corners
+    #     get a tuple specifying left/right edge for each dimension, e.g.
+    #     (0, 1, 0) would be (left, right, left) for 3D
+    for idx in np.ndindex(tuple(shp_corners)):
+        cut = []
+        # for each dimension, get a slicing object to get the left or right edges along that dim
+        for dd, ii in enumerate(idx):
+            # ii=0 ==> s=':-1'   ii=1 ==> s='1:'
+            jj = (ii + 1) % 2     # ii=0 ==> jj=1   ii=1 ==> jj=0
+            s = slice(ii, data.shape[dd] - jj)
+            cut.append(s)
+
+        # for this corner (`idx`) select the y-values (densities) at that corner
+        zz[idx] = data[tuple(cut)]
+
+    # ---- Calculate the centers of mass in each dimension
+
+    coms = np.zeros([ndim, ] + shp_bins)
+    for ii in range(ndim):
+        # sum over both corners, for each dimension *except* for `ii`
+        jj = np.arange(ndim).tolist()
+        jj.pop(ii)
+        # y1 is the left  corner along this dimension, marginalized (summed) over all other dims
+        # y2 is the right corner along this dimension
+        y1, y2 = np.sum(zz, axis=tuple(jj))
+
+        # bin width in this dimension, for each bin
+        dx = np.diff(edges[ii])
+        # make `dx` broadcastable to the same shape as bins (i.e. `shp_bins`)
+        cut = [np.newaxis for dd in range(ndim-1)]
+        cut.insert(ii, slice(None))
+        cut = tuple(cut)
+        _dx = dx[cut]
+
+        xstack = [edges[ii][:-1], edges[ii][1:]]
+        xstack = [np.asarray(xs)[cut] for xs in xstack]
+        xstack = np.asarray(xstack)
+        ystack = [y1, y2]
+        # we need to know which direction each triangle is facing, find the index of the min y-value
+        #     0 is left, 1 is right
+        idx_min = np.argmin(ystack, axis=0)[np.newaxis, ...]
+
+        # get the min and max y-values; doesn't matter if left or right for these
+        y1, y2 = np.min(ystack, axis=0), np.max(ystack, axis=0)
+
+        # ---- Calculate center of mass for trapezoid
+
+        # - We have marginalized over all dimensions except for this one, so we can consider the 1D
+        #   case that looks like this:
+        #
+        #       /| y2
+        #      / |
+        #     /  |
+        #    |---| y1
+        #    |   |
+        #    |___|
+        #
+        # - We will calculate the COM for the rectangle and the triangle separately, and then get
+        #   the weighted COM between the two, where the weights are given by the areas
+        # - `a1` and `x1` will be the area (i.e. mass) and x-COM for the rectangle.
+        #   The x-COM is just the midpoint, because the y-values are the same
+        # - `a2` and `x2` will be the area and x-COM for the triangle
+        #   NOTE: for the triangle, it's direction matters.  For each bin, `idx_min` tells the
+        #         direction: 0 means increasing (left-to-right), and 1 means decreasing.
+        a1 = _dx * y1
+        a2 = 0.5 * _dx * (y2 - y1)
+        x1 = np.mean(xstack, axis=0)
+        # get the x-value for the low y-value
+        xlo = np.take_along_axis(xstack, idx_min, 0)[0]
+        # make `dx` for each bin positive or negative, depending on the orientation of the triangle
+        x2 = xlo + (2.0/3.0)*_dx*(1 - 2*idx_min.squeeze())
+        coms[ii] = (x1 * a1 + x2 * a2) / (a1 + a2)
+
     return coms
 
 
@@ -989,50 +1018,6 @@ def _midpoints_1d(arr, axis=-1):
     mids = 0.5 * (arr[left] + arr[right])
 
     return mids
-
-
-'''
-def _midpoints_1d(arr, frac=0.5, axis=-1):
-    """Return the midpoints between values in the given array.
-
-    If the given array is N-dimensional, midpoints are calculated from the last dimension.
-
-    Arguments
-    ---------
-    arr : ndarray of scalars,
-        Input array.
-    frac : float,
-        Fraction of the way between intervals (e.g. `0.5` for half-way midpoints).
-    axis : int,
-        Which axis about which to find the midpoints.
-
-    Returns
-    -------
-    mids : ndarray of floats,
-        The midpoints of the input array.
-        The resulting shape will be the same as the input array `arr`, except that
-        `mids.shape[axis] == arr.shape[axis]-1`.
-
-    """
-
-    if not np.isscalar(axis):
-        raise ValueError("Input `axis` argument must be an integer less than ndim={np.ndim(arr)}!")
-
-    if (np.shape(arr)[axis] < 2):
-        raise RuntimeError("Input ``arr`` does not have a valid shape!")
-
-    diff = np.diff(arr, axis=axis)
-
-    # skip the last element, or the last axis
-    cut = [slice(None)] * arr.ndim
-    cut[axis] = slice(0, -1, None)
-    cut = tuple(cut)
-
-    start = arr[cut]
-    mids = start + frac*diff
-
-    return mids
-'''
 
 
 def _get_edges_1d(edges, data, extrema, ndim, nmin, nmax, pad, weights=None, refine=1.0, bw=None):
