@@ -185,12 +185,20 @@ def centroids(edges, data):
         #         direction: 0 means increasing (left-to-right), and 1 means decreasing.
         a1 = _dx * y1
         a2 = 0.5 * _dx * (y2 - y1)
+
         x1 = np.mean(xstack, axis=0)
         # get the x-value for the low y-value
         xlo = np.take_along_axis(xstack, idx_min, 0)[0]
+        idx_min = idx_min[0]
         # make `dx` for each bin positive or negative, depending on the orientation of the triangle
-        x2 = xlo + (2.0/3.0)*_dx*(1 - 2*idx_min.squeeze())
-        coms[ii] = (x1 * a1 + x2 * a2) / (a1 + a2)
+        x2 = xlo + (2.0/3.0)*_dx*(1 - 2*idx_min)
+
+        x1 = np.broadcast_to(x1, x2.shape)
+        # when both areas are zero, use un-weighted average of x1 and x2
+        bd = ((a1 + a2) == 0.0)
+        coms[ii][bd] = 0.5 * (x1[bd] + x2[bd])
+        gd = ~bd
+        coms[ii][gd] = (x1[gd] * a1[gd] + x2[gd] * a2[gd]) / (a1[gd] + a2[gd])
 
     return coms
 
@@ -675,7 +683,7 @@ def spacing(data, scale='log', num=None, dex=10, **kwargs):
     if (num is None):
         if log_flag:
             num_dex = np.fabs(np.diff(np.log10(span)))
-            num = np.int(np.ceil(num_dex * dex)) + 1
+            num = int(np.ceil(num_dex * dex)) + 1
         else:
             num = DEF_NUM_LIN
 
