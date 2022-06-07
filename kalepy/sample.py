@@ -549,11 +549,11 @@ def _intrabin_linear_interp(edge, wid, loc, bidx, grad):
         bads = bl | br
         if np.any(bads):
             logging.error(f"BAD!  {np.count_nonzero(bads)}/{bads.size}")
-            logging.error(f"{vals[bads]=}")
-            logging.error(f"{edge[bidx][bads]=}")
-            logging.error(f"{loc[bads]=}")
-            logging.error(f"{grad[bads]=}")
-            logging.error(f"{wid[bidx][bads]=}")
+            logging.error(f"vals[bads]={vals[bads]}")
+            logging.error(f"edge[bidx][bads]={edge[bidx][bads]}")
+            logging.error(f"loc[bads]={loc[bads]}")
+            logging.error(f"grad[bads]={grad[bads]}")
+            logging.error(f"wid[bidx][bads]={wid[bidx][bads]}")
             raise
 
     return vals

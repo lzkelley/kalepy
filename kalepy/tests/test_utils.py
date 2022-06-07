@@ -82,7 +82,7 @@ class Test_Centroids:
 
     def _manual_single_1d(self, xx, yy):
         """Analytically calculate the centroid for a single bin in 1D"""
-        print(f"{xx=}, {yy=}")
+        print(f"xx={xx}, yy={yy}")
         ilo = np.argmin(yy)
         ihi = np.argmax(yy)
         ylo, yhi = yy[ilo], yy[ihi]
@@ -127,7 +127,7 @@ class Test_Centroids:
 
         # NOTE: `edges` must be increasing in each dimension!
         if np.any([np.any(np.diff(ee) < 0.0) for ee in edges]):
-            raise ValueError(f"`edges` must be increasing in each dimension!  {edges=}")
+            raise ValueError(f"`edges` must be increasing in each dimension!  edges={edges}")
 
         # ---- sample grid
         # set the mass of each bin to achieve the desired `num` samples
@@ -149,7 +149,7 @@ class Test_Centroids:
     def _general(self, shape, num=1e4):
         """Generate a random grid of data with given `shape`, and test accuracy of centroid calc.
         """
-        print(f"\ngeneral {shape=}")
+        print(f"\ngeneral shape={shape}")
         # General random bins and data of the given shape
         yy = np.random.uniform(0.0, 10.0, shape)
         xx = [sorted(np.random.uniform(0.0, 1.0, sh)) for sh in yy.shape]
@@ -159,8 +159,8 @@ class Test_Centroids:
         vol = np.meshgrid(*dx, indexing='ij')
         # find diagonal length of each bin
         vol = np.linalg.norm(vol, axis=0)
-        print(f"{xx=}")
-        print(f"{vol=}")
+        print(f"xx={xx}")
+        print(f"vol={vol}")
 
         # Calculate centroids using function to be tested
         coms = kale.utils.centroids(xx, yy).squeeze()
@@ -187,9 +187,9 @@ class Test_Centroids:
         print(f"tol  ={tol.tolist()}")
         check = (err <= tol)
         bads = np.where(~check)
-        print(f"{bads=}")
-        print(f"{err[bads]=}")
-        print(f"{tol[bads]=}")
+        print(f"bads={bads}")
+        print(f"err[bads]={err[bads]}")
+        print(f"tol[bads]={tol[bads]}")
         assert np.all(err <= tol)
         return
 
@@ -220,15 +220,15 @@ class Test_Centroids:
 
         for edges, data, truth in zip(edges_list, data_list, truth_list):
             coms = kale.utils.centroids(edges, data)
-            print(f"{coms=}  ||  for {edges=}, {data=}")
+            print(f"coms={coms}  ||  for edges={edges}, data={data}")
 
             # test with given truth value
-            print(f"\tANALYTIC: {truth=}")
+            print(f"\tANALYTIC: truth={truth}")
             assert np.allclose(coms, truth)
 
             # Test using manual/semi-analytic calculation
             truth = self._manual_single_1d(edges, data)
-            print(f"\tMANUAL: {truth=}")
+            print(f"\tMANUAL: truth={truth}")
             assert np.allclose(coms, truth)
 
             # Test using numeric/sampling calculation
@@ -236,7 +236,7 @@ class Test_Centroids:
             truth, _ = self._numeric(edges, data, num=NUM)
             err = (coms - truth) / np.fabs(np.diff(edges)[0])
             tol = 3.0 / np.sqrt(NUM)
-            print(f"\tNUMERIC: {truth=}, {err=} ({tol=}, {NUM=})")
+            print(f"\tNUMERIC: truth={truth}, err={err} (told={tol}, NUM={NUM})")
             assert np.all(np.fabs(err) < tol)
 
         return
@@ -248,16 +248,16 @@ class Test_Centroids:
         edges = [np.random.uniform(-1.0, 1.0, 2), np.random.uniform(10.0, 100.0, 2)]
         edges = [sorted(ee) for ee in edges]
         data = np.random.normal(10.0, 1.0, (2, 2))
-        print(f"{edges=}, {data=}")
+        print(f"edges={edges}, data={data}")
 
         # get coms from test function
         coms = kale.utils.centroids(edges, data).squeeze()
-        print(f"{coms.shape=}, {coms=}")
+        print(f"coms.shape={coms.shape}, coms={coms}")
 
         # determine true answer manually
         truth = self._manual_single_2d(edges, data).squeeze()
-        print(f"{truth.shape=}")
-        print(f"MANUAL: {truth=}")
+        print(f"truth.shape={truth.shape}")
+        print(f"MANUAL: truth={truth}")
         assert np.allclose(coms, truth)
 
         # determine true answer numerically
@@ -267,7 +267,7 @@ class Test_Centroids:
         err = np.linalg.norm(np.diff(edges, axis=1))
         err = np.linalg.norm(coms - truth, axis=0) / err
         tol = 3.0 / np.sqrt(NUM)
-        print(f"NUMERIC: {truth=}, {err=}, {tol=}")
+        print(f"NUMERIC: truth={truth}, err={err}, tol={tol}")
         assert np.all(np.fabs(err) < tol)
 
         return

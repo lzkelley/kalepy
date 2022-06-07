@@ -20,7 +20,7 @@ class Test_Sampler_Grid:
         for ndim in range(1, 5):
             # construct random shape with `ndim` dimensions
             shape_edges = np.random.randint(2, 6, ndim)
-            print(f"{ndim=}, {shape_edges=}")
+            print(f"ndim={ndim}, shape_edges={shape_edges}")
             # choose random extr for each dimension of edges
             extr = [np.sort(np.random.uniform(-100, 100, 2)) for ii in range(ndim)]
             # calculate edges with linspacing
@@ -36,7 +36,7 @@ class Test_Sampler_Grid:
                 data = np.random.uniform(0.0, 1.0, shape)
                 # try both values of interpolation flag
                 for interp in [True, False]:
-                    print(f"{shape=}, {interp=}")
+                    print(f"shape={shape}, interp={interp}")
                     sample.sample_grid(edges, data, nsamp, interpolate=interp)
 
         return
