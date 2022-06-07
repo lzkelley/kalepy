@@ -1,8 +1,4 @@
 """
-
-Can be run with:
-    $ nosetests tests/test_utils.py
-
 """
 
 # flake8: noqa: E241    # (ignore "multiple spaces after ',' ")
@@ -10,7 +6,6 @@ Can be run with:
 import numpy as np
 import scipy as sp
 import scipy.stats
-# from numpy.testing import run_module_suite
 
 import kalepy as kale
 import kalepy.utils

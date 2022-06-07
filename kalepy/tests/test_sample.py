@@ -1,8 +1,4 @@
 """
-
-Can be run with:
-    $ nosetests tests/test_sample.py
-
 """
 
 import numpy as np

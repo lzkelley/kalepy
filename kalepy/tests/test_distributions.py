@@ -1,8 +1,5 @@
 """
 
-Can be run with:
-    $ nosetests tests/test_kde.py
-
 """
 
 import numpy as np

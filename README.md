@@ -47,8 +47,8 @@ In this case the package can easily be updated by changing into the source direc
 cd kalepy
 git pull
 pip install -e .
-# Optional: run unit tests (using the `nosetests` package)
-nosetests
+# Optional: run unit tests (using the `pytest` package)
+pytest
 ```
 
 
