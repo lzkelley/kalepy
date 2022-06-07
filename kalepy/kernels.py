@@ -219,7 +219,12 @@ class Kernel(object):
         if weights is not None:
             weights = np.asarray(weights) / np.sum(weights)
 
-        indices = np.random.choice(nvals, size=size, p=weights)
+        try:
+            indices = np.random.choice(nvals, size=size, p=weights)
+        except:
+            logging.error(f"`numpy.random.choice` failed.")
+            logging.error(f"{np.shape(data)=}, {size=}, {nvals=}, {utils.stats_str(weights)=}")
+            raise
         means = data[:, indices]
         # Shift each re-drawn sample based on the kernel-samples
         samps = means + norm
@@ -240,6 +245,10 @@ class Kernel(object):
 
         # Remove data points outside of kernels (or truncated region)
         data, weights = self._truncate_reflections(data, bounds, weights=weights)
+        if (data.size == 0):
+            err = f"Empty data after reflection and truncation!"
+            logging.error(err)
+            raise ValueError(err)
 
         if (self._chunk is not None) and (self._chunk < size):
             num_chunks = int(np.ceil(size/self._chunk))
