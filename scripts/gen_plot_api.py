@@ -113,7 +113,7 @@ def main():
             if os.path.exists(dpath):
                 raise ValueError("Output still exists '{}'!".format(dpath))
 
-    args = ['jupyter', 'nbconvert', nb_fname]
+    args = ['jupyter', 'nbconvert', "--ExecutePreprocessor.kernel_name=python3", nb_fname]
     if EXECUTE:
         args.append('--execute')
     args = args + ['--to', 'rst']

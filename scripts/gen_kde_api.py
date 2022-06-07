@@ -114,15 +114,19 @@ def main():
             if os.path.exists(dpath):
                 raise ValueError("Output still exists '{}'!".format(dpath))
 
-    args = ['jupyter', 'nbconvert', nb_fname]
+    args = ['jupyter', 'nbconvert', "--ExecutePreprocessor.kernel_name=python3", nb_fname]
     if EXECUTE:
         args.append('--execute')
     args = args + ['--to', 'rst']
     logging.debug("Running args:\n" + " ".join(args))
 
     # `capture_output` only works in python3.7; but should be the same as passing to PIPE
-    subprocess.run(args, timeout=500, check=True,
-                   stderr=subprocess.PIPE, stdout=subprocess.PIPE)
+    try:
+        subprocess.run(args, timeout=500, check=True,
+                       stderr=subprocess.PIPE, stdout=subprocess.PIPE)
+    except:
+        logging.error(f"FAILED TO RUN: {' '.join(args)}")
+        raise
 
     names_in = [out_fil_temp, out_dir_temp]
     names_out = [out_fil, out_dir]
