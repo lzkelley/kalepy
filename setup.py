@@ -1,3 +1,6 @@
+"""
+"""
+
 from setuptools import setup
 
 with open('requirements.txt') as inn:
@@ -26,27 +29,4 @@ setup(
     keywords=['utilities', 'physics', 'astronomy', 'cosmology',
               'astrophysics', 'statistics',
               'kernel density estimation', 'kernel density estimate'],
-    CLASSIFIERS=[
-        "Development Status :: 4 - Beta",
-        "Intended Audience :: Science/Research",
-        "Natural Language :: English",
-        "License :: OSI Approved :: MIT License",
-        "Operating System :: OS Independent",
-        "Programming Language :: Python",
-        "Programming Language :: Python :: 3",
-        "Programming Language :: Python :: 3.4",
-        "Programming Language :: Python :: 3.5",
-        "Programming Language :: Python :: 3.6",
-        "Programming Language :: Python :: 3.7",
-        "Programming Language :: Python :: Implementation :: PyPy",
-        "Topic :: Education",
-        "Topic :: Scientific/Engineering",
-        "Topic :: Scientific/Engineering :: Astronomy",
-        "Topic :: Scientific/Engineering :: Physics",
-        "Topic :: Scientific/Engineering :: Mathematics",
-        "Topic :: Scientific/Engineering :: Information Analysis",
-        "Topic :: Utilities"
-    ]
-
-
 )
