@@ -222,8 +222,11 @@ class Kernel(object):
         try:
             indices = np.random.choice(nvals, size=size, p=weights)
         except:
-            logging.error(f"`numpy.random.choice` failed.")
-            logging.error(f"{np.shape(data)=}, {size=}, {nvals=}, {utils.stats_str(weights)=}")
+            logging.error("`numpy.random.choice` failed.")
+            # logging.error(f"{np.shape(data)=}, {size=}, {nvals=}, {utils.stats_str(weights)=}")
+            logging.error(
+                f"data.shape={np.shape(data)}, size={size}, nvals={nvals}, weights={utils.stats_str(weights)}"
+            )
             raise
         means = data[:, indices]
         # Shift each re-drawn sample based on the kernel-samples
@@ -246,7 +249,7 @@ class Kernel(object):
         # Remove data points outside of kernels (or truncated region)
         data, weights = self._truncate_reflections(data, bounds, weights=weights)
         if (data.size == 0):
-            err = f"Empty data after reflection and truncation!"
+            err = "Empty data after reflection and truncation!"
             logging.error(err)
             raise ValueError(err)
 

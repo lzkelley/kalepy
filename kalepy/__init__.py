@@ -71,7 +71,9 @@ del _path
 def density(data, points=None, weights=None, reflect=None, probability=False, grid=False, **kwargs):
     """Use a KDE to calculate the density of the given data.
 
-    This function (1) constructs a kernel-density estimate of the distribution function from which the given `data` were sampled; then (2) returns the values of the distribution function at `points` (which are automatically generated if they are not given).
+    This function (1) constructs a kernel-density estimate of the distribution function from which
+    the given `data` were sampled; then (2) returns the values of the distribution function at
+    `points` (which are automatically generated if they are not given).
 
     Arguments
     ---------
@@ -210,7 +212,9 @@ def pdf(data, points=None, weights=None, reflect=None, params=None, grid=False, 
 def resample(data, size=None, weights=None, reflect=None, keep=None, **kwargs):
     """Use a KDE to resample from a reconstructed density function of the given data.
 
-    This function (1) constructs a kernel-density estimate of the distribution function from which the given `data` were sampled; then, (2) resamples `size` data points from that function.  If `size` is not given, then the same number of points are returned as in the input `data`.
+    This function (1) constructs a kernel-density estimate of the distribution function from which
+    the given `data` were sampled; then, (2) resamples `size` data points from that function.  If
+    `size` is not given, then the same number of points are returned as in the input `data`.
 
     Arguments
     ---------
