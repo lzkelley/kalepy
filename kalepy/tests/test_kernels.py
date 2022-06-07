@@ -1,15 +1,7 @@
 """
-
-Can be run with:
-    $ nosetests tests/test_kde.py
-
 """
 
 import numpy as np
-# import scipy as sp
-# import scipy.stats  # noqa
-# from numpy.testing import run_module_suite
-# from nose import tools
 import pytest
 
 import kalepy as kale

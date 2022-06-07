@@ -25,7 +25,7 @@ script:
   - python -c "import numpy; print(numpy.__version__); import scipy; print(scipy.__version__); import matplotlib; print(matplotlib.__version__)"
   - python -c "import kalepy; print(kalepy.__file__)"
   - python convert_notebook_tests.py
-  - nosetests --with-coverage --cover-inclusive --with-doctest --cover-package=kalepy kalepy/
+  - pytest
 
 after_success:
   - codecov

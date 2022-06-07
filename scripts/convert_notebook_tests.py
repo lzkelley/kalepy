@@ -12,13 +12,13 @@ import logging
 TEST_NOTEBOOK_NAMES = ["demo", "kde", "kernels", "plotting", "utils", "sampling"]
 
 REPLACEMENTS = [
-    # ["plt.show()", "plt.close('all')"]
+    ["plt.show()", "plt.close('all')"]
 ]
 
 # Path of the holodeck package (top-level) directory
 PATH = os.path.dirname(os.path.abspath(__file__))
-# PATH = os.path.realpath(os.path.join(PATH, os.path.pardir))
-PATH = os.path.realpath(PATH)
+PATH = os.path.realpath(os.path.join(PATH, os.path.pardir))
+# PATH = os.path.realpath(PATH)
 # Path in the package in which the notebooks are stored
 PATH_NOTEBOOKS = os.path.join(PATH, 'notebooks')
 # Path in the package in which tests are stored
