@@ -13,7 +13,7 @@ trap 'echo "\"${last_command}\" command filed with exit code $?."' EXIT
 
 
 printf $"\n\n=====================  RUNNING TEST SUITE  ========================\n\n"
-bash tester.sh
+zsh tester.sh
 
 printf $"\n\n================  RUNNING NOTEBOOK CONVERSIONS  ===================\n\n"
 
@@ -22,8 +22,8 @@ python gen_plot_api.py
 python gen_readme.py -v 0
 
 printf $"\n\n====================  BUILDING SPHINX DOCS  =======================\n\n"
-cd docs/
-bash docs.sh
+# cd docs/
+zsh docs/docs.sh
 
 printf $"\n\n=======================  KALEPY DONE  =============================\n\n"
 
