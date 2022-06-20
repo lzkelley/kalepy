@@ -12,6 +12,7 @@ import copy
 import numpy as np
 import scipy as sp
 import numba
+from multiprocessing import cpu_count
 
 from kalepy import kernels, utils, _NUM_PAD
 from kalepy import _BANDWIDTH_DEFAULT
@@ -276,6 +277,15 @@ class KDE:
         self._extrema = extrema
 
         # set max threads to numba
+        if not isinstance(njobs, int):
+            njobs = int(njobs)
+
+        # set -1 to use the available number of threads
+        if njobs == -1:
+            njobs = cpu_count()
+        elif njobs > cpu_count():
+            njobs = cpu_count()
+
         numba.set_num_threads(njobs)
 
         # Finish Intialization
