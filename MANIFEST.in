@@ -1,7 +1,8 @@
 include MANIFEST.in
-include *.txt *.rst
+include *.txt *.rst *.md
 include setup.py
 include notebooks/*.ipynb
 include kalepy/VERSION.txt
 
 recursive-include docs *
+graft kalepy
