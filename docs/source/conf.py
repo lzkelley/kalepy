@@ -19,7 +19,7 @@ sys.path.insert(0, os.path.abspath('../..'))
 # -- Project information -----------------------------------------------------
 
 project = 'kalepy'
-copyright = '2020, Luke Zoltan Kelley and Contributors'
+copyright = '2022, Luke Zoltan Kelley and Contributors'
 author = 'Luke Zoltan Kelley'
 
 # The full version, including alpha/beta/rc tags
