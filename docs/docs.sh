@@ -1,3 +1,3 @@
 make clean
-sphinx-apidoc -o -f ./source/apidoc_modules ../kalepy
+sphinx-apidoc -f -o ./source/apidoc_modules ../kalepy
 make html

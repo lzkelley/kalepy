@@ -13,12 +13,12 @@ def main():
     global fname
     fname = os.path.realpath(os.path.expanduser(fname))
 
-    print(f"Loading from '{fname=}")
+    # print(f"Loading from '{fname=}")
     data = np.load(fname, allow_pickle=True)
     log_edges = data['log_edges']
     dens = data['dens']
     mass = data['mass']
-    print(f"loaded {dens.shape=}, {mass.shape=}")
+    # print(f"loaded {dens.shape=}, {mass.shape=}")
 
     beg = datetime.now()
     vals, weights = kale.sample_outliers(log_edges, dens, 10.0, mass=mass)

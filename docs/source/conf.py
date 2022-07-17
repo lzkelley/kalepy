@@ -13,7 +13,10 @@
 import os
 import sys
 # sys.path.insert(0, os.path.abspath('../../kalepy/'))
-sys.path.insert(0, os.path.abspath('../..'))
+sys.path.insert(0, os.path.abspath('../..'))   # if docs/source/conf.py
+
+with open('../../kalepy/VERSION.txt') as inn:
+    version = inn.read().strip()
 
 
 # -- Project information -----------------------------------------------------
@@ -23,7 +26,8 @@ copyright = '2022, Luke Zoltan Kelley and Contributors'
 author = 'Luke Zoltan Kelley'
 
 # The full version, including alpha/beta/rc tags
-release = '0.4'
+# release = '0.4'
+release = version
 
 
 # -- General configuration ---------------------------------------------------
@@ -32,7 +36,7 @@ release = '0.4'
 # extensions coming with Sphinx (named 'sphinx.ext.*') or your custom
 # ones.
 extensions = [
-    'nbsphinx',                # convert notebooks to sphinx output
+    # 'nbsphinx',                # convert notebooks to sphinx output
     # 'sphinx.ext.napoleon',     # allow numpy/google style docstrings
     'numpydoc',     # allow numpy/google style docstrings
     'sphinx.ext.autodoc',      # auto-generate documentation from docstrings
@@ -50,6 +54,7 @@ templates_path = ['_templates']
 # This pattern also affects html_static_path and html_extra_path.
 exclude_patterns = []
 
+autodoc_mock_imports = ['pytest', 'scipy', 'six', 'matplotlib', 'numba']
 
 # -- Options for HTML output -------------------------------------------------
 
@@ -122,3 +127,24 @@ numpydoc_validation_checks = {
 # napoleon_use_ivar = False
 # napoleon_use_param = True
 # napoleon_use_rtype = True
+
+
+def run_apidoc(_):
+    """
+
+    https://github.com/readthedocs/readthedocs.org/issues/1139#issuecomment-312626491
+
+    """
+    from sphinx.ext.apidoc import main
+    cur_dir = os.path.abspath(os.path.dirname(__file__))
+    sys.path.append(os.path.join(cur_dir, os.path.pardir))
+    output_dir = os.path.join(cur_dir, "apidoc_modules")
+    # docs/source ==> /docs ==> kalepy/
+    input_dir = os.path.join(cur_dir, os.path.pardir, os.path.pardir, "kalepy")
+    main(['-e', '-o', output_dir, input_dir, '--force'])
+    return
+
+
+def setup(app):
+    app.connect('builder-inited', run_apidoc)
+    return
