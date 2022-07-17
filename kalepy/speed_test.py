@@ -1,4 +1,4 @@
-"""
+"""DEVELOPMENT: submodule for running speed-tests for optimization checking.
 """
 import os
 import logging

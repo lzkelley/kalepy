@@ -1,3 +1,10 @@
+============
+Plotting API
+============
+
+.. contents:: :local:
+
+For more extended documentation, see the `kalepy.plot submodule documentation. <kalepy_plot.html>`_
 
 .. code:: ipython3
 
@@ -6,15 +13,17 @@
     import matplotlib.pyplot as plt
 
 Top Level Functions
--------------------
+===================
+
+See the below.
 
 kalepy.corner() and the kalepy.Corner class
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+-------------------------------------------
 
 For the full documentation, see:
 
-* `kalepy.plot.corner <kalepy_plot.html#kalepy.plot.corner>`_
-* `kalepy.plot.Corner <kalepy_plot.html#kalepy.plot.Corner>`_
+* `kalepy.plot.corner <kalepy_plot.html#kalepy.plot.corner>`__
+* `kalepy.plot.Corner <kalepy_plot.html#kalepy.plot.Corner>`__
 * `kalepy.plot.Corner.plot <kalepy_plot.html#kalepy.plot.Corner.plot>`_
 
 Plot some three-dimensional data called ``data3`` with shape (3, N) with
@@ -37,7 +46,7 @@ Extensive modifications are possible with passed arguments, for example:
     dist1d = dict(hist=True, quantiles=[0.5, 0.9])
     # 2D plot settings: turn off the histograms, and turn on scatter
     dist2d = dict(hist=False, scatter=True)
-    
+
     kale.corner(data3, labels=['a', 'b', 'c'], color='purple',
                 dist1d=dist1d, dist2d=dist2d);
 
@@ -56,7 +65,7 @@ distributions, or using preconfigured plotting styles.
 
     # Construct a `Corner` instance for 3 dimensional data, modify the figure size
     corner = kale.Corner(3, figsize=[9, 9])
-    
+
     # Plot two different datasets using the `clean` plotting style
     corner.clean(data3a)
     corner.clean(data3b);
@@ -67,7 +76,7 @@ distributions, or using preconfigured plotting styles.
 
 
 kalepy.dist1d and kalepy.dist2d
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+-------------------------------
 
 The ``Corner`` class ultimately calls the functions ``dist1d`` and
 ``dist2d`` to do the actual plotting of each figure panel. These
@@ -109,7 +118,7 @@ reflection.
     import numpy as np
     data = np.random.lognormal(sigma=0.5, size=int(3e3))
     data = data[data >= 1.0]
-    
+
     # Construct a KDE, and include reflection (only on the lower/left side)
     kde_reflect = kale.KDE(data, reflect=[1.0, None])
     # plot, and include confidence intervals
@@ -126,16 +135,16 @@ reflection.
     data = kale.utils._random_data_2d_03(num=1e3)
     # Initialize figure
     fig, axes = plt.subplots(figsize=[10, 5], ncols=2)
-    
+
     # Construct a KDE included reflection
     kde = kale.KDE(data, reflect=[[0, None], [None, 1]])
-    
+
     # plot using KDE's included reflection parameters
     kale.dist2d(kde, ax=axes[0]);
-    
+
     # plot data without reflection
     kale.dist2d(data, ax=axes[1], cmap='Reds')
-    
+
     titles = ['reflection', 'no reflection']
     for ax, title in zip(axes, titles):
         ax.set(xlim=[-0.5, 2.5], ylim=[-0.2, 1.2], title=title)

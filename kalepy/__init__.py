@@ -75,8 +75,8 @@ def density(data, points=None, weights=None, reflect=None, probability=False, gr
     the given `data` were sampled; then (2) returns the values of the distribution function at
     `points` (which are automatically generated if they are not given).
 
-    Arguments
-    ---------
+    Parameters
+    ----------
     dataset : array_like (N,) or (D,N,)
         Dataset from which to construct the kernel-density-estimate.
         For multivariate data with `D` variables and `N` values, the data must be shaped (D,N).
@@ -145,8 +145,8 @@ def pdf(data, points=None, weights=None, reflect=None, params=None, grid=False, 
 
     Wrapper for `kalepy.density(..., probability=True)`.
 
-    Arguments
-    ---------
+    Parameters
+    ----------
     dataset : array_like (N,) or (D,N,)
         Dataset from which to construct the kernel-density-estimate.
         For multivariate data with `D` variables and `N` values, the data must be shaped (D,N).
@@ -216,8 +216,8 @@ def resample(data, size=None, weights=None, reflect=None, keep=None, **kwargs):
     the given `data` were sampled; then, (2) resamples `size` data points from that function.  If
     `size` is not given, then the same number of points are returned as in the input `data`.
 
-    Arguments
-    ---------
+    Parameters
+    ----------
     data : ([D,]N,) array_like of scalar, the data to be resampled,
         The input data can be either:
         * 1D array_like (N,) with `N` data points, or
@@ -259,8 +259,8 @@ def resample(data, size=None, weights=None, reflect=None, keep=None, **kwargs):
 def cdf(data, edges=None, **kwargs):
     """Use a KDE to calculate a CDF of the given data.
 
-    Arguments
-    ---------
+    Parameters
+    ----------
     edges : array_like of scalar or None
         Locations at which to evaluate the CDF.
         If `None`: edges are constructed using the `KDE._guess_edges()` method.

@@ -101,6 +101,11 @@ venv.bak/
 
 # mypy
 .mypy_cache/
+
+
+# Custom
+# ------
+.vscode
 notebooks/*.png
 *.gif
 *.pdf
@@ -110,3 +115,4 @@ test_notebooks/
 notebooks/output
 results/
 converted_notebooks/
+docs/source/apidoc_modules

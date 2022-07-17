@@ -75,8 +75,8 @@ class Corner:
     with default parameters chosen for plotting a single, multidimensional dataset.  For
     overplotting numerous datasets, the `Corner.clean` or `Corner.plot_data` methods are better.
 
-    API Methods
-    -----------
+    Methods
+    -------
     - `plot` : the standard plotting method which, by default, includes both KDE and data elements.
     - `clean` : minimal plots with only the KDE generated PDF in 1D and contours in 2D, by default.
     - `hist` : minimal plots with only the data based 1D and 2D histograms, by default.
@@ -109,8 +109,8 @@ class Corner:
                  labels=None, limits=None, ticks=None, **kwfig):
         """Initialize Corner instance and construct figure and axes based on the given arguments.
 
-        Arguments
-        ---------
+        Parameters
+        ----------
         kde_data : object, one of the following
             * int D, the number of parameters/dimensions to construct a DxD corner plot.
             * instance of `kalepy.kde.KDE`, providing the data and KDE to be plotted.
@@ -120,7 +120,7 @@ class Corner:
             The weights for each data point.
             NOTE: only applicable when `kde_data` is a (D,N) dataset.
 
-        labels : array_like string (N,) of names for each parameters.
+        labels : array_like str (N,) of names for each parameters.
 
         limits : None, or (D,2) of scalar
             Specification for the limits of each axes (for each of `D` parameters):
@@ -269,8 +269,8 @@ class Corner:
     def clean(self, kde_data=None, weights=None, dist1d={}, dist2d={}, **kwargs):
         """Wrapper for `plot_kde` that sets parameters for minimalism: PDF and contours only.
 
-        Arguments
-        ---------
+        Parameters
+        ----------
         kde_data : `kalepy.KDE` instance, (D,N) array_like of scalars, or None
             * instance of `kalepy.kde.KDE`, providing the data and KDE to be plotted.
             * array_like scalar (D,N) of data with `D` parameters and `N` data points.
@@ -317,8 +317,8 @@ class Corner:
     def hist(self, kde_data=None, weights=None, dist1d={}, dist2d={}, **kwargs):
         """Wrapper for `plot_data` that sets parameters to only plot 1D and 2D histograms of data.
 
-        Arguments
-        ---------
+        Parameters
+        ----------
         kde_data : `kalepy.KDE` instance, (D,N) array_like of scalars, or None
             * instance of `kalepy.kde.KDE`, providing the data and KDE to be plotted.
             * array_like scalar (D,N) of data with `D` parameters and `N` data points.
@@ -371,8 +371,8 @@ class Corner:
         using an instance of `kalepy.kde.KDE`.
 
 
-        Arguments
-        ---------
+        Parameters
+        ----------
         kde_data : `kalepy.KDE` instance, (D,N) array_like of scalars, or `None`
             * instance of `kalepy.kde.KDE`, providing the data and KDE to be plotted.
             * array_like scalar (D,N) of data with `D` parameters and `N` data points.
@@ -456,8 +456,8 @@ class Corner:
         using an instance of `kalepy.kde.KDE`.
 
 
-        Arguments
-        ---------
+        Parameters
+        ----------
         kde : `kalepy.KDE` instance, (D,N) array_like of scalars, or None
             * instance of `kalepy.kde.KDE`, providing the data and KDE to be plotted.
             * array_like scalar (D,N) of data with `D` parameters and `N` data points.
@@ -580,8 +580,8 @@ class Corner:
         `kalepy.plot.dist1d` and `kalepy.plot.dist2d` methods to draw parameter distributions
         using an instance of `kalepy.kde.KDE`.
 
-        Arguments
-        ---------
+        Parameters
+        ----------
         data : (D,N) array_like of scalars, `kalepy.KDE` instance, or None
             * array_like scalar (D,N) of data with `D` parameters and `N` data points.
             * `None` : use the KDE/data stored during class initialization.
@@ -875,15 +875,15 @@ def corner(kde_data, labels=None, kwcorner={}, **kwplot):
 
     See `kalepy.plot.Corner` and `kalepy.plot.Corner.plot` for more information.
 
-    Arguments
-    ---------
+    Parameters
+    ----------
     kde_data : `kalepy.KDE` instance, or (D,N) array_like of scalars
         * instance of `kalepy.kde.KDE`, providing the data and KDE to be plotted.
             In this case the `param` argument selects which dimension/parameter is plotted if
             numerous are included in the `KDE`.
         * array_like scalar (D,N) of data with `D` parameters and `N` data points.
 
-    labels : `None` or (D,) array_like of string, names of each parameter being plotted.
+    labels : `None` or (D,) array_like of str, names of each parameter being plotted.
 
     kwcorner : dict, keyword-arguments passed to `Corner` constructor.
 
@@ -938,8 +938,8 @@ def carpet(xx, weights=None, ax=None, ystd=None, yave=None, shift=0.0, limit=Non
           particularly useful when numerous datasets are being overplotted.
 
 
-    Arguments
-    ---------
+    Parameters
+    ----------
     xx : (N,) array_like of scalar, the data values to be plotted
 
     weights : `None` or (N,) array_like of scalar, the weighting of each data-point if and
@@ -1135,8 +1135,8 @@ def contour(data, edges=None, ax=None, weights=None,
     constructs bin-edges and calculates the histogram from which the contours are calculated.
 
 
-    Arguments
-    ---------
+    Parameters
+    ----------
     data : (2, N) array_like of scalars,
         The data from which contours should be calculated.
 
@@ -1218,8 +1218,8 @@ def dist1d(kde_data, ax=None, edges=None, weights=None, probability=True, param=
     * `carpet` : 'carpet plot' (see `kalepy.plot.carpet()`) showing the data as a scatter-like plot.
 
 
-    Arguments
-    ---------
+    Parameters
+    ----------
     kde_data : `kalepy.KDE` instance, (D,N) array_like of scalars, or `None`
         * instance of `kalepy.kde.KDE`, providing the data and KDE to be plotted.
           In this case the `param` argument selects which dimension/parameter is plotted if
@@ -1385,8 +1385,8 @@ def dist2d(kde_data, ax=None, edges=None, weights=None, params=[0, 1], quantiles
     * `mask_below` : mask out (ignore) histogram bins below a certain value.
 
 
-    Arguments
-    ---------
+    Parameters
+    ----------
     kde_data : `kalepy.KDE` instance, or (D,N) array_like of scalars
         * instance of `kalepy.kde.KDE`, providing the data and KDE to be plotted.
           In this case the `param` argument selects which dimension/parameter is plotted if
@@ -1647,8 +1647,8 @@ def hist1d(data, edges=None, ax=None, weights=None, density=False, probability=F
     This is a thin wrapper around the `kalepy.plot.draw_hist1d()` method which draws a histogram
     that has already been computed (e.g. with `kalepy.utils.histogram` or `numpy.histogram`).
 
-    Arguments
-    ---------
+    Parameters
+    ----------
     data : (N,) array_like of scalar, data to be histogrammed.
 
     edges : object specifying historgam edge locations; or `None`
@@ -1713,8 +1713,8 @@ def hist2d(data, edges=None, ax=None, weights=None, mask_below=False, **kwargs):
     This is a thin wrapper around the `kalepy.plot.draw_hist2d()` method which draws a 2D histogram
     that has already been computed (e.g. with `numpy.histogram2d`).
 
-    Arguments
-    ---------
+    Parameters
+    ----------
     data : (2, N) array_like of scalar, data to be histogrammed.
 
     edges : object specifying historgam edge locations; or `None`

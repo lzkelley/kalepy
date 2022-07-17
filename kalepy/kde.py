@@ -3,7 +3,6 @@
 Contents:
 
 - :class:`KDE <kalepy.kde.KDE>` : class for interfacing with KDEs and derived functionality.
-
 """
 import logging
 import six
@@ -39,7 +38,7 @@ class KDE:
         The `pdf` and `resample` methods accept the keyword-argument (kwarg) `reflect` to specify
         that a reflecting boundary should be used.
 
-        reflect : (D,) array_like, None (default)
+        reflect : (D,) array_like, None
             Locations at which reflecting boundary conditions should be imposed.
             For each dimension `D`, a pair of boundary locations (for: lower, upper) must be
             specified, or `None`.  `None` can also be given to specify no boundary at that
@@ -109,7 +108,7 @@ class KDE:
     >>> ll = plt.plot(xx, pdf_kde, 'r-', label='KDE')
     >>> ll = plt.legend()
 
-    Compare the KDE reconstructed PDF to the "true" PDF, make sure the chi-squared is consistent:
+    Compare the KDE reconstructed PDF to the true PDF, make sure the chi-squared is consistent:
 
     >>> dof = xx.size - 1
     >>> x2 = np.sum(np.square(pdf_kde - pdf_tru)/pdf_tru**2)
@@ -138,40 +137,33 @@ class KDE:
                  neff=None, diagonal=False, helper=True, bw_rescale=None, **kwargs):
         """Initialize the `KDE` class with the given dataset and optional specifications.
 
-        Arguments
-        ---------
+        Parameters
+        ----------
         dataset : array_like (N,) or (D,N,)
             Dataset from which to construct the kernel-density-estimate.
-            For multivariate data with `D` variables and `N` values, the data must be shaped (D,N).
-            For univariate (D=1) data, this can be a single array with shape (N,).
-
         bandwidth : str, float, array of float, None  [optional]
             Specification for the bandwidth, or the method by which the bandwidth should be
             determined.  If a `str` is given, it must match one of the standard bandwidth
             determination methods.  If a `float` is given, it is used as the bandwidth in each
-            dimension.  If an array of `float`s are given, then each value will be used as the
+            dimension.  If an array of `float` are given, then each value will be used as the
             bandwidth for the corresponding data dimension.
-
         weights : array_like (N,), None  [optional]
             Weights corresponding to each `dataset` point.  Must match the number of points `N` in
             the `dataset`.
             If `None`, weights are uniformly set to 1.0 for each value.
-
         kernel : str, Distribution, None  [optional]
             The distribution function that should be used for the kernel.  This can be a `str`
             specification that must match one of the existing distribution functions, or this can
             be a `Distribution` subclass itself that overrides the `_evaluate` method.
-
         neff : int, None  [optional]
             An effective number of datapoints.  This is used in the plugin bandwidth determination
             methods.
             If `None`, `neff` is calculated from the `weights` array.  If `weights` are all
             uniform, then `neff` equals the number of datapoints `N`.
-
         diagonal : bool,
             Whether the bandwidth/covariance matrix should be set as a diagonal matrix
             (i.e. without covariances between parameters).
-            NOTE: see `KDE` docstrings, "Dynamic Range".
+            NOTE: see `KDE` docstrings, 'Dynamic Range'.
 
         """
 
@@ -283,31 +275,28 @@ class KDE:
 
         This method acts as an API to the `Kernel.pdf` method for this instance's `kernel`.
 
-
-        Arguments
-        ---------
+        Parameters
+        ----------
         points : ([D,]M,) array_like of float, or (D,) set of array_like point specifications
             The locations at which the PDF should be evaluated.  The number of dimensions `D` must
             match that of the `dataset` that initialized this class' instance.
             NOTE: If the `params` kwarg (see below) is given, then only those dimensions of the
             target parameters should be specified in `points`.
-
             The meaning of `points` depends on the value of the `grid` argument:
 
-            * `grid=True`  : `points` must be a set of (D,) array_like objects which each give the
-              evaluation points for the corresponding dimension to produce a grid of values.
-              For example, for a 2D dataset,
-              `points=([0.1, 0.2, 0.3], [1, 2])`,
-              would produce a grid of points with shape (3, 2):
-              `[[0.1, 1], [0.1, 2]], [[0.2, 1], [0.2, 2]], [[0.3, 1], [0.3, 2]]`,
-              and the returned values would be an array of the same shape (3, 2).
-
-            * `grid=False` : `points` must be an array_like (D,M) describing the position of `M`
-              sample points in each of `D` dimensions.
-              For example, for a 3D dataset:
-              `points=([0.1, 0.2], [1.0, 2.0], [10, 20])`,
-              describes 2 sample points at the 3D locations, `(0.1, 1.0, 10)` and `(0.2, 2.0, 20)`,
-              and the returned values would be an array of shape (2,).
+              * `grid=True`  : `points` must be a set of (D,) array_like objects which each give the
+                evaluation points for the corresponding dimension to produce a grid of values.
+                For example, for a 2D dataset,
+                `points=([0.1, 0.2, 0.3], [1, 2])`,
+                would produce a grid of points with shape (3, 2):
+                `[[0.1, 1], [0.1, 2]], [[0.2, 1], [0.2, 2]], [[0.3, 1], [0.3, 2]]`,
+                and the returned values would be an array of the same shape (3, 2).
+              * `grid=False` : `points` must be an array_like (D,M) describing the position of `M`
+                sample points in each of `D` dimensions.
+                For example, for a 3D dataset:
+                `points=([0.1, 0.2], [1.0, 2.0], [10, 20])`,
+                describes 2 sample points at the 3D locations, `(0.1, 1.0, 10)` and `(0.2, 2.0, 20)`,
+                and the returned values would be an array of shape (2,).
 
         reflect : (D,) array_like, None
             Locations at which reflecting boundary conditions should be imposed.
@@ -316,17 +305,13 @@ class KDE:
             two locations, to specify no boundary at that location.
             If the data is one-dimensional (D=1), then `reflect` may be shaped as (2,).
             See class docstrings:`Reflection` for more information.
-
         params : int, array_like of int, None
             Only calculate the PDF for certain parameters (dimensions).
             See class docstrings:`Projection` for more information.
-
         grid : bool,
             Evaluate the KDE distribution at a grid of points specified by `points`.
             See `points` argument description above.
-
         probability : bool, normalize the results to sum to unity
-
 
         Returns
         -------
@@ -415,23 +400,19 @@ class KDE:
 
     @classmethod
     def from_hist(cls, bins, hist, bandwidth='bin width', *args, **kwargs):
-        """Alternative constructor using a histogram as input instead of
-        individual data points.
+        """Alternative constructor using a histogram as input instead of individual data points.
 
-        Arguments
-        ---------
+        Parameters
+        ----------
         bins : ([D,]N,) array_like of scalar
             Histogram bins. If using multiple dimensions N can be different
             for different dimensions.
-
         hist : (N,[N,...]) array_like of scalar
             Histogram to construct KDE from. If in multiple dimensions
             dimensions can have different N.
-
         bandwidth : str or float
             Bandwidth. Defaults to width of bin in each dimension. Accepts
             all arguments passed to bandwidth when constructed using __init__.
-
         *args, **kwargs : tuple, dict
             Arguments passed to __init__ constructor.
 
@@ -505,8 +486,8 @@ class KDE:
     def cdf(self, pnts, params=None, reflect=None):
         """Cumulative Distribution Function based on KDE smoothed data.
 
-        Arguments
-        ---------
+        Parameters
+        ----------
         pnts : ([D,]N,) array_like of scalar
             Target evaluation points
 
@@ -539,7 +520,8 @@ class KDE:
 
             self._cdf_grid = (points, cdf)
             self._cdf_func = sp.interpolate.RegularGridInterpolator(
-                *self._cdf_grid, bounds_error=False, fill_value=None)
+                *self._cdf_grid, bounds_error=False, fill_value=None
+            )
 
         # `scipy.interplate.RegularGridInterpolator` expects shape (N,D,) -- so transpose
         pnts = np.asarray(pnts).T
@@ -552,23 +534,20 @@ class KDE:
         The KDE calculates a PDF from the given dataset.  This method draws new, semi-random data
         points from that PDF.
 
-        Arguments
-        ---------
+        Parameters
+        ----------
         size : int, None (default)
             The number of new data points to draw.  If `None`, then the number of `datapoints` is
             used.
-
         keep : int, array_like of int, None (default)
             Parameters/dimensions where the original data-values should be drawn from, instead of
             from the reconstructed PDF.
             TODO: add more information.
-
         reflect : (D,) array_like, None (default)
             Locations at which reflecting boundary conditions should be imposed.
             For each dimension `D`, a pair of boundary locations (for: lower, upper) must be
             specified, or `None`.  `None` can also be given to specify no boundary at that
             location.
-
         squeeze : bool, (default: True)
             If the number of dimensions `D` is one, then return an array of shape (L,) instead of
             (1, L).

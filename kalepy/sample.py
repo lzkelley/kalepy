@@ -23,30 +23,30 @@ class Sample_Grid:
     positions, weighted by probability density.  If `mass` is not given, it is calculated by
     integrating the densities over each bin (using the trapezoid rule).
 
-    ## Process for drawing 'N' samples from the distributon:
+    Process for drawing 'N' samples from the distributon:
+
     1) Using the masses of each bin, the CDF is calculated.
     2) N random values are chosen, and the CDF is inverted to find which bin they correspond to.
-        - The CDF is flattened into 1D to accomodate any dimensionality of grid, and then the chosen
-        bins are re-mapped to ND space.
+       The CDF is flattened into 1D to accomodate any dimensionality of grid, and then the chosen
+       bins are re-mapped to ND space.
     3) Within each bin, the position of each drawn sample is chosen proportionally to the probability
-    density, based on the density-gradient within each cell.
+       density, based on the density-gradient within each cell.
 
     """
 
     def __init__(self, edges, dens, mass=None, scalar_dens=None, scalar_mass=None):
         """Initialize `Sample_Grid` with the given grid edges and probability distribution.
 
-        Arguments
-        ---------
-        edges
+        Parameters
+        ----------
+        edges : array_like
             Bin edges along each dimension.
-        dens : array_like of scalar
+        dens : array_like
             Probability density evaluated at grid edges.
-        mass : array_like of scalar  or  `None`
+        mass : array_like or None
             Probability mass (i.e. number of samples) for each bin.  Evaluated at bin centers or
-            centroids.
-            If no `mass` is given, it is calculated by integrating `dens` over each bin using the
-            trapezoid rule.  See: `_init_data()`.
+            centroids.  If no `mass` is given, it is calculated by integrating `dens` over each bin
+            using the trapezoid rule.  See: `_init_data()`.
 
         """
         dens = np.asarray(dens)
@@ -110,8 +110,8 @@ class Sample_Grid:
     def sample(self, nsamp=None, interpolate=True, return_scalar=None):
         """Sample from the probability distribution.
 
-        Arguments
-        ---------
+        Parameters
+        ----------
         nsamp : scalar or None
         interpolate : bool
         return_scalar : bool
@@ -207,8 +207,8 @@ class Sample_Grid:
         uniformly within the bin.  Intrabin locations will later be converted to proportional to
         the probability density (at bin edges).
 
-        Arguments
-        ---------
+        Parameters
+        ----------
         nsamp : int,
             Number of samples to draw.
 
@@ -324,8 +324,8 @@ class Sample_Outliers(Sample_Grid):
     ):
         """Outlier sample the distribution.
 
-        Arguments
-        ---------
+        Parameters
+        ----------
         poisson_inside : bool,
 
         Returns
@@ -402,14 +402,13 @@ class Sample_Outliers(Sample_Grid):
 def sample_grid(edges, dens, nsamp=None, mass=None, scalar_dens=None, scalar_mass=None, squeeze=None, **sample_kwargs):
     """Draw samples following the given distribution.
 
-    Arguments
-    ---------
+    Parameters
+    ----------
     edges : (D,) list/tuple of array_like,
         Edges of the (parameter space) grid.  For `D` dimensions, this is a list/tuple of D
         entries, where each entry is an array_like of scalars giving the grid-points along
-        that dimension.
-        e.g. if edges=([x, y], [a, b, c]) is a (2x3) dim array with coordinates
-             [(x,a), (x,b), (x,c)], [(y,a), (y,b), (y,c)]
+        that dimension.  For example, `edges=([x, y], [a, b, c])` is a (2x3) dim array with
+        coordinates: `[(x,a), (x,b), (x,c)], [(y,a), (y,b), (y,c)]`.
     dist : (N1,...,ND) array_like of scalar,
         Distribution values specified at either the grid edges, or grid centers.
         e.g. for the (2x3) example above, `dist` should be either (2,3) or (1, 2)
@@ -503,8 +502,8 @@ def _intrabin_linear_interp(edge, wid, loc, bidx, grad):
     The form of the PDF across each bin is assumed to be linear, and the CDF is inverted to convert from the random
     uniform positions (given by `loc`) to random-linear positions.
 
-    Arguments
-    ---------
+    Parameters
+    ----------
         edge : (X+1,) ndarray of scalar,
             Location of grid edges in this dimension.  For a number `X` of bins, there are `X+1` edges.
         wid : (X,) ndarray of scalar,

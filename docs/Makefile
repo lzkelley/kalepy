@@ -3,7 +3,9 @@
 
 # You can set these variables from the command line, and also
 # from the environment for the first two.
-SPHINXOPTS    ?=
+# SPHINXOPTS    ?=
+SPHINXOPTS    ?= -W --keep-going -n      # FAIL on errors, but finish build attempt
+# SPHINXOPTS    ?= -W -n      # FAIL on errors
 SPHINXBUILD   ?= sphinx-build
 SOURCEDIR     = source
 BUILDDIR      = build

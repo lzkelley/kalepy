@@ -228,8 +228,8 @@ def cumsum(vals, axis=None):
 
     See: https://stackoverflow.com/a/60647166/230468
 
-    Arguments
-    ---------
+    Parameters
+    ----------
     vals : array_like of scalar
         Input values to sum over.
     axis : None or int
@@ -257,8 +257,8 @@ def cumsum(vals, axis=None):
 def cumtrapz(pdf, edges, prepend=True, axis=None):
     """Perform a cumulative integration using the trapezoid rule.
 
-    Arguments
-    ---------
+    Parameters
+    ----------
     pdf : array_like of scalar
         Input values (e.g. a PDF) to be integrated.
     edges : [D,] list of (array_like of scalar)
@@ -329,8 +329,8 @@ def midpoints(arr, log=False, axis=-1, squeeze=False):
 
     If the given array is N-dimensional, midpoints are calculated from the last dimension.
 
-    Arguments
-    ---------
+    Parameters
+    ----------
     arr : ndarray of scalars,
         Input array.
     log : bool or None,
@@ -480,13 +480,13 @@ def quantiles(values, percs=None, sigmas=None, weights=None, axis=None, values_s
     Taken from `zcode.math.statistics`
     Based on @Alleo answer: http://stackoverflow.com/a/29677616/230468
 
-    Arguments
-    ---------
+    Parameters
+    ----------
     values: (N,)
         input data
-    percs: (M,) scalar [0.0, 1.0]
-        Desired percentiles of the data.
-    weights: (N,) or `None`
+    percs: (M,) scalar
+        Desired percentiles of the data, within range [0.0, 1.0].
+    weights: (N,) or None
         Weighted for each input data point in `values`.
     values_sorted: bool
         If True, then input values are assumed to already be sorted.
@@ -539,8 +539,8 @@ def really1d(arr):
     Test whether the input array is uniformly one-dimensional, as apposed to (e.g.) a ``ndim == 1``
     list or array of irregularly shaped sub-lists/sub-arrays.  True for an empty list `[]`.
 
-    Arguments
-    ---------
+    Parameters
+    ----------
     arr : array_like
         Array to be tested.
 
@@ -719,8 +719,8 @@ def stats_str(data, percs=[0.0, 0.16, 0.50, 0.84, 1.00], ave=False, std=False, w
               format=None, log=False, label_log=True):
     """Return a string with the statistics of the given array.
 
-    Arguments
-    ---------
+    Parameters
+    ----------
     data : ndarray of scalar
         Input data from which to calculate statistics.
     percs : array_like of scalars in {0, 100}
@@ -734,8 +734,8 @@ def stats_str(data, percs=[0.0, 0.16, 0.50, 0.84, 1.00], ave=False, std=False, w
     log : bool
         Convert values to log10 before printing.
 
-    Output
-    ------
+    Returns
+    -------
     out : str
         Single-line string of the desired statistics.
 
@@ -791,8 +791,8 @@ def stats_str(data, percs=[0.0, 0.16, 0.50, 0.84, 1.00], ave=False, std=False, w
 def subdivide(xx, num=1, log=False):
     """Subdivide the giving array (e.g. bin edges) by the given factor.
 
-    Arguments
-    ---------
+    Parameters
+    ----------
     xx : (X,) array_like of scalar,
         Input array to be subdivided.
     num : int,
@@ -803,7 +803,7 @@ def subdivide(xx, num=1, log=False):
 
     Returns
     -------
-    div : (X * `num`+1,) ndarray of float
+    div : (X * num+1,) ndarray of float
         Subdivided array with a number of elements equal to the length of the input array 'X' times one plus the
         subdivision factor `num`.
 
@@ -849,8 +849,8 @@ def trapz_nd(data, edges, axis=None):
 def trapz_dens_to_mass(pdf, edges, axis=None):
     """Convert from density to mass, for values on the corner of a grid, using the trapezoid rule.
 
-    Arguments
-    ---------
+    Parameters
+    ----------
     pdf : array_like
         Density values, computed at the grid edges specified by the `edges` list-of-lists.
     edges : array_like of array_like
@@ -987,8 +987,8 @@ def _midpoints_1d(arr, axis=-1):
 
     If the given array is N-dimensional, midpoints are calculated from the last dimension.
 
-    Arguments
-    ---------
+    Parameters
+    ----------
     arr : ndarray of scalars,
         Input array.
     frac : float,
@@ -1031,8 +1031,8 @@ def _midpoints_1d(arr, axis=-1):
 def _get_edges_1d(edges, data, extrema, ndim, nmin, nmax, pad, weights=None, refine=1.0, bw=None):
     """
 
-    Arguments
-    ---------
+    Parameters
+    ----------
     edges : None, int, or array or scalar
         Specification for bin-edges.
         `None` : number of bins is automatically calculated from `data`

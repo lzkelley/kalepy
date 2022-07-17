@@ -1,28 +1,4 @@
 """Kernal basis functions for KDE calculations, used by `kalepy.kde.KDE` class.
-
-Contents:
-
-- :class:`Kernel <kalepy.kernels.Kernel>` :
-  class performing the numerical/mathematical functions of a KDE using a particular kernel-function.
-
-- :class:`Distribution <kalepy.kernels.Distribution>` :
-  base class for kernel-function functionality
-
-- :class:`Gaussian(Distribution) <kalepy.kernels.Gaussian>` :
-  class for Gaussian kernel functions
-
-- :class:`Box_Asym(Distribution) <kalepy.kernels.Box_Asym>` :
-  class for box (top-hat) kernel functions
-
-- :class:`Parabola(Distribution) <kalepy.kernels.Parabola>` :
-  class for parabolic (Epanechnikov) kernel functions
-
-- :func:`get_distribution_class <kalepy.kernels.get_distribution_class>` :
-  returns the appropriate `Distribution` subclass matching the given string specification.
-
-- :func:`get_all_distribution_classes <kalepy.kernels.get_all_distribution_classes>` :
-  returns a list of active `Distribution` subclasses (used for testing).
-
 """
 import logging
 import abc
@@ -76,8 +52,8 @@ class Kernel(object):
     def density(self, points, data, weights=None, reflect=None, params=None):
         """Calculate the Density Function using this Kernel.
 
-        Arguments
-        ---------
+        Parameters
+        ----------
         points : (D, N), 2darray of float,
             `N` points at which to evaluate the density function over `D` parameters (dimensions).
             Locations must be specified for each dimension of the data, or for each of target

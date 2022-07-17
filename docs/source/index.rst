@@ -12,7 +12,7 @@ Introduction
 .. |rtd| image:: https://readthedocs.org/projects/kalepy/badge/?version=latest
 .. |joss| image:: https://joss.theoj.org/papers/10.21105/joss.02784/status.svg
    :target: https://doi.org/10.21105/joss.02784
-   
+
 .. image:: https://raw.githubusercontent.com/lzkelley/kalepy/dev/docs/media/logo_anim_small.gif
 
 .. contents:: :local:
@@ -38,11 +38,12 @@ Quickstart
 ----------
 
 | Basic examples are shown below.
-| `The top-level API is documented here, with many KDE and plotting examples, <api.html>`_
+| `The top-level API for KDE is here, <kde_api.html>`_
+| `and for plotting is here, <plot_api.html>`_
 | `The README file on github also includes installation and quickstart examples. <https://github.com/lzkelley/kalepy/blob/master/README.md>`_
 
 One dimensional kernel density estimation:
-******************************************
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. code-block:: python
 
@@ -56,7 +57,7 @@ One dimensional kernel density estimation:
 
 
 One dimensional resampling:
-***************************
+^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. code-block:: python
 
@@ -68,7 +69,7 @@ One dimensional resampling:
 
 
 Multi-dimensional kernel density estimation:
-********************************************
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. code-block:: python
 
@@ -89,10 +90,11 @@ A number of examples are included in `the package notebooks <https://github.com/
 .. toctree::
    :maxdepth: 2
    :caption: Contents:
-   
-   introduction <index>
-   kalepy API <api>
-   Full Package Documentation <kalepy>
+
+   Kernel Density Estimation (KDE) API <kde_api>
+   Plotting API <plot_api>
+   Full Package Documentation <apidoc_modules/kalepy>
+   Modules list <apidoc_modules/modules>
 
 
 Development & Contributions
@@ -128,9 +130,9 @@ A JOSS paper has been published on the `kalepy` package.  If you have found this
       journal = {Journal of Open Source Software}
     }
 
-.. Indices and tables
-.. ==================
-.. 
-.. * :ref:`genindex`
-.. * :ref:`modindex`
-.. * :ref:`search`
+Indices and tables
+==================
+
+* :ref:`genindex`
+* :ref:`modindex`
+* :ref:`search`
