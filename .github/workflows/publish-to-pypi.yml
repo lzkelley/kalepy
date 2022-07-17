@@ -10,7 +10,12 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - name: git checkout repository main
-      uses: actions/checkout@main
+      uses: actions/checkout@v3
+
+    - name: check github reference for tags
+      run: |
+        echo "github.ref = ${{ github.ref }}, github.ref_type = ${{ github.ref_type }}"
+        echo "github.repository = ${{ github.repository }}, github.event_name = ${{ github.event_name }} "
 
     - name: Set up Python 3.10
       uses: actions/setup-python@v3
@@ -23,8 +28,14 @@ jobs:
     - name: Build a binary wheel and a source tarball
       run: python -m build --sdist --wheel --outdir dist/ .
 
+    # - name: Publish distribution to Test PyPI
+    #   uses: pypa/gh-action-pypi-publish@master
+    #   with:
+    #     password: ${{ secrets.TEST_PYPI_API_TOKEN }}
+    #     repository_url: https://test.pypi.org/legacy/
+
     - name: Publish distribution to PyPI
-      if: startsWith(github.ref, 'refs/tags')
+      # if: github.repository == 'lzkelley/kalepy' && startsWith(github.ref, 'refs/tags/v')   # THIS DOESNT WORK!
       uses: pypa/gh-action-pypi-publish@master
       with:
         password: ${{ secrets.PYPI_API_TOKEN }}
