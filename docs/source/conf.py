@@ -54,6 +54,7 @@ templates_path = ['_templates']
 # This pattern also affects html_static_path and html_extra_path.
 exclude_patterns = []
 
+# NOTE: `numpy` is actually needed, otherwise things break
 autodoc_mock_imports = ['pytest', 'scipy', 'six', 'matplotlib', 'numba']
 
 # -- Options for HTML output -------------------------------------------------
@@ -84,6 +85,7 @@ intersphinx_mapping = {
 }
 
 numpydoc_show_class_members = False
+
 # Report warnings for all validation checks
 # numpydoc_validation_checks = {"all"}
 
