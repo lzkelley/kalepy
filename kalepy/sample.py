@@ -286,7 +286,7 @@ class Sample_Outliers(Sample_Grid):
         #     recalculate the CDF `csum`, zeroing out the values above threshold
         sel_ins = (mass_outs > threshold)
         mass_outs[sel_ins] = 0.0
-        idx, csum = _data_to_cumulative(mass_outs, prefilter=False)
+        idx, csum = _data_to_cumulative(mass_outs)
         self._idx = idx
         self._csum = csum
 
@@ -558,24 +558,30 @@ def _intrabin_linear_interp(edge, wid, loc, bidx, grad):
     return vals
 
 
-def _data_to_cumulative(mass, prefilter=False):
+def _data_to_cumulative(mass):
+    """Calculate the cumulative mass-distribution.
+
+    Arguments
+    ---------
+    mass : ndarray
+        Mass distribution over grid.
+
+    Returns
+    -------
+    idx : (N,) array
+        Indexing array to sort `mass.flat`.
+    csum : (N+1,) array
+        Cumulative sum over the flattened mass array.  A zeroth element equal to zero is added.
+        `csum[0]` is guaranteed to be zero.  If any elements of `mass` are non-zero, then `csum[-1]`
+        is guaranteed to be equal to unity.
+
+    """
+
     # Convert to flat (1D) array of values
     mass = mass.flat
 
-    # sort in order of probability
-    if prefilter:
-        logging.warning("WARNING: `prefilter`=True has not been tested in `_data_to_cumulative()`!!")
-        csum = np.zeros_like(mass)
-        mass = mass[mass > 0.0]
-        mnum = mass.size
-        beg = csum.size - mnum
-        # print(f"{mnum=}, {beg=}")
-        idx = np.argsort(mass)
-        csum[beg:] = mass[idx]
-        idx = np.concatenate([np.arange(beg), idx + beg])
-    else:
-        idx = np.argsort(mass)
-        csum = mass[idx]
+    idx = np.argsort(mass)
+    csum = mass[idx]
 
     # find cumulative distribution and normalize to [0.0, 1.0]
     csum = np.cumsum(csum)
