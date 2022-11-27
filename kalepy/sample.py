@@ -19,9 +19,10 @@ class Sample_Grid:
     """Sample from a given probability distribution evaluated on a regular grid.
 
     The grid has probability densities (`dens`) evaluated at the grid edges, and probability masses
-    (`mass`) corresponding to the centroid of each bin.  The centroids are calculated from the edge
-    positions, weighted by probability density.  If `mass` is not given, it is calculated by
-    integrating the densities over each bin (using the trapezoid rule).
+    (`mass`), which are the densities integrated over each bin, that correspond to bin centroids.
+    The centroids are calculated from the edge positions, weighted by probability density.
+    If `mass` is not given, it is calculated by integrating the densities over each bin (using the
+    trapezoid rule).
 
     Process for drawing 'N' samples from the distributon:
 
@@ -102,10 +103,39 @@ class Sample_Grid:
         if (self._scalar_mass is None) and (self._scalar_dens is not None):
             self._scalar_mass = utils.trapz_dens_to_mass(self._scalar_dens, self._edges, axis=None)
 
-        idx, csum = _data_to_cumulative(self._mass)
+        idx, csum = self._data_to_cumulative(self._mass)
         self._idx = idx
         self._csum = csum
         return
+
+    def _data_to_cumulative(self, mass):
+        """Calculate the cumulative mass-distribution.
+
+        Arguments
+        ---------
+        mass : ndarray
+            Mass distribution over grid.
+
+        Returns
+        -------
+        idx : (N,) array
+            Indexing array to sort `mass.flat`.
+        csum : (N+1,) array
+            Cumulative sum over the flattened mass array.  A zeroth element equal to zero is added.
+            `csum[0]` is guaranteed to be zero.  If any elements of `mass` are non-zero, then `csum[-1]`
+            is guaranteed to be equal to unity.
+
+        """
+        # Convert to flat (1D) array of values
+        mass = mass.flat
+
+        idx = np.argsort(mass)
+        csum = mass[idx]
+
+        # find cumulative distribution and normalize to [0.0, 1.0]
+        csum = np.cumsum(csum)
+        csum = np.concatenate([[0.0], csum/csum[-1]])
+        return idx, csum
 
     def sample(self, nsamp=None, interpolate=True, return_scalar=None):
         """Sample from the probability distribution.
@@ -153,7 +183,7 @@ class Sample_Grid:
         # Choose random bins, proportionally to `mass`, and positions within bins (uniformly distributed)
         #     `bin_numbers_flat` (N*D,) are the index numbers for bins in flattened 1D array of length N*D
         #     `intrabin_locs` (D, N) are position [0.0, 1.0] within each bin for each sample in each dimension
-        bin_numbers_flat, intrabin_locs = self._random_bins(nsamp)
+        bin_numbers_flat, intrabin_locs = self._random_bins(self._idx, self._csum, self._ndim, nsamp)
         # Convert from flat (N,) indices into ND indices;  (D, N) for D dimensions, N samples (`nsamp`)
         bin_numbers = np.unravel_index(bin_numbers_flat, self._shape_bins)
 
@@ -200,7 +230,7 @@ class Sample_Grid:
 
         return vals
 
-    def _random_bins(self, nsamp: int):
+    def _random_bins(self, idx, csum, ndim: int, nsamp: int):
         """Choose bins and intrabin locations proportionally to the distribution.
 
         Choose bins proportionally to the probability mass (bin centroids), and intra-bin locations
@@ -209,24 +239,30 @@ class Sample_Grid:
 
         Parameters
         ----------
+        idx : array,
+            Indices to sort the flattened probability mass array.
+            i.e. ``idx = np.argsort(mass.flat)``
+        csum : array,
+            1D Cumulative summation over probability mass distribution.
+        ndim : int,
+            Number of dimensions in parameter space.
         nsamp : int,
             Number of samples to draw.
 
         Returns
         -------
-        bin_numbers_flat :
-        intrabin_locs :
+        bin_numbers_flat : (N*D,) array,
+            The index numbers for bins in flattened 1D array of length N*D.
+        intrabin_locs : (D, N) array,
+            The position [0.0, 1.0] within each bin for each sample in each dimension.
 
         """
-        csum = self._csum
-        idx = self._idx
 
         # Draw random values
         #     random number for location in CDF (to determine which bin each value belongs in),
         #     and additional random for position in each dimension of bin
-        sh = (1+self._ndim, nsamp)
+        sh = (1 + ndim, nsamp)
         rand = np.random.uniform(0.0, 1.0, sh)
-        # np.random.shuffle(rand)    # extra-step to avoid (rare/unlikely) structure in "random" data
 
         # `rand` shape: (N,) for N samples
         # `intrabin_locs` shape: (D, N) for D dimensions of data and N samples
@@ -286,7 +322,7 @@ class Sample_Outliers(Sample_Grid):
         #     recalculate the CDF `csum`, zeroing out the values above threshold
         sel_ins = (mass_outs > threshold)
         mass_outs[sel_ins] = 0.0
-        idx, csum = _data_to_cumulative(mass_outs)
+        idx, csum = self._data_to_cumulative(mass_outs)
         self._idx = idx
         self._csum = csum
 
@@ -397,6 +433,117 @@ class Sample_Outliers(Sample_Grid):
             weights = np.concatenate([weights, np.ones(nsamp_out, dtype=weights.dtype)])
 
         return nsamp, vals, weights
+
+
+class Sample_Grid_Mass(Sample_Grid):
+    """Sample from a given distribution such that a fixed number of points are drawn from each bin.
+
+    This class behaves mostly in the same way as `Sample_Grid`.  The only difference is in the
+    number of points drawn from each bin.  While `Sample_Grid` chooses a number of points
+    proportionally to the probability-mass in that bin, this class instead will choose exactly the
+    number of points equal to the probability mass (rounded to an integer).  Within each bin, the
+    sample points are still placed randomly, proportionally to the probability distribution.
+
+    Passive scalars are not currently implemented on the grid.
+
+    """
+
+    def __init__(self, edges, dens, mass=None):
+        if mass is None:
+            logging.warning("`mass` is None, calculating from `dens`")
+            logging.warning("WARNING: the mass values will be rounded to integers for sampling!")
+            mass = utils.trapz_dens_to_mass(dens, edges, axis=None)
+
+        mass = np.asarray(mass).astype(int)
+        super().__init__(edges, dens, mass=mass)
+        return
+
+    def _init_data(self):
+        idx, csum = self._data_to_cumulative(self._mass)
+        self._idx = idx
+        self._csum = csum.astype('int')
+        return
+
+    def _data_to_cumulative(self, mass):
+        """Calculate the cumulative mass-distribution.
+
+        Arguments
+        ---------
+        mass : ndarray
+            Mass distribution over grid.
+
+        Returns
+        -------
+        idx : (N,) array
+            Indexing array to sort `mass.flat`.
+        csum : (N,) array
+            Cumulative sum over the flattened mass array.
+
+        """
+        # Convert to flat (1D) array of values
+        mass = mass.flat
+
+        idx = np.argsort(mass)
+        csum = mass[idx]
+
+        # find cumulative mass distribution, used for placing samples in bins.
+        csum = np.cumsum(csum)
+        return idx, csum
+
+    def sample(self, interpolate=True):
+        """Sample from the probability distribution.
+
+        Parameters
+        ----------
+        interpolate : bool
+
+        Returns
+        -------
+        vals : (D, N) ndarray of scalar
+
+        """
+        # number of sample *must* be equal to the total probability mass
+        nsamp = self._csum[-1]
+        return super().sample(nsamp=nsamp, interpolate=interpolate, return_scalar=False)
+
+    def _random_bins(self, idx, csum, ndim: int, nsamp: int):
+        """Choose exactly `mass` samples in each bin, and place them proportionally to probability.
+
+        Parameters
+        ----------
+        idx : array,
+            Indices to sort the flattened probability mass array.
+            i.e. ``idx = np.argsort(mass.flat)``
+        csum : array,
+            1D Cumulative summation over probability mass distribution.
+        ndim : int,
+            Number of dimensions in parameter space.
+        nsamp : int,
+            Number of samples to draw.
+
+        Returns
+        -------
+        bin_numbers_flat : (N*D,) array,
+            The index numbers for bins in flattened 1D array of length N*D.
+        intrabin_locs : (D, N) array,
+            The position [0.0, 1.0] within each bin for each sample in each dimension.
+
+        """
+        if csum[-1] != nsamp:
+            err = "can only draw `nsamp` equal to the total probability mass!  nsamp={} mtot={}".format(nsamp, csum[-1])
+            raise ValueError(f"{self.__class__} {err}")
+
+        # Draw random values
+        #     random number for location in CDF (to determine which bin each value belongs in),
+        #     and additional random for position in each dimension of bin
+        sh = (ndim, nsamp)
+        intrabin_locs = np.random.uniform(0.0, 1.0, sh)
+
+        # Find which bin each random value should go in
+        aa = np.arange(csum[-1])
+        sorted_bin_num = np.searchsorted(csum, aa, side='right')
+        bin_numbers_flat = idx[sorted_bin_num]
+        return bin_numbers_flat, intrabin_locs
 
 
 def sample_grid(edges, dens, nsamp=None, mass=None, scalar_dens=None, scalar_mass=None, squeeze=None, **sample_kwargs):
@@ -556,35 +703,3 @@ def _intrabin_linear_interp(edge, wid, loc, bidx, grad):
             raise
 
     return vals
-
-
-def _data_to_cumulative(mass):
-    """Calculate the cumulative mass-distribution.
-
-    Arguments
-    ---------
-    mass : ndarray
-        Mass distribution over grid.
-
-    Returns
-    -------
-    idx : (N,) array
-        Indexing array to sort `mass.flat`.
-    csum : (N+1,) array
-        Cumulative sum over the flattened mass array.  A zeroth element equal to zero is added.
-        `csum[0]` is guaranteed to be zero.  If any elements of `mass` are non-zero, then `csum[-1]`
-        is guaranteed to be equal to unity.
-
-    """
-
-    # Convert to flat (1D) array of values
-    mass = mass.flat
-
-    idx = np.argsort(mass)
-    csum = mass[idx]
-
-    # find cumulative distribution and normalize to [0.0, 1.0]
-    csum = np.cumsum(csum)
-    temp = 1.0 if csum[-1] == 0.0 else csum[-1]
-    csum = np.concatenate([[0.0], csum/temp])
-    return idx, csum
