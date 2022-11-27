@@ -921,11 +921,11 @@ def trapz_dens_to_mass(pdf, edges, axis=None):
         temp = wid[tuple(cut)]
         widths.append(temp)
 
+    volumes = functools.reduce(np.multiply, widths)
+    '''
     # Multiply the widths along each dimension to get the volume of each grid cell
     # `np.product` fails when a dimension has length 1, do manual operation if so
     # See: https://github.com/numpy/numpy/issues/20612
-    volumes = functools.reduce(np.multiply, widths)
-    '''
     print(f"reduce: {volumes.shape=}")
     try:
         volumes = np.product(np.array(widths, dtype=object), axis=0).astype(float)
