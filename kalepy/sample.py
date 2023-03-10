@@ -307,8 +307,9 @@ class Sample_Outliers(Sample_Grid):
 
     """
 
-    def __init__(self, edges, dens, threshold=10.0, **kwargs):
+    def __init__(self, edges, dens, threshold=10.0, bin_centers=True, **kwargs):
         super().__init__(edges, dens, **kwargs)
+        logging.warning(f"NOTE: {self.__class__}.__init__() :: {bin_centers=}")
 
         # ---- Prepare 'outlier' data (mass below threshold value)
 
@@ -332,9 +333,16 @@ class Sample_Outliers(Sample_Grid):
         mass_ins = np.copy(self._mass)
         mass_ins[~sel_ins] = 0.0
 
+        # ---- Define representative bin centers
+        # Use bin mid-points along each dimension
+        if bin_centers:
+            coms = utils.midpoints(self.grid, axis=np.arange(1, 5), log=False)
+            # coms = np.asarray(coms)
+
         # Find the center-of-mass of each cell (based on density corner values)
         # to use as representative centroids
-        coms = utils.centroids(self._edges, self._dens)
+        else:
+            coms = utils.centroids(self._edges, self._dens)
 
         # Store values
         self._threshold = threshold
@@ -353,11 +361,7 @@ class Sample_Outliers(Sample_Grid):
             self._scalar_mass = utils.trapz_dens_to_mass(self._scalar_dens, self._edges, axis=None)
         return
 
-    def sample(
-        self,
-        poisson_inside=False, poisson_outside=False,
-        **kwargs
-    ):
+    def sample(self, poisson_inside=False, poisson_outside=False, **kwargs):
         """Outlier sample the distribution.
 
         Parameters
