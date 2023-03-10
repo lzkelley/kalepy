@@ -1,4 +1,4 @@
 ipykernel
 nbsphinx
 numpydoc
-numpy
+numpy      # NOTE: `numpy` is required, but many other packages used in `kalepy` can be 'mocked'
