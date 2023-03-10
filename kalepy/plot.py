@@ -154,6 +154,10 @@ class Corner:
         if axes is None:
             fig, axes = _figax(size, **kwfig)
             self.fig = fig
+            if origin[0] == 1:
+                axes = axes[::-1]
+            if origin[1] == 1:
+                axes = axes.T[::-1].T
         else:
             try:
                 self.fig = axes[0, 0].figure
@@ -162,11 +166,6 @@ class Corner:
                 logging.error(msg, exc_info=True)
                 logging.error(str(err), exc_info=True)
                 raise err
-
-        if origin[0] == 1:
-            axes = axes[::-1]
-        if origin[1] == 1:
-            axes = axes.T[::-1].T
 
         self.origin = origin
         self.axes = axes
