@@ -1569,7 +1569,12 @@ def dist2d(kde_data, ax=None, edges=None, weights=None, params=[0, 1], quantiles
             cmap=contour_cmap, zorder=20, ls=ls, outline=outline,
         )
         if handle is None:
-            handle = _handle.collections[-1]
+            hi = 1 if len(_handle.collections) > 0 else 0
+            handle = _handle.collections[hi]
+            # for some reason the above handle is not showing up on legends... create a dummy line
+            # to get a better handle
+            col = handle.get_edgecolor()
+            handle, = ax.plot([], [], color=col)
 
     # Mask dense scatter-points
     if mask_dense:
