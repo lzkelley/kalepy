@@ -39,7 +39,7 @@ def array_str(data, num=3, format=':.2e'):
 
         return temp
 
-    if len(data) <= 2*num:
+    if (num is None) or (len(data) <= 2*num):
         rv = _astr(data)
     else:
         rv = _astr(data[:num]) + " ... " + _astr(data[-num:])
