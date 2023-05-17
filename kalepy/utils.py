@@ -7,7 +7,6 @@ import numpy as np
 import scipy as sp
 import scipy.linalg  # noqa
 
-np.warnings.filterwarnings("error")
 
 # =================================================================================================
 # ====    Primary / API Functions    ====
