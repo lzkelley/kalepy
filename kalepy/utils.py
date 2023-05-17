@@ -7,6 +7,7 @@ import numpy as np
 import scipy as sp
 import scipy.linalg  # noqa
 
+np.warnings.filterwarnings("error")
 
 # =================================================================================================
 # ====    Primary / API Functions    ====
@@ -550,9 +551,11 @@ def really1d(arr):
         Whether `arr` is purely 1D.
 
     """
-    if _ndim(arr) != 1:
-        return False
+    # if _ndim(arr) != 1:
+    #     return False
     # Empty list or array
+    if not np.iterable(arr):
+        return False
     if len(arr) == 0:
         return True
     # Each element must be a scalar
