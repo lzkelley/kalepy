@@ -1,6 +1,6 @@
 # kalepy: Kernel Density Estimation and Sampling
 
-[![CI](https://github.com/lzkelley/kalepy/actions/workflows/main.yml/badge.svg?branch=main)](https://github.com/lzkelley/kalepy/actions/workflows/main.yml)
+[![build](https://github.com/lzkelley/kalepy/actions/workflows/unit-tests-ci.yaml/badge.svg)](https://github.com/lzkelley/kalepy/actions/workflows/unit-tests-ci.yaml)
 [![codecov](https://codecov.io/gh/lzkelley/kalepy/branch/master/graph/badge.svg)](https://codecov.io/gh/lzkelley/kalepy)
 [![Documentation Status](https://readthedocs.org/projects/kalepy/badge/?version=latest)](https://kalepy.readthedocs.io/en/latest/?badge=latest)
 [![DOI](https://joss.theoj.org/papers/10.21105/joss.02784/status.svg)](https://doi.org/10.21105/joss.02784)
