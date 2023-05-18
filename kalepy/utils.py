@@ -1194,7 +1194,10 @@ def _ndim(vals):
     import warnings
     with warnings.catch_warnings():
         warnings.simplefilter("ignore")
-        return np.ndim(vals)
+        try:
+            return np.ndim(vals)
+        except:
+            return np.ndim(np.asarray(vals, dtype=object))
 
 
 def _parse_extrema(data, extrema=None, params=None, warn=True):
