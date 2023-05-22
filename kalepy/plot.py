@@ -1966,26 +1966,30 @@ def _set_corner_axes_extrema(axes, extrema, rotate, pdf=None):
     return extrema
 
 
-def _figax(size, grid=True, left=None, bottom=None, right=None, top=None, hspace=None, wspace=None,
-           **kwfig):
+def _figax(size, fig=None, grid=True, left=None, bottom=None, right=None, top=None, hspace=None, wspace=None,
+           **kwargs):
     """Construct a matplotlib figure and axes with the given parameters.
     """
-    _def_figsize = np.clip(4 * size, 6, 20)
-    _def_figsize = [_def_figsize for ii in range(2)]
+    if fig is None:
+        _def_figsize = np.clip(4 * size, 6, 20)
+        _def_figsize = [_def_figsize for ii in range(2)]
 
-    figsize = kwfig.pop('figsize', _def_figsize)
-    if not np.iterable(figsize):
-        figsize = [figsize, figsize]
+        figsize = kwargs.pop('figsize', _def_figsize)
+        if not np.iterable(figsize):
+            figsize = [figsize, figsize]
+
+        fig = plt.figure(figsize=figsize)
 
     if hspace is None:
         hspace = 0.1
     if wspace is None:
         wspace = 0.1
 
-    fig, axes = plt.subplots(figsize=figsize, squeeze=False, ncols=size, nrows=size, **kwfig)
+    axes = fig.subplots(squeeze=False, ncols=size, nrows=size, **kwargs)
 
     plt.subplots_adjust(
-        left=left, bottom=bottom, right=right, top=top, hspace=hspace, wspace=wspace)
+        left=left, bottom=bottom, right=right, top=top, hspace=hspace, wspace=wspace
+    )
     if grid is True:
         grid = dict(alpha=0.2, color='0.5', lw=0.5)
     elif grid is False:
