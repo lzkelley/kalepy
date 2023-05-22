@@ -2048,27 +2048,6 @@ def _parse_kde_data(kde_data, weights=None):
     return kde, data, weights
 
 
-def _parse_color_cmap(ax=None, color=None, cmap=None):
-    """Set `color` and `cmap` values appropriately.
-    """
-    if (color is None) and (cmap is None):
-        if ax is None:
-            ax = plt.gca()
-        color = _get_next_color(ax)
-        cmap = _color_to_cmap(color)
-    elif (color is None):
-        try:
-            cmap = plt.get_cmap(cmap)
-        except ValueError:
-            cmap = mpl.colors.ListedColormap(cmap)
-
-        color = cmap(0.5)
-    else:
-        cmap = _color_to_cmap(color)
-
-    return color, cmap
-
-
 def _parse_origin(origin):
     if len(origin) != 2:
         raise ValueError("`origin`={} must be two characters long!".format(origin))
@@ -2172,6 +2151,27 @@ def _get_outline_effects(lw=2.0, fg='0.75', alpha=0.8):
         mpl.patheffects.Normal()
     ])
     return outline
+
+
+def _parse_color_cmap(ax=None, color=None, cmap=None):
+    """Set `color` and `cmap` values appropriately.
+    """
+    if (color is None) and (cmap is None):
+        if ax is None:
+            ax = plt.gca()
+        color = _get_next_color(ax)
+        cmap = _color_to_cmap(color)
+    elif (color is None):
+        try:
+            cmap = plt.get_cmap(cmap)
+        except ValueError:
+            cmap = mpl.colors.ListedColormap(cmap)
+
+        color = cmap(0.5)
+    else:
+        cmap = _color_to_cmap(color)
+
+    return color, cmap
 
 
 def _get_next_color(ax):
