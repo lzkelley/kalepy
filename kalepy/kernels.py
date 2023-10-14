@@ -765,14 +765,14 @@ def _check_reflect(reflect, data, weights=None, helper=False):
     return reflect
 
 
-@numba.njit
+@numba.njit(parallel=True)
 def _evaluate_numba(white, data, points, weights, kfunc):
     ndim, ndata = data.shape
     _, npoints = points.shape
     zz = np.zeros(npoints)
-    for ii in range(npoints):
+    for ii in numba.prange(npoints):
         # Sum over kernels for each `data`-value at this sample-`point`
-        for jj in range(ndata):
+        for jj in numba.prange(ndata):
             y2ij = 0.0
             # Calculate Euclidean distance between whitened-data and whitened-points
             for kk in range(ndim):

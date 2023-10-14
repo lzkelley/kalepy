@@ -10,6 +10,8 @@ import copy
 
 import numpy as np
 import scipy as sp
+import numba
+from multiprocessing import cpu_count
 
 from kalepy import kernels, utils, _NUM_PAD
 from kalepy import _BANDWIDTH_DEFAULT
@@ -134,7 +136,7 @@ class KDE:
 
     def __init__(self, dataset, bandwidth=None, weights=None, kernel=None,
                  extrema=None, points=None, reflect=None, covariance=None,
-                 neff=None, diagonal=False, helper=True, bw_rescale=None, **kwargs):
+                 neff=None, diagonal=False, helper=True, bw_rescale=None, njobs=4, **kwargs):
         """Initialize the `KDE` class with the given dataset and optional specifications.
 
         Parameters
@@ -164,6 +166,10 @@ class KDE:
             Whether the bandwidth/covariance matrix should be set as a diagonal matrix
             (i.e. without covariances between parameters).
             NOTE: see `KDE` docstrings, 'Dynamic Range'.
+
+        njobs : int [optional]
+            Max number of threads for parallel execution.
+
 
         """
 
@@ -261,6 +267,18 @@ class KDE:
         # `eff_extrema` is, by design, outside of data limits, so don't `warn` about limits
         extrema = utils._parse_extrema(eff_extrema, extrema, warn=False)
         self._extrema = extrema
+
+        # set max threads to numba
+        if not isinstance(njobs, int):
+            njobs = int(njobs)
+
+        # set -1 to use the available number of threads
+        if njobs == -1:
+            njobs = cpu_count()
+        elif njobs > cpu_count():
+            njobs = cpu_count()
+
+        numba.set_num_threads(njobs)
 
         # Finish Intialization
         # -------------------------------
