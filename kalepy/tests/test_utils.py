@@ -486,7 +486,7 @@ class Test_Midpoints(object):
             assert np.all(tr == vals)
 
         shp = (4, 5)
-        test = np.random.uniform(-1.0, 1.0, np.product(shp)).reshape(shp)
+        test = np.random.uniform(-1.0, 1.0, np.prod(shp)).reshape(shp)
         for ii in range(2):
             vals = utils.midpoints(test, log=False, axis=ii)
 
@@ -521,7 +521,7 @@ class Test_Midpoints(object):
             assert np.allclose(tr, vals)
 
         shp = (4, 5)
-        test_log = np.random.uniform(-2.0, 2.0, np.product(shp)).reshape(shp)
+        test_log = np.random.uniform(-2.0, 2.0, np.prod(shp)).reshape(shp)
         test_lin = 10**test_log
         for ii in range(2):
             # Make sure `midpoints` gives consistent results itself
@@ -638,7 +638,7 @@ class Test_Trapz(object):
             vals = norm * np.ones(shp)
             tot = utils.trapz_nd(vals, edges)
 
-            truth = np.product(np.diff(extr, axis=-1)) * norm
+            truth = np.prod(np.diff(extr, axis=-1)) * norm
             print("\t{:.4e} vs {:.4e}".format(tot, truth))
             assert np.allclose(tot, truth)
 
@@ -674,7 +674,7 @@ class Test_Trapz_Dens_To_Mass:
         xx = np.min(np.moveaxis(grid, 0, -1)/lengths, axis=-1)
 
         pdf = norm * xx
-        area = np.product(lengths)
+        area = np.prod(lengths)
         pmf = utils.trapz_dens_to_mass(pdf, edges)
 
         # Known area of a pyramid in ndim
@@ -773,7 +773,7 @@ class Test_Trapz_Dens_To_Mass:
                 temp = wid[tuple(cut)]
                 widths.append(temp)
 
-            wids = np.product(np.array(widths, dtype=object), axis=0).astype(float)
+            wids = np.prod(np.array(widths, dtype=object), axis=0).astype(float)
 
             pdf = np.ones_like(grid[0]) * norm
             pmf = utils.trapz_dens_to_mass(pdf, edges, axis=axis)

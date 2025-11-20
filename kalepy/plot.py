@@ -1568,11 +1568,10 @@ def dist2d(kde_data, ax=None, edges=None, weights=None, params=[0, 1], quantiles
             cmap=contour_cmap, zorder=20, ls=ls, outline=outline,
         )
         if handle is None:
-            hi = 1 if len(_handle.collections) > 0 else 0
-            handle = _handle.collections[hi]
             # for some reason the above handle is not showing up on legends... create a dummy line
             # to get a better handle
-            col = handle.get_edgecolor()
+            edge_colors = _handle.get_edgecolor()
+            col = edge_colors[1] if len(edge_colors) > 0 else edge_colors
             handle, = ax.plot([], [], color=col)
 
     # Mask dense scatter-points
@@ -1853,14 +1852,13 @@ def draw_contour2d(ax, edges, hist, quantiles=None, levels=None,
     # ---- Add Outline path effect to contours
     if (outline is True):
         # If multiple linewidths were specified, add outlines individually
-        if (not np.isscalar(lw)) and (len(cont.collections) == len(lw)):
-            for line, _lw in zip(cont.collections, lw):
-                outline = _get_outline_effects(2*_lw, alpha=1 - np.sqrt(1 - alpha))
-                plt.setp(line, path_effects=outline)
+        if (not np.isscalar(lw)) and (len(cont.allsegs) == len(lw)):
+            effects = [_get_outline_effects(_lw) for _lw in lw]
+            cont.set_path_effects(effects)
         # Add uniform outlines to all contour lines
         elif np.isscalar(lw):
             outline = _get_outline_effects(2*lw, alpha=1 - np.sqrt(1 - alpha))
-            plt.setp(cont.collections, path_effects=outline)
+            cont.set_path_effects(outline)
         # Otherwise error
         else:
             err = (
@@ -1869,7 +1867,7 @@ def draw_contour2d(ax, edges, hist, quantiles=None, levels=None,
             )
             logging.warning(err)
             outline = _get_outline_effects(2*LW, alpha=1 - np.sqrt(1 - alpha))
-            plt.setp(cont.collections, path_effects=outline)
+            cont.set_path_effects(outline)
 
     elif (outline is not False):
         raise ValueError("`outline` must be either 'True' or 'False'!")
