@@ -1,5 +1,5 @@
 numpy
 scipy
 six
-matplotlib>=3
+matplotlib>=3.8.0
 numba
